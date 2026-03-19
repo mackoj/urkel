@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Urkel
 
-@Suite("US 4.1 + 4.2 + 4.3 + 4.4 - Emitter")
+@Suite("US 4.1 + 4.2 + 4.3 + 4.4 + 4.5 - Emitter")
 struct UrkelEmitterTests {
     @Test("Emitter includes imports, states, observer and client")
     func emitsCoreSections() {
@@ -10,6 +10,7 @@ struct UrkelEmitterTests {
         let output = UrkelEmitter().emit(ast: ast)
 
         #expect(output.contains("import Foundation"))
+        #expect(output.contains("public enum FolderWatchMachine {"))
         #expect(output.contains("public enum Idle {}"))
         #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
@@ -36,10 +37,10 @@ struct UrkelEmitterTests {
         )
 
         let output = UrkelEmitter().emit(ast: ast)
-        #expect(output.contains("extension BluetoothObserver where State == Idle"))
-        #expect(output.contains("public consuming func start() async throws -> BluetoothObserver<Scanning>"))
-        #expect(output.contains("public consuming func fail() async throws -> BluetoothObserver<Error>"))
-        #expect(output.contains("public consuming func found(device: Peripheral) async throws -> BluetoothObserver<Idle>"))
+        #expect(output.contains("extension BluetoothObserver where State == BluetoothMachine.Idle"))
+        #expect(output.contains("public consuming func start() async throws -> BluetoothObserver<BluetoothMachine.Scanning>"))
+        #expect(output.contains("public consuming func fail() async throws -> BluetoothObserver<BluetoothMachine.Error>"))
+        #expect(output.contains("public consuming func found(device: Peripheral) async throws -> BluetoothObserver<BluetoothMachine.Idle>"))
     }
 
     @Test("Emitter includes runtime scaffolding wrapper and unwrapping")
@@ -47,8 +48,8 @@ struct UrkelEmitterTests {
         let output = UrkelEmitter().emit(ast: makeFolderWatchAST())
 
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
-        #expect(output.contains("case idle(FolderWatchObserver<Idle>)"))
-        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<Running>) throws -> R) rethrows -> R?"))
+        #expect(output.contains("case idle(FolderWatchObserver<FolderWatchMachine.Idle>)"))
+        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Running>) throws -> R) rethrows -> R?"))
         #expect(output.contains("public consuming func start() async throws -> Self"))
         #expect(output.contains("public consuming func stop() async throws -> Self"))
     }
@@ -83,8 +84,42 @@ struct UrkelEmitterTests {
         let output = UrkelEmitter().emit(ast: ast)
         #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
+        #expect(output.contains("public enum FolderWatchMachine {"))
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
         #expect(output.contains("public var folderWatch: FolderWatchClient"))
+    }
+
+    @Test("Emitter namespaces states to avoid machine collisions")
+    func namespacesStatesAcrossMachines() {
+        let lhs = UrkelEmitter().emit(ast: makeFolderWatchAST(machineName: "FolderWatch"))
+        let rhs = UrkelEmitter().emit(ast: makeFolderWatchAST(machineName: "Bluetooth"))
+        let combined = lhs + "\n\n" + rhs
+
+        #expect(combined.contains("public enum FolderWatchMachine {"))
+        #expect(combined.contains("public enum BluetoothMachine {"))
+        #expect(!combined.contains("public enum Idle {}\npublic enum Running {}\npublic enum Stopped {}"))
+    }
+
+    @Test("Emitter uses typed runtime context when machine context is omitted")
+    func emitsTypedRuntimeContextFallback() {
+        let ast = MachineAST(
+            imports: ["Foundation"],
+            machineName: "NoContext",
+            contextType: nil,
+            factory: .init(name: "makeObserver", parameters: []),
+            states: [
+                .init(name: "Idle", kind: .initial),
+                .init(name: "Running", kind: .normal)
+            ],
+            transitions: [
+                .init(from: "Idle", event: "start", parameters: [], to: "Running")
+            ]
+        )
+
+        let output = UrkelEmitter().emit(ast: ast)
+        #expect(output.contains("public enum NoContextMachine {"))
+        #expect(output.contains("public struct RuntimeContext: Sendable {"))
+        #expect(output.contains("private var internalContext: NoContextMachine.RuntimeContext"))
     }
 
     @Test("Generated Swift compiles in an integration package")

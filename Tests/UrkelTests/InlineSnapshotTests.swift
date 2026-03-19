@@ -59,9 +59,11 @@ struct InlineSnapshotTests {
             import Foundation
             import Dependencies
 
-            public enum Idle {}
-            public enum Running {}
-            public enum Stopped {}
+            public enum FolderWatchMachine {
+                public enum Idle {}
+                public enum Running {}
+                public enum Stopped {}
+            }
 
             public struct FolderWatchObserver<State>: ~Copyable {
                 private var internalContext: FolderContext
@@ -85,10 +87,10 @@ struct InlineSnapshotTests {
                 }
             }
 
-            extension FolderWatchObserver where State == Idle {
-                public consuming func start() async throws -> FolderWatchObserver<Running> {
+            extension FolderWatchObserver where State == FolderWatchMachine.Idle {
+                public consuming func start() async throws -> FolderWatchObserver<FolderWatchMachine.Running> {
                     let nextContext = try await self._start(self.internalContext)
-                    return FolderWatchObserver<Running>(
+                    return FolderWatchObserver<FolderWatchMachine.Running>(
                         internalContext: nextContext,
                             _start: self._start,
                             _stop: self._stop
@@ -96,10 +98,10 @@ struct InlineSnapshotTests {
                 }
             }
 
-            extension FolderWatchObserver where State == Running {
-                public consuming func stop() async throws -> FolderWatchObserver<Stopped> {
+            extension FolderWatchObserver where State == FolderWatchMachine.Running {
+                public consuming func stop() async throws -> FolderWatchObserver<FolderWatchMachine.Stopped> {
                     let nextContext = try await self._stop(self.internalContext)
-                    return FolderWatchObserver<Stopped>(
+                    return FolderWatchObserver<FolderWatchMachine.Stopped>(
                         internalContext: nextContext,
                             _start: self._start,
                             _stop: self._stop
@@ -108,17 +110,17 @@ struct InlineSnapshotTests {
             }
 
             public enum FolderWatchState: ~Copyable {
-                case idle(FolderWatchObserver<Idle>)
-                case running(FolderWatchObserver<Running>)
-                case stopped(FolderWatchObserver<Stopped>)
+                case idle(FolderWatchObserver<FolderWatchMachine.Idle>)
+                case running(FolderWatchObserver<FolderWatchMachine.Running>)
+                case stopped(FolderWatchObserver<FolderWatchMachine.Stopped>)
 
-                public init(_ observer: consuming FolderWatchObserver<Idle>) {
+                public init(_ observer: consuming FolderWatchObserver<FolderWatchMachine.Idle>) {
                     self = .idle(observer)
                 }
             }
 
             extension FolderWatchState {
-                public borrowing func withIdle<R>(_ body: (borrowing FolderWatchObserver<Idle>) throws -> R) rethrows -> R? {
+                public borrowing func withIdle<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Idle>) throws -> R) rethrows -> R? {
                     switch self {
                     case let .idle(observer):
                         return try body(observer)
@@ -130,7 +132,7 @@ struct InlineSnapshotTests {
                     }
                 }
 
-                public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<Running>) throws -> R) rethrows -> R? {
+                public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Running>) throws -> R) rethrows -> R? {
                     switch self {
                     case let .running(observer):
                         return try body(observer)
@@ -142,7 +144,7 @@ struct InlineSnapshotTests {
                     }
                 }
 
-                public borrowing func withStopped<R>(_ body: (borrowing FolderWatchObserver<Stopped>) throws -> R) rethrows -> R? {
+                public borrowing func withStopped<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Stopped>) throws -> R) rethrows -> R? {
                     switch self {
                     case let .stopped(observer):
                         return try body(observer)
@@ -181,9 +183,9 @@ struct InlineSnapshotTests {
             }
 
             public struct FolderWatchClient: Sendable {
-                public var makeObserver: @Sendable (URL, Int) -> FolderWatchObserver<Idle>
+                public var makeObserver: @Sendable (URL, Int) -> FolderWatchObserver<FolderWatchMachine.Idle>
 
-                public init(makeObserver: @escaping @Sendable (URL, Int) -> FolderWatchObserver<Idle>) {
+                public init(makeObserver: @escaping @Sendable (URL, Int) -> FolderWatchObserver<FolderWatchMachine.Idle>) {
                     self.makeObserver = makeObserver
                 }
             }

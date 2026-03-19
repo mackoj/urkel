@@ -7,7 +7,7 @@ public struct UrkelEmitter {
         let names = Names(from: ast.machineName)
         return [
             emitImports(for: ast),
-            emitStates(for: ast),
+            emitStates(for: ast, names: names),
             emitObserver(for: ast, names: names),
             emitExtensions(for: ast, names: names),
             emitCombinedStateWrapper(for: ast, names: names),
@@ -29,12 +29,28 @@ public struct UrkelEmitter {
         return lines.joined(separator: "\n")
     }
 
-    private func emitStates(for ast: MachineAST) -> String {
-        ast.states.map { "public enum \($0.name) {}" }.joined(separator: "\n")
+    private func emitStates(for ast: MachineAST, names: Names) -> String {
+        let stateLines = ast.states
+            .map { "    public enum \($0.name) {}" }
+            .joined(separator: "\n")
+        let runtimeContext = ast.contextType == nil
+            ? """
+
+                public struct RuntimeContext: Sendable {
+                    public init() {}
+                }
+            """
+            : ""
+
+        return """
+        public enum \(names.machineNamespaceTypeName) {
+        \(stateLines)\(runtimeContext)
+        }
+        """
     }
 
     private func emitObserver(for ast: MachineAST, names: Names) -> String {
-        let contextType = ast.contextType ?? "Any"
+        let contextType = ast.contextType ?? "\(names.machineNamespaceTypeName).RuntimeContext"
 
         let uniqueTransitions = ast.transitions.reduce(into: [MachineAST.TransitionNode]()) { partial, transition in
             if !partial.contains(where: { $0.event == transition.event }) {
@@ -87,6 +103,7 @@ public struct UrkelEmitter {
             guard let transitions = grouped[fromState] else { return nil }
             let methods = transitions.map { transition in
                 let params = transition.parameters
+                let destinationType = stateTypeName(for: transition.to, names: names)
                 let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
                 let callArgs = params.map { $0.name }.joined(separator: ", ")
                 let observerPassThrough = ast.transitions.reduce(into: [String]()) { partial, next in
@@ -96,17 +113,18 @@ public struct UrkelEmitter {
                 }.map { event in "                _\(event): self._\(event)" }.joined(separator: ",\n")
 
                 return """
-                    public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.observerTypeName)<\(transition.to)> {
+                    public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.observerTypeName)<\(destinationType)> {
                         let nextContext = try await self._\(transition.event)(self.internalContext\(callArgs.isEmpty ? "" : ", \(callArgs)"))
-                        return \(names.observerTypeName)<\(transition.to)>(
+                        return \(names.observerTypeName)<\(destinationType)>(
                             internalContext: nextContext\(observerPassThrough.isEmpty ? "" : ",\n\(observerPassThrough)")
                         )
                     }
                 """
             }.joined(separator: "\n\n")
 
+            let fromStateType = stateTypeName(for: fromState, names: names)
             return """
-            extension \(names.observerTypeName) where State == \(fromState) {
+            extension \(names.observerTypeName) where State == \(fromStateType) {
             \(methods)
             }
             """
@@ -118,15 +136,17 @@ public struct UrkelEmitter {
 
         let cases = ast.states
             .map { state in
-                "    case \(caseName(for: state.name))(\(names.observerTypeName)<\(state.name)>)"
+                let stateType = stateTypeName(for: state.name, names: names)
+                return "    case \(caseName(for: state.name))(\(names.observerTypeName)<\(stateType)>)"
             }
             .joined(separator: "\n")
 
         let initialInit: String = {
             guard let initial = ast.states.first(where: { $0.kind == .initial }) else { return "" }
+            let initialType = stateTypeName(for: initial.name, names: names)
             return """
 
-                public init(_ observer: consuming \(names.observerTypeName)<\(initial.name)>) {
+                public init(_ observer: consuming \(names.observerTypeName)<\(initialType)>) {
                     self = .\(caseName(for: initial.name))(observer)
                 }
             """
@@ -145,8 +165,9 @@ public struct UrkelEmitter {
                 """ }
                 .joined(separator: "\n")
             let invalidBranch = invalidCaseBranches.isEmpty ? "" : "\n\(invalidCaseBranches)"
+            let stateType = stateTypeName(for: state.name, names: names)
             return """
-                public borrowing func \(methodName)<R>(_ body: (borrowing \(names.observerTypeName)<\(state.name)>) throws -> R) rethrows -> R? {
+                public borrowing func \(methodName)<R>(_ body: (borrowing \(names.observerTypeName)<\(stateType)>) throws -> R) rethrows -> R? {
                     switch self {
                     case let .\(stateCase)(observer):
                         return try body(observer)
@@ -216,15 +237,18 @@ public struct UrkelEmitter {
 
     private func emitClient(for ast: MachineAST, names: Names) -> String {
         let factoryName = ast.factory?.name ?? "makeObserver"
-        let initialState = ast.states.first(where: { $0.kind == .initial })?.name ?? "Initial"
+        let initialStateType = ast.states
+            .first(where: { $0.kind == .initial })
+            .map { stateTypeName(for: $0.name, names: names) }
+            ?? "\(names.machineNamespaceTypeName).Initial"
         let parameters = ast.factory?.parameters ?? []
 
         let propertyFunctionType: String = {
             let paramTypes = parameters.map(\.type)
             if paramTypes.isEmpty {
-                return "@Sendable () -> \(names.observerTypeName)<\(initialState)>"
+                return "@Sendable () -> \(names.observerTypeName)<\(initialStateType)>"
             }
-            return "@Sendable (\(paramTypes.joined(separator: ", "))) -> \(names.observerTypeName)<\(initialState)>"
+            return "@Sendable (\(paramTypes.joined(separator: ", "))) -> \(names.observerTypeName)<\(initialStateType)>"
         }()
 
         return """
@@ -277,6 +301,10 @@ public struct UrkelEmitter {
 
     private func caseName(for stateName: String) -> String {
         lowerCamelName(from: stateName)
+    }
+
+    private func stateTypeName(for stateName: String, names: Names) -> String {
+        "\(names.machineNamespaceTypeName).\(stateName)"
     }
 
     private func normalizedTypeName(_ raw: String) -> String {
@@ -342,6 +370,7 @@ public struct UrkelEmitter {
 
     private struct Names {
         let machineTypeName: String
+        let machineNamespaceTypeName: String
         let observerTypeName: String
         let clientTypeName: String
         let stateWrapperTypeName: String
@@ -350,6 +379,7 @@ public struct UrkelEmitter {
         init(from machineName: String) {
             let machineType = UrkelEmitter().normalizedTypeName(machineName)
             self.machineTypeName = machineType
+            self.machineNamespaceTypeName = "\(machineType)Machine"
             self.observerTypeName = "\(machineType)Observer"
             self.clientTypeName = "\(machineType)Client"
             self.stateWrapperTypeName = "\(machineType)State"
