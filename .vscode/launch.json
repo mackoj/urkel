@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Urkel}",
+            "name": "Debug urkel",
+            "target": "urkel",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug urkel"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Urkel}",
+            "name": "Release urkel",
+            "target": "urkel",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release urkel"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Urkel}",
+            "name": "Debug urkel-lsp",
+            "target": "urkel-lsp",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug urkel-lsp"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Urkel}",
+            "name": "Release urkel-lsp",
+            "target": "urkel-lsp",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release urkel-lsp"
+        }
+    ]
+}
