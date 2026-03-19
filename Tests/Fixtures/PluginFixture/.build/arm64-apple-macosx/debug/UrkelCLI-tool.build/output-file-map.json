@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/UrkelCLI/main.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/main.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/main.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/main.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/UrkelCLI-tool.build/main.dia"
+  }
+}

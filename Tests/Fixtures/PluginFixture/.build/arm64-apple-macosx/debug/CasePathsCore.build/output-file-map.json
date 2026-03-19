@@ -1,0 +1,75 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/AnyCasePath.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/AnyCasePath.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/AnyCasePath.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/AnyCasePath~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/AnyCasePath.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/AnyCasePath.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/CasePathIterable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathIterable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathIterable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathIterable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathIterable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathIterable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/CasePathReflectable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathReflectable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathReflectable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathReflectable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathReflectable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathReflectable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/CasePathable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/CasePathable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Internal/KeyPath+Sendable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/KeyPath+Sendable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/KeyPath+Sendable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/KeyPath+Sendable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/KeyPath+Sendable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/KeyPath+Sendable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Internal/TypeName.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/TypeName.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/TypeName.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/TypeName~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/TypeName.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/TypeName.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Internal/UncheckedSendable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/UncheckedSendable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/UncheckedSendable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/UncheckedSendable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/UncheckedSendable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/UncheckedSendable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Never+CasePathable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Never+CasePathable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Never+CasePathable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Never+CasePathable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Never+CasePathable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Never+CasePathable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Optional+CasePathable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Optional+CasePathable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Optional+CasePathable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Optional+CasePathable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Optional+CasePathable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Optional+CasePathable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-case-paths/Sources/CasePathsCore/Result+CasePathable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Result+CasePathable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Result+CasePathable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Result+CasePathable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Result+CasePathable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/CasePathsCore.build/Result+CasePathable.dia"
+  }
+}

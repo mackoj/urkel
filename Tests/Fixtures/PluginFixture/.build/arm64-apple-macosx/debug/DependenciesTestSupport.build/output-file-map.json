@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-dependencies/Sources/DependenciesTestSupport/Dependency+TestExtension.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/Dependency+TestExtension.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/Dependency+TestExtension.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/Dependency+TestExtension~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/Dependency+TestExtension.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/Dependency+TestExtension.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-dependencies/Sources/DependenciesTestSupport/TestTrait.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/TestTrait.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/TestTrait.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/TestTrait~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/TestTrait.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/DependenciesTestSupport.build/TestTrait.dia"
+  }
+}

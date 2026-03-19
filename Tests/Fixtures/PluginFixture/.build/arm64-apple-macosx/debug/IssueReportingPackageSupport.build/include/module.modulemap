@@ -1,0 +1,3 @@
+module IssueReportingPackageSupport {
+    header "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReportingPackageSupport.build/include/IssueReportingPackageSupport-Swift.h"
+}

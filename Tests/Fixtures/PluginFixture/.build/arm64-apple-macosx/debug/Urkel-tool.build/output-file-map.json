@@ -1,0 +1,75 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/MachineAST+Dictionary.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST+Dictionary.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST+Dictionary.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST+Dictionary~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST+Dictionary.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST+Dictionary.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/MachineAST.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MachineAST.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/MustacheExportEngine.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MustacheExportEngine.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MustacheExportEngine.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MustacheExportEngine~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MustacheExportEngine.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/MustacheExportEngine.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelEmitter.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelEmitter.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelEmitter.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelEmitter~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelEmitter.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelEmitter.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelGenerator.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelGenerator.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelGenerator.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelGenerator~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelGenerator.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelGenerator.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelLanguageServer.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelLanguageServer.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelLanguageServer.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelLanguageServer~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelLanguageServer.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelLanguageServer.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelParser.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelParser.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelParser.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelParser~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelParser.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelParser.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelValidator.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelValidator.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelValidator.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelValidator~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelValidator.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelValidator.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Sources/Urkel/UrkelWatchService.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelWatchService.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelWatchService.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelWatchService~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelWatchService.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/UrkelWatchService.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/DerivedSources/resource_bundle_accessor.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/resource_bundle_accessor.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/resource_bundle_accessor.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/resource_bundle_accessor~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/resource_bundle_accessor.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/Urkel-tool.build/resource_bundle_accessor.dia"
+  }
+}

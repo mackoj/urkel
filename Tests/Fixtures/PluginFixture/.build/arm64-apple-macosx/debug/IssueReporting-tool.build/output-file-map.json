@@ -1,0 +1,152 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/ErrorReporting.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ErrorReporting.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ErrorReporting.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ErrorReporting~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ErrorReporting.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ErrorReporting.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/AppHostWarning.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/AppHostWarning.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/AppHostWarning.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/AppHostWarning~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/AppHostWarning.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/AppHostWarning.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/Deprecations.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Deprecations.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Deprecations.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Deprecations~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Deprecations.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Deprecations.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/FailureObserver.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FailureObserver.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FailureObserver.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FailureObserver~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FailureObserver.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FailureObserver.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/LockIsolated.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/LockIsolated.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/LockIsolated.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/LockIsolated~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/LockIsolated.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/LockIsolated.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/Rethrows.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Rethrows.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Rethrows.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Rethrows~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Rethrows.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Rethrows.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/SwiftTesting.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/SwiftTesting.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/SwiftTesting.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/SwiftTesting~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/SwiftTesting.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/SwiftTesting.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/UncheckedSendable.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/UncheckedSendable.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/UncheckedSendable.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/UncheckedSendable~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/UncheckedSendable.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/UncheckedSendable.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/Warn.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Warn.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Warn.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Warn~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Warn.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Warn.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Internal/XCTest.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/XCTest.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/XCTest.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/XCTest~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/XCTest.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/XCTest.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IsTesting.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IsTesting.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IsTesting.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IsTesting~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IsTesting.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IsTesting.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IssueReporter.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueReporter.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueReporter.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueReporter~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueReporter.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueReporter.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IssueReporters/BreakpointReporter.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/BreakpointReporter.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/BreakpointReporter.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/BreakpointReporter~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/BreakpointReporter.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/BreakpointReporter.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IssueReporters/DefaultReporter.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/DefaultReporter.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/DefaultReporter.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/DefaultReporter~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/DefaultReporter.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/DefaultReporter.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IssueReporters/FatalErrorReporter.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FatalErrorReporter.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FatalErrorReporter.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FatalErrorReporter~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FatalErrorReporter.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/FatalErrorReporter.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/IssueSeverity.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueSeverity.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueSeverity.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueSeverity~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueSeverity.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/IssueSeverity.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/ReportIssue.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ReportIssue.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ReportIssue.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ReportIssue~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ReportIssue.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/ReportIssue.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/TestContext.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/TestContext.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/TestContext.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/TestContext~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/TestContext.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/TestContext.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/Unimplemented.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Unimplemented.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Unimplemented.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Unimplemented~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Unimplemented.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/Unimplemented.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/WithExpectedIssue.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithExpectedIssue.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithExpectedIssue.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithExpectedIssue~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithExpectedIssue.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithExpectedIssue.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/xctest-dynamic-overlay/Sources/IssueReporting/WithIssueContext.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithIssueContext.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithIssueContext.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithIssueContext~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithIssueContext.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/IssueReporting-tool.build/WithIssueContext.dia"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/master.swiftdeps"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-syntax/Sources/_SwiftSyntaxGenericTestSupport/AssertEqualWithDiff.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/AssertEqualWithDiff.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/AssertEqualWithDiff.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/AssertEqualWithDiff~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/AssertEqualWithDiff.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/AssertEqualWithDiff.dia"
+  },
+  "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/checkouts/swift-syntax/Sources/_SwiftSyntaxGenericTestSupport/String+TrimmingTrailingWhitespace.swift": {
+    "dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/String+TrimmingTrailingWhitespace.d",
+    "object": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/String+TrimmingTrailingWhitespace.swift.o",
+    "swiftmodule": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/String+TrimmingTrailingWhitespace~partial.swiftmodule",
+    "swift-dependencies": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/String+TrimmingTrailingWhitespace.swiftdeps",
+    "diagnostics": "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/_SwiftSyntaxGenericTestSupport.build/String+TrimmingTrailingWhitespace.dia"
+  }
+}

@@ -1,0 +1,89 @@
+6e08bcf4d2a7395c674137829908f84f7aed6d9f	not-for-merge	branch '1.x.x' of https://github.com/hummingbird-project/swift-mustache
+cfe5849a381c05d5d6a405a094add523689a9c24	not-for-merge	branch 'adam-fowler-patch-1' of https://github.com/hummingbird-project/swift-mustache
+0c119910929701e1599e236655fe0e9164967af0	not-for-merge	branch 'content-type' of https://github.com/hummingbird-project/swift-mustache
+b6736b2ce838f86d4a7a000eab601d30d5162613	not-for-merge	branch 'docc-changes' of https://github.com/hummingbird-project/swift-mustache
+c1ffe07483faca540244282adf050867c6630e7d	not-for-merge	branch 'dynamic-names' of https://github.com/hummingbird-project/swift-mustache
+be9153f3173aa8ff7b24fcc686d11f3a5f5bfb93	not-for-merge	branch 'main' of https://github.com/hummingbird-project/swift-mustache
+10d6179aa43d98400e7ea3de271374415ecc0024	not-for-merge	branch 'project-template-updates' of https://github.com/hummingbird-project/swift-mustache
+4a61d1d89a0c7c0dc944ae13e2bcadac6489142e	not-for-merge	'refs/pull/10/head' of https://github.com/hummingbird-project/swift-mustache
+4d1ba0c31d079ccb49d01ffe5a164db2f0d65fc0	not-for-merge	'refs/pull/11/head' of https://github.com/hummingbird-project/swift-mustache
+d72903c22893ed34923f8729d443829eed7c4b8c	not-for-merge	'refs/pull/12/head' of https://github.com/hummingbird-project/swift-mustache
+697188df1e4fcfa2b7ab04c5add6d74ab7b75217	not-for-merge	'refs/pull/13/head' of https://github.com/hummingbird-project/swift-mustache
+4e7a9acd7ba391a262beca7046dec96aa43285d1	not-for-merge	'refs/pull/18/head' of https://github.com/hummingbird-project/swift-mustache
+c1bcade8f2714aedc70d4daac129d9df0b454526	not-for-merge	'refs/pull/19/head' of https://github.com/hummingbird-project/swift-mustache
+387253d06e6e920154b76c7e885693835fc57df5	not-for-merge	'refs/pull/22/head' of https://github.com/hummingbird-project/swift-mustache
+071b182a008a427177bca8756d5ad7bc679ad608	not-for-merge	'refs/pull/24/head' of https://github.com/hummingbird-project/swift-mustache
+10d6179aa43d98400e7ea3de271374415ecc0024	not-for-merge	'refs/pull/25/head' of https://github.com/hummingbird-project/swift-mustache
+1de4c1c3a5e064f9dda48f8dac5e1e18d8518fb2	not-for-merge	'refs/pull/26/head' of https://github.com/hummingbird-project/swift-mustache
+57f77578bdeba4f54815c6104b267f1bb7a1f379	not-for-merge	'refs/pull/27/head' of https://github.com/hummingbird-project/swift-mustache
+5e7b7772f2f1dcc662d71fcfac4b82b06f16ae31	not-for-merge	'refs/pull/28/head' of https://github.com/hummingbird-project/swift-mustache
+265d7ed593cf8f192597e4fa667d233a5d51042a	not-for-merge	'refs/pull/30/head' of https://github.com/hummingbird-project/swift-mustache
+61765b23f024468a32606d6049ada7cafab9d243	not-for-merge	'refs/pull/31/head' of https://github.com/hummingbird-project/swift-mustache
+83f2c9ed3938f4ad634f8db90016d53971e4e7f7	not-for-merge	'refs/pull/32/head' of https://github.com/hummingbird-project/swift-mustache
+4355a505be6aa1c4f9d82a1df950bc066501ef36	not-for-merge	'refs/pull/33/head' of https://github.com/hummingbird-project/swift-mustache
+a7ba15c7a180fffd3e3c5c3097eddb70b770a069	not-for-merge	'refs/pull/34/head' of https://github.com/hummingbird-project/swift-mustache
+5cd334704c557c6c7e4feef3f575700be4635d67	not-for-merge	'refs/pull/36/head' of https://github.com/hummingbird-project/swift-mustache
+d2c127f221af93d09d0ecc0064f9b34973b64a04	not-for-merge	'refs/pull/37/head' of https://github.com/hummingbird-project/swift-mustache
+523305781e5a2af88612318e43091b1750ea22d2	not-for-merge	'refs/pull/38/head' of https://github.com/hummingbird-project/swift-mustache
+47543aaf5a1d2e784a1e6efa4e6e33ade84967d5	not-for-merge	'refs/pull/39/head' of https://github.com/hummingbird-project/swift-mustache
+9b17bd6827dd85ffb6867ae419cfc525f335063e	not-for-merge	'refs/pull/4/head' of https://github.com/hummingbird-project/swift-mustache
+2dbeef83c1f8de0683f5ec7a31f7d5c0413c412c	not-for-merge	'refs/pull/41/head' of https://github.com/hummingbird-project/swift-mustache
+9c1d3811ab5434476b5f2e98f2a18053fa603c46	not-for-merge	'refs/pull/42/head' of https://github.com/hummingbird-project/swift-mustache
+8853dce11851df78be78240e18357b4b08d585b0	not-for-merge	'refs/pull/43/head' of https://github.com/hummingbird-project/swift-mustache
+1056e515a67cf903d4beca0d3cd13bc8d7f3e6d1	not-for-merge	'refs/pull/44/head' of https://github.com/hummingbird-project/swift-mustache
+776090df63a74a3cd2db5ec7ff6e82129c96f5fe	not-for-merge	'refs/pull/46/head' of https://github.com/hummingbird-project/swift-mustache
+e2024643144884746eafc598acc657d3c5298f3d	not-for-merge	'refs/pull/48/head' of https://github.com/hummingbird-project/swift-mustache
+ffda7060ec7f8dff72bd465f8fb12b74b311bb63	not-for-merge	'refs/pull/49/head' of https://github.com/hummingbird-project/swift-mustache
+42233135211d5a132608101df32ff5b922cc69ea	not-for-merge	'refs/pull/5/head' of https://github.com/hummingbird-project/swift-mustache
+b6736b2ce838f86d4a7a000eab601d30d5162613	not-for-merge	'refs/pull/50/head' of https://github.com/hummingbird-project/swift-mustache
+2ed2b7a351f4e75f4e167224b13db2ff80e36347	not-for-merge	'refs/pull/51/head' of https://github.com/hummingbird-project/swift-mustache
+9a17b4bd4d277fc1600d471f85aff439c1cad61d	not-for-merge	'refs/pull/52/head' of https://github.com/hummingbird-project/swift-mustache
+744d1638de06255b6acd09b54d83bffe2ffae87e	not-for-merge	'refs/pull/53/head' of https://github.com/hummingbird-project/swift-mustache
+5c59dbe6cabd79e5a39c03b9f980899aa0a1e8b8	not-for-merge	'refs/pull/54/head' of https://github.com/hummingbird-project/swift-mustache
+bdf22938b7aea61b52a5df306fb072b76326dd12	not-for-merge	'refs/pull/55/head' of https://github.com/hummingbird-project/swift-mustache
+5ef529bf5ee1149ea354f6d16051f07ce3c6ff7d	not-for-merge	'refs/pull/56/head' of https://github.com/hummingbird-project/swift-mustache
+0b7f0748422456ef91c9eaceb62fdda637caebbd	not-for-merge	'refs/pull/57/head' of https://github.com/hummingbird-project/swift-mustache
+f4049c2fd55d7c7b273bb7f1cea76782ad914557	not-for-merge	'refs/pull/58/head' of https://github.com/hummingbird-project/swift-mustache
+718712db586ec532c4f86672f7a346a893bb1436	not-for-merge	'refs/pull/59/head' of https://github.com/hummingbird-project/swift-mustache
+94575a8d31bfeac5cfbc770571d69518cfd4d672	not-for-merge	'refs/pull/6/head' of https://github.com/hummingbird-project/swift-mustache
+f9a29ffb8198ebb6bad5ad70395871986c46c6a8	not-for-merge	'refs/pull/60/head' of https://github.com/hummingbird-project/swift-mustache
+2b05997dcad1ab69349d0598aee1e49314e83313	not-for-merge	'refs/pull/61/head' of https://github.com/hummingbird-project/swift-mustache
+f0418d91f7b7709d1df16ad44b5934ecea55766f	not-for-merge	'refs/pull/62/head' of https://github.com/hummingbird-project/swift-mustache
+84a903dbce4b47fc14506292f14f721e56506e5c	not-for-merge	'refs/pull/63/head' of https://github.com/hummingbird-project/swift-mustache
+8a6e3a9852fc1b1a70dbe82c4797eef9af8ff984	not-for-merge	'refs/pull/65/head' of https://github.com/hummingbird-project/swift-mustache
+cfe5849a381c05d5d6a405a094add523689a9c24	not-for-merge	'refs/pull/66/head' of https://github.com/hummingbird-project/swift-mustache
+6077b3af25a28cafbf1806f5717cbec3889d4b02	not-for-merge	'refs/pull/67/head' of https://github.com/hummingbird-project/swift-mustache
+0531a8f5bf5abf0b51185178ee93989b7eddc350	not-for-merge	'refs/pull/68/head' of https://github.com/hummingbird-project/swift-mustache
+1289b919d4fd990f110be4e1b1fb105c8289a451	not-for-merge	'refs/pull/7/head' of https://github.com/hummingbird-project/swift-mustache
+735feed5c97703b3210eb1ab02f09e93842deb48	not-for-merge	'refs/pull/70/head' of https://github.com/hummingbird-project/swift-mustache
+58391655f3efba4f2f8994a07609c79d66116712	not-for-merge	'refs/pull/71/head' of https://github.com/hummingbird-project/swift-mustache
+d425ce0f87aee5f8ee44b252400cac0c90b09a3d	not-for-merge	'refs/pull/72/head' of https://github.com/hummingbird-project/swift-mustache
+1cab686cb5df709d651ffa282e374365b34d2274	not-for-merge	'refs/pull/73/head' of https://github.com/hummingbird-project/swift-mustache
+204b0c2dc4bef372efc6587a3d72558a714c21ac	not-for-merge	'refs/pull/74/head' of https://github.com/hummingbird-project/swift-mustache
+d2ce3455eedacc1c8a4e769b5e1f1809dd62ec4a	not-for-merge	'refs/pull/75/head' of https://github.com/hummingbird-project/swift-mustache
+57f399e40fdf50ffc8af393f6f1ed1410d3549d7	not-for-merge	'refs/pull/76/head' of https://github.com/hummingbird-project/swift-mustache
+58c2ee93f031352383e002a22d3b3dc2318401ec	not-for-merge	'refs/pull/77/head' of https://github.com/hummingbird-project/swift-mustache
+5c77b797cbedf523b259b7119663987f860740f6	not-for-merge	'refs/pull/78/head' of https://github.com/hummingbird-project/swift-mustache
+8cea961c1a0453318f44513405db83a4a49462c2	not-for-merge	'refs/pull/79/head' of https://github.com/hummingbird-project/swift-mustache
+cc09931eec4a54a308909ca365d41889dee1a527	not-for-merge	'refs/pull/9/head' of https://github.com/hummingbird-project/swift-mustache
+e0d7e364e8416e4b1d474c5bf18fada07ce245ba	not-for-merge	tag '0.1.0' of https://github.com/hummingbird-project/swift-mustache
+09f5c5953ed6950ec74bba37ce5634ecff21a934	not-for-merge	tag '0.2.0' of https://github.com/hummingbird-project/swift-mustache
+66cbb25e164edfb2b2934a198f07d8fa46b05687	not-for-merge	tag '0.3.0' of https://github.com/hummingbird-project/swift-mustache
+1abc46903793c2a205b605b10d7a26acf629f9b9	not-for-merge	tag '0.4.0' of https://github.com/hummingbird-project/swift-mustache
+d3edef1b8ea9fcbc13d1f4191435e188bc1f2301	not-for-merge	tag '0.5.0' of https://github.com/hummingbird-project/swift-mustache
+7ebd84a328106cce57bbc1839b2419a0bb4a71e8	not-for-merge	tag '0.5.1' of https://github.com/hummingbird-project/swift-mustache
+c1d3f491b56817a2097671195bb5b7a67cadd6c0	not-for-merge	tag '0.5.2' of https://github.com/hummingbird-project/swift-mustache
+a2569dd66768a35c1745dcf62f46ad9fed007d14	not-for-merge	tag '0.6.0' of https://github.com/hummingbird-project/swift-mustache
+c65a7956c8db0b8fddacc2f7b23283c47623cc52	not-for-merge	tag '0.6.1' of https://github.com/hummingbird-project/swift-mustache
+dffe63d3302629743e2c726019a70e3841df78bd	not-for-merge	tag '1.0.0' of https://github.com/hummingbird-project/swift-mustache
+8b38438f178c7220424626141d51158cffa92d4f	not-for-merge	tag '1.0.1' of https://github.com/hummingbird-project/swift-mustache
+f95e19206e2d1108e84736dca008389d4d5a6b6b	not-for-merge	tag '1.0.2' of https://github.com/hummingbird-project/swift-mustache
+fa5617622333da6334252a9d7e3633129b89120d	not-for-merge	tag '1.0.3' of https://github.com/hummingbird-project/swift-mustache
+9de71fc4d10f0efc0ac758d0acf14e75d39b47b4	not-for-merge	tag '2.0.0' of https://github.com/hummingbird-project/swift-mustache
+071b182a008a427177bca8756d5ad7bc679ad608	not-for-merge	tag '2.0.0-alpha.1' of https://github.com/hummingbird-project/swift-mustache
+2663d13ea7c50a8ee2178732895283246fd91b4e	not-for-merge	tag '2.0.0-beta.1' of https://github.com/hummingbird-project/swift-mustache
+5bb66ac425ec25fd45e0cd7d3829d73e45096352	not-for-merge	tag '2.0.0-beta.2' of https://github.com/hummingbird-project/swift-mustache
+cde358e364ab26f2b72a5f70613cfb0a574de6c9	not-for-merge	tag '2.0.0-beta.3' of https://github.com/hummingbird-project/swift-mustache
+933fa3d60f5b1721b91b07f66866a2baf3e16ed0	not-for-merge	tag '2.0.0-rc.1' of https://github.com/hummingbird-project/swift-mustache
+534f9f9e60ccc1ecc947cababb71c5f91497f4a2	not-for-merge	tag '2.0.1' of https://github.com/hummingbird-project/swift-mustache
+2e2a84698dd8a5fff2fe28857f0f95bb03d21d64	not-for-merge	tag '2.0.2' of https://github.com/hummingbird-project/swift-mustache
