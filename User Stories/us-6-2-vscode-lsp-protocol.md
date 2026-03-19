@@ -4,34 +4,27 @@
 Upgrade `urkel-lsp` from the current line-based diagnostics executable into a standards-compliant Language Server Protocol (LSP) server over stdio, so it is directly pluggable into VS Code and any LSP-compatible editor without custom adapters.
 
 ## 2. Context
-US-6.1 established the language diagnostics core (parser + validator integration), but the current executable does not yet speak Microsoft LSP wire protocol (JSON-RPC with `Content-Length` framing). As a result, it cannot be launched by VS Code's language client. This story closes that integration gap by implementing the protocol transport layer and core editor-facing methods, while reusing the existing Urkel diagnostics pipeline.
+US-6.1 established the language diagnostics core (parser + validator integration), but the current executable does not yet speak the Microsoft LSP wire protocol (JSON-RPC with `Content-Length` framing). As a result, it cannot be launched by VS Code's language client. This story closes that integration gap by implementing the protocol transport layer and core editor-facing methods, while reusing the existing Urkel diagnostics pipeline.
 
 ## 3. Acceptance Criteria
 * **Given** `urkel-lsp` is launched by a VS Code language client over stdio.
 * **When** the client sends an `initialize` request.
 * **Then** the server responds with valid `ServerCapabilities` including text document sync and diagnostic support.
-
 * **Given** a `.urkel` document is opened in VS Code.
 * **When** `textDocument/didOpen` is sent with document text.
 * **Then** the server runs parse/validate and sends `textDocument/publishDiagnostics` notifications.
-
 * **Given** a document change in VS Code.
 * **When** `textDocument/didChange` is sent.
 * **Then** diagnostics are recomputed and republished for the same URI, clearing previous errors when fixed.
-
 * **Given** the client sends `shutdown` followed by `exit`.
 * **When** the sequence is processed.
 * **Then** the server terminates gracefully with protocol-compliant behavior.
-
 * **Given** malformed or unknown JSON-RPC messages.
 * **When** received by the server.
 * **Then** they are handled safely (error response or ignored per spec) without crashing.
 
 ## 4. Implementation Details
-* Replace the current line loop in `Sources/UrkelLSP/main.swift` with an LSP stdio transport loop:
-  * Parse `Content-Length` headers.
-  * Read exact JSON payload bytes.
-  * Decode JSON-RPC 2.0 envelopes.
+* **The Transport Layer:** Do not write the JSON-RPC framing from scratch. Import and configure a robust Swift LSP library (e.g., `ChimeHQ/LanguageServerProtocol`) to handle the `Content-Length` headers, byte reading, and JSON-RPC 2.0 envelope decoding over stdio.
 * Implement typed request/notification handlers for at least:
   * `initialize`
   * `initialized`
@@ -44,8 +37,7 @@ US-6.1 established the language diagnostics core (parser + validator integration
 * Reuse `UrkelParser` and `UrkelValidator` for diagnostics generation.
 * Add mapping from parser/validator errors to LSP diagnostic ranges/severity/source.
 * Return capabilities with incremental sync (`TextDocumentSyncKind.Incremental`) or full sync if incremental patching is deferred for V1.
-* Ensure server logs (if any) do not corrupt stdout LSP stream (use stderr for logs).
-* Optionally include a minimal `completion` provider if low-cost; otherwise defer to US-6.3.
+* **CRITICAL:** Ensure server logs (if any) do not corrupt the stdout LSP stream. Force all internal `print()` or logging statements to output to `stderr`.
 
 ## 5. Testing Strategy
 * **Protocol unit tests:**
