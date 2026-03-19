@@ -18,6 +18,8 @@ let package = Package(
         .package(url: "https://github.com/hummingbird-project/swift-mustache", from: "2.0.0"),
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0"),
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.12.0"),
+        .package(url: "https://github.com/ChimeHQ/JSONRPC", from: "0.9.0"),
+        .package(url: "https://github.com/ChimeHQ/LanguageServerProtocol", from: "0.14.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0")
     ],
     targets: [
@@ -26,7 +28,8 @@ let package = Package(
             dependencies: [
                 .product(name: "Parsing", package: "swift-parsing"),
                 .product(name: "Mustache", package: "swift-mustache"),
-                .product(name: "Dependencies", package: "swift-dependencies")
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol")
             ],
             path: "Sources/Urkel",
             resources: [
@@ -43,7 +46,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "UrkelLSP",
-            dependencies: ["Urkel"],
+            dependencies: [
+                "Urkel",
+                .product(name: "JSONRPC", package: "JSONRPC"),
+                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol")
+            ],
             path: "Sources/UrkelLSP"
         ),
         .plugin(
