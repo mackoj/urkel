@@ -17,6 +17,10 @@ This documentation catalog covers the language, the generated runtime API, templ
 - <doc:Custom-Templates>
 - <doc:Generated-File-Integration>
 
+### Editor Setup
+
+- <doc:VSCode-Installation>
+
 ### Tutorials
 
 - <doc:Urkel-Building-Your-First-Machine>

@@ -21,24 +21,30 @@
             "preLaunchTask": "swift: Build Release urkel"
         },
         {
-            "type": "swift",
+            "type": "lldb-dap",
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder:Urkel}",
             "name": "Debug urkel-lsp",
-            "target": "urkel-lsp",
-            "configuration": "debug",
+            "program": "${workspaceFolder:Urkel}/.build/debug/urkel-lsp",
             "preLaunchTask": "swift: Build Debug urkel-lsp"
         },
         {
-            "type": "swift",
+            "type": "lldb-dap",
             "request": "launch",
             "args": [],
             "cwd": "${workspaceFolder:Urkel}",
             "name": "Release urkel-lsp",
-            "target": "urkel-lsp",
-            "configuration": "release",
+            "program": "${workspaceFolder:Urkel}/.build/release/urkel-lsp",
             "preLaunchTask": "swift: Build Release urkel-lsp"
+        },
+        {
+            "type": "lldb-dap",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Urkel}",
+            "name": "Mint-linked urkel-lsp",
+            "program": "${env:HOME}/.mint/bin/urkel-lsp"
         }
     ]
 }
