@@ -1,0 +1,33 @@
+@Tutorial(time: 15) {
+  @Intro(title: "Build Your First Urkel Machine") {
+    In this tutorial, you will create a simple machine, generate Swift output, and understand how Urkel models states as types.
+  }
+
+  @Section(title: "Write the machine definition") {
+    @Steps {
+      @Step {
+        Create a `.urkel` file for your feature.
+      }
+
+      @Step {
+        Add `@imports`, `@factory`, `@states`, and `@transitions` blocks.
+      }
+
+      @Step {
+        Run the generator and inspect the generated Swift file.
+      }
+    }
+  }
+
+  @Section(title: "Observe the generated runtime") {
+    @Steps {
+      @Step {
+        Notice that the generated observer exposes only the actions that are valid for the current state.
+      }
+
+      @Step {
+        Use the generated client from your Swift code instead of duplicating the machine logic by hand.
+      }
+    }
+  }
+}

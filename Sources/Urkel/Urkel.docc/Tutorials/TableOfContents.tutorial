@@ -1,0 +1,21 @@
+@Tutorials(name: "Urkel") {
+  @Intro(title: "Learn Urkel") {
+    Start from a `.urkel` file, generate the Swift typestate API, and then wire the runtime behavior in sidecars without editing generated code.
+  }
+
+  @Chapter(name: "Build Your First Machine") {
+    Build a small machine from scratch and learn how Urkel turns the DSL into safe Swift.
+
+    @Image(source: urkel-placeholder, alt: "Placeholder illustration for the first Urkel tutorial chapter.")
+
+    @TutorialReference(tutorial: "doc:Urkel-Building-Your-First-Machine")
+  }
+
+  @Chapter(name: "Integrate Runtime Sidecars") {
+    Learn the regeneration-safe pattern for moving live, test, and mock behavior into sidecar files.
+
+    @Image(source: urkel-placeholder, alt: "Placeholder illustration for the sidecar integration chapter.")
+
+    @TutorialReference(tutorial: "doc:Urkel-Integrating-Sidecars")
+  }
+}

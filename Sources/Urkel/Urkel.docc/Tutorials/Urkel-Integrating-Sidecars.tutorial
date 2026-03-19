@@ -1,0 +1,29 @@
+@Tutorial(time: 15) {
+  @Intro(title: "Integrate Runtime Sidecars") {
+    This tutorial shows how to keep regeneration-safe runtime logic in sidecar files while leaving the generated file untouched.
+  }
+
+  @Section(title: "Split generated code from runtime code") {
+    @Steps {
+      @Step {
+        Put the Urkel-generated file in your target sources and treat it as read-only.
+      }
+
+      @Step {
+        Move live, mock, and test behavior into `+Runtime`, `+Live`, and `+Test` sidecars.
+      }
+    }
+  }
+
+  @Section(title: "Keep the integration stable") {
+    @Steps {
+      @Step {
+        Use the machine-scoped states and typed context emitted by Urkel.
+      }
+
+      @Step {
+        Re-run generation and confirm that the sidecars still compile.
+      }
+    }
+  }
+}
