@@ -13,9 +13,9 @@ Currently, a developer only knows they made a mistake when they run `urkel gener
 * **Given** a developer deletes the `init` state from the `@states` block.
 * **When** the file is modified.
 * **Then** the LSP publishes a diagnostic error: "Machine is missing exactly one initial state."
-* **Given** the developer triggers autocomplete inside a `@transitions` block.
-* **When** they are typing a new line.
-* **Then** the LSP suggests structural snippets based directly on `grammar.ebnf` (e.g., suggesting `[State] -> [Event] -> [State]`).
+* **Given** the developer triggers autocomplete inside a `@states` or `@transitions` block, including a partially written line.
+* **When** they are typing.
+* **Then** the LSP suggests grammar-driven snippets plus known state/event symbols from the current document, even if the file is not fully parseable yet.
 
 ## 4. Implementation Details
 * Define a new executable target in `Package.swift` named `UrkelLSP`.
