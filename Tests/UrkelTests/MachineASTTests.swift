@@ -10,5 +10,6 @@ struct MachineASTTests {
         #expect(lhs == rhs)
         #expect(lhs.factory?.parameters.count == 2)
         #expect(lhs.states.first?.kind == .initial)
+        #expect(lhs.range == nil)
     }
 }

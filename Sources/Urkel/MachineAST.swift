@@ -1,21 +1,45 @@
 public struct MachineAST: Equatable, Sendable {
+    public struct SourceLocation: Equatable, Sendable {
+        public let line: Int
+        public let column: Int
+
+        public init(line: Int, column: Int) {
+            self.line = line
+            self.column = column
+        }
+    }
+
+    public struct SourceRange: Equatable, Sendable {
+        public let start: SourceLocation
+        public let end: SourceLocation
+
+        public init(start: SourceLocation, end: SourceLocation) {
+            self.start = start
+            self.end = end
+        }
+    }
+
     public struct Factory: Equatable, Sendable {
         public let name: String
         public let parameters: [Parameter]
+        public let range: SourceRange?
 
-        public init(name: String, parameters: [Parameter]) {
+        public init(name: String, parameters: [Parameter], range: SourceRange? = nil) {
             self.name = name
             self.parameters = parameters
+            self.range = range
         }
     }
 
     public struct Parameter: Equatable, Sendable {
         public let name: String
         public let type: String
+        public let range: SourceRange?
 
-        public init(name: String, type: String) {
+        public init(name: String, type: String, range: SourceRange? = nil) {
             self.name = name
             self.type = type
+            self.range = range
         }
     }
 
@@ -28,10 +52,12 @@ public struct MachineAST: Equatable, Sendable {
 
         public let name: String
         public let kind: Kind
+        public let range: SourceRange?
 
-        public init(name: String, kind: Kind) {
+        public init(name: String, kind: Kind, range: SourceRange? = nil) {
             self.name = name
             self.kind = kind
+            self.range = range
         }
     }
 
@@ -40,12 +66,14 @@ public struct MachineAST: Equatable, Sendable {
         public let event: String
         public let parameters: [Parameter]
         public let to: String
+        public let range: SourceRange?
 
-        public init(from: String, event: String, parameters: [Parameter], to: String) {
+        public init(from: String, event: String, parameters: [Parameter], to: String, range: SourceRange? = nil) {
             self.from = from
             self.event = event
             self.parameters = parameters
             self.to = to
+            self.range = range
         }
     }
 
@@ -55,6 +83,7 @@ public struct MachineAST: Equatable, Sendable {
     public let factory: Factory?
     public let states: [StateNode]
     public let transitions: [TransitionNode]
+    public let range: SourceRange?
 
     public init(
         imports: [String],
@@ -62,7 +91,8 @@ public struct MachineAST: Equatable, Sendable {
         contextType: String?,
         factory: Factory?,
         states: [StateNode],
-        transitions: [TransitionNode]
+        transitions: [TransitionNode],
+        range: SourceRange? = nil
     ) {
         self.imports = imports
         self.machineName = machineName
@@ -70,5 +100,6 @@ public struct MachineAST: Equatable, Sendable {
         self.factory = factory
         self.states = states
         self.transitions = transitions
+        self.range = range
     }
 }
