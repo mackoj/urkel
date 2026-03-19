@@ -30,6 +30,7 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 
 - [US-5.1 folder watching](us-5-1-folder-watching.md)
 - [US-5.2 SPM plugin](us-5-2-spm.md)
+- [US-5.3 external build tool plugin configuration](us-5-3-external-plugin-configuration.md)
 
 ## Epic 6 — LSP
 

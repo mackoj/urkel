@@ -9,6 +9,7 @@ let package = Package(
     products: [
         .library(name: "Urkel", targets: ["Urkel"]),
         .executable(name: "urkel", targets: ["UrkelCLI"]),
+        .executable(name: "UrkelCLI", targets: ["UrkelCLI"]),
         .executable(name: "urkel-lsp", targets: ["UrkelLSP"]),
         .plugin(name: "UrkelPlugin", targets: ["UrkelPlugin"])
     ],
