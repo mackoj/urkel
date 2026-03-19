@@ -16,7 +16,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
         .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
         .package(url: "https://github.com/hummingbird-project/swift-mustache", from: "2.0.0"),
-        .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0")
+        .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0"),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.12.0")
     ],
     targets: [
         .target(
@@ -51,7 +52,12 @@ let package = Package(
         ),
         .testTarget(
             name: "UrkelTests",
-            dependencies: ["Urkel", "UrkelCLI"]
+            dependencies: [
+                "Urkel",
+                "UrkelCLI",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+                .product(name: "InlineSnapshotTesting", package: "swift-snapshot-testing")
+            ]
         )
     ]
 )
