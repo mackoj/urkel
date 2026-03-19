@@ -103,6 +103,79 @@ struct InlineSnapshotTests {
                 }
             }
 
+            public enum FolderWatchState: ~Copyable {
+                case idle(FolderWatchObserver<Idle>)
+                case running(FolderWatchObserver<Running>)
+                case stopped(FolderWatchObserver<Stopped>)
+
+                public init(_ observer: consuming FolderWatchObserver<Idle>) {
+                    self = .idle(observer)
+                }
+            }
+
+            extension FolderWatchState {
+                public borrowing func withIdle<R>(_ body: (borrowing FolderWatchObserver<Idle>) throws -> R) rethrows -> R? {
+                    switch self {
+                    case let .idle(observer):
+                        return try body(observer)
+
+                    case .running:
+                        return nil
+                    case .stopped:
+                        return nil
+                    }
+                }
+
+                public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<Running>) throws -> R) rethrows -> R? {
+                    switch self {
+                    case let .running(observer):
+                        return try body(observer)
+
+                    case .idle:
+                        return nil
+                    case .stopped:
+                        return nil
+                    }
+                }
+
+                public borrowing func withStopped<R>(_ body: (borrowing FolderWatchObserver<Stopped>) throws -> R) rethrows -> R? {
+                    switch self {
+                    case let .stopped(observer):
+                        return try body(observer)
+
+                    case .idle:
+                        return nil
+                    case .running:
+                        return nil
+                    }
+                }
+
+
+                public consuming func start() async throws -> Self {
+                    switch consume self {
+                case let .idle(observer):
+                    let next = try await observer.start()
+                    return .running(next)
+                case let .running(observer):
+                    return .running(observer)
+                case let .stopped(observer):
+                    return .stopped(observer)
+                    }
+                }
+
+                public consuming func stop() async throws -> Self {
+                    switch consume self {
+                case let .idle(observer):
+                    return .idle(observer)
+                case let .running(observer):
+                    let next = try await observer.stop()
+                    return .stopped(next)
+                case let .stopped(observer):
+                    return .stopped(observer)
+                    }
+                }
+            }
+
             public struct FolderWatchClient: Sendable {
                 public var makeObserver: @Sendable (URL, Int) -> FolderWatchObserver<Idle>
 
@@ -111,11 +184,23 @@ struct InlineSnapshotTests {
                 }
             }
 
-            extension FolderWatchClient: TestDependencyKey {
+            extension FolderWatchClient: DependencyKey {
                 public static let testValue = Self(
-                    makeObserver: { _, _ in 
-                        fatalError("Configure FolderWatchClient.testValue in tests.")
-                    }
+                    makeObserver: {
+                                _, _ in fatalError("Configure FolderWatchClient.testValue in tests.")
+                            }
+                )
+
+                public static let previewValue = Self(
+                    makeObserver: {
+                                _, _ in fatalError("Configure FolderWatchClient.previewValue in previews.")
+                            }
+                )
+
+                public static let liveValue = Self(
+                    makeObserver: {
+                                _, _ in fatalError("Configure FolderWatchClient.liveValue in your app target.")
+                            }
                 )
             }
 
