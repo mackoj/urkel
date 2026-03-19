@@ -130,6 +130,26 @@ Add the Build Tool Plugin to your specific target:
 ### 2. Create your first Machine
 Add a file named `Machine.urkel` anywhere in your target's source folder. The plugin will automatically detect it, compile it, and make the Typestate boilerplate available to your Swift code immediately.
 
+### 2.1 Configure the plugin (Optional)
+If you want to change where generated files go or export to another language/template, add a `.urkel-config.json` file next to your `.urkel` source files or any parent directory:
+
+```json
+{
+  "outputFile": "ConfiguredFolderWatch.swift",
+  "template": "Templates/machine.mustache",
+  "outputExtension": "kt",
+  "sourceExtensions": ["urkel"]
+}
+```
+
+Supported keys:
+
+* `outputFile`: full output path relative to the plugin work directory.
+* `template`: path to a custom Mustache template, resolved relative to the config file.
+* `language`: bundled language template name, currently `kotlin`.
+* `outputExtension`: overrides the generated file extension.
+* `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
+
 ### 3. CLI Usage (Optional)
 If you prefer manual generation or want to watch a directory during development outside of Xcode:
 ```bash

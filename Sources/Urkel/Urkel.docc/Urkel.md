@@ -15,6 +15,7 @@ This documentation catalog covers the language, the generated runtime API, templ
 ### Advanced Usage
 
 - <doc:Custom-Templates>
+- <doc:Build-Tool-Plugin-Configuration>
 - <doc:Generated-File-Integration>
 
 ### Editor Setup

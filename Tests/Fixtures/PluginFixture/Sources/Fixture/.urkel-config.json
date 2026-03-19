@@ -1,0 +1,5 @@
+{
+  "outputDirectory": ".generated/urkel",
+  "language": "kotlin",
+  "outputExtension": "kt"
+}

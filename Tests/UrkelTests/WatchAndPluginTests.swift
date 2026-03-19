@@ -84,8 +84,22 @@ struct WatchAndPluginTests {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures/PluginFixture")
+        let buildDirectory = fixture.appendingPathComponent(".build")
+        try? FileManager.default.removeItem(at: buildDirectory)
 
         let result = try runProcess("/usr/bin/env", ["swift", "build"], cwd: fixture)
         #expect(result.0 == 0)
+
+        let enumerator = FileManager.default.enumerator(at: buildDirectory, includingPropertiesForKeys: nil)
+        var foundGeneratedKotlinFile = false
+
+        while let url = enumerator?.nextObject() as? URL {
+            if url.lastPathComponent == "Test.kt" {
+                foundGeneratedKotlinFile = true
+                break
+            }
+        }
+
+        #expect(foundGeneratedKotlinFile)
     }
 }

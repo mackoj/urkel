@@ -23,3 +23,5 @@ The safest Urkel integration pattern is to treat generated Swift as read-only an
 2. Fix compiler errors in the sidecars.
 3. Re-run the package tests.
 4. Only then consider the integration complete.
+
+If you need to customize the generated output, add a `.urkel-config.json` file next to the machine definition and set `template`, `language`, `outputExtension`, or `outputDirectory` there instead of editing the generated file by hand.
