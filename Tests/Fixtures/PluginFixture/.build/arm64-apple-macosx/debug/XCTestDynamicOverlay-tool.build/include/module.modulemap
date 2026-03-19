@@ -1,3 +1,0 @@
-module XCTestDynamicOverlay {
-    header "/Users/mac-JMACKO01/Developer/Urkel/Tests/Fixtures/PluginFixture/.build/arm64-apple-macosx/debug/XCTestDynamicOverlay-tool.build/include/XCTestDynamicOverlay-Swift.h"
-}
