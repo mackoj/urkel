@@ -29,14 +29,33 @@ struct UrkelCLI: AsyncParsableCommand {
         var lang: String?
 
         mutating func run() async throws {
-            let generated = try UrkelGenerator().generate(
-                inputPath: input,
-                outputPath: output,
-                templatePath: template,
-                outputExtension: ext,
-                language: lang
-            )
-            print("Generated: \(generated.path)")
+            var isDirectory = ObjCBool(false)
+            guard FileManager.default.fileExists(atPath: input, isDirectory: &isDirectory) else {
+                throw UrkelGeneratorError.fileNotFound(URL(fileURLWithPath: input).path)
+            }
+
+            let generator = UrkelGenerator()
+            if isDirectory.boolValue {
+                let generated = try generator.generateDirectory(
+                    inputDirectoryPath: input,
+                    outputPath: output,
+                    templatePath: template,
+                    outputExtension: ext,
+                    language: lang
+                )
+                for file in generated {
+                    print("Generated: \(file.path)")
+                }
+            } else {
+                let generated = try generator.generate(
+                    inputPath: input,
+                    outputPath: output,
+                    templatePath: template,
+                    outputExtension: ext,
+                    language: lang
+                )
+                print("Generated: \(generated.path)")
+            }
         }
     }
 
