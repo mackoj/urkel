@@ -67,6 +67,10 @@ public struct UrkelEmitter {
                 self.internalContext = internalContext
         \(assignments.isEmpty ? "" : "\n\(assignments)")
             }
+
+            public borrowing func withInternalContext<R>(_ body: (borrowing \(contextType)) throws -> R) rethrows -> R {
+                try body(self.internalContext)
+            }
         }
         """
     }

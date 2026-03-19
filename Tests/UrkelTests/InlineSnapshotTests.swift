@@ -79,6 +79,10 @@ struct InlineSnapshotTests {
                     self._start = _start
                     self._stop = _stop
                 }
+
+                public borrowing func withInternalContext<R>(_ body: (borrowing FolderContext) throws -> R) rethrows -> R {
+                    try body(self.internalContext)
+                }
             }
 
             extension FolderWatchObserver where State == Idle {
