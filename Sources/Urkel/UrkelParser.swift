@@ -1,4 +1,5 @@
 import Foundation
+import Parsing
 
 public struct UrkelParseError: Error, Equatable, CustomStringConvertible, LocalizedError, Sendable {
     public let line: Int
@@ -16,6 +17,10 @@ public struct UrkelParseError: Error, Equatable, CustomStringConvertible, Locali
     }
 
     public var errorDescription: String? { description }
+}
+
+private enum UrkelInternalParseError: Error {
+    case invalidFactoryDeclaration
 }
 
 public struct UrkelParser {
@@ -45,9 +50,12 @@ public struct UrkelParser {
             return t.isEmpty || t.hasPrefix("#")
         }
 
+        let identifierParser = UrkelIdentifierParser()
+
         func isIdentifier(_ value: String) -> Bool {
-            let pattern = "^[A-Za-z][A-Za-z0-9_]*$"
-            return value.range(of: pattern, options: .regularExpression) != nil
+            var input = value[...]
+            guard let parsed = try? identifierParser.parse(&input) else { return false }
+            return parsed == value && input.isEmpty
         }
 
         func splitTopLevelCommas(_ raw: String, line: Int, baseColumn: Int) throws -> [(text: String, startColumn: Int)] {
@@ -215,6 +223,7 @@ public struct UrkelParser {
         skipTrivia()
 
         if index < lines.count, trimmed(lines[index]) == "@imports" {
+            let importLineParser = UrkelImportLineParser()
             index += 1
             while index < lines.count {
                 if isTrivia(lines[index]) {
@@ -222,8 +231,7 @@ public struct UrkelParser {
                     continue
                 }
                 let line = trimmed(lines[index])
-                if line.hasPrefix("import ") {
-                    let importedType = String(line.dropFirst("import ".count)).trimmingCharacters(in: .whitespaces)
+                if let importedType = try? importLineParser.parse(line[...]) {
                     if !importedType.isEmpty {
                         imports.append(importedType)
                     }
@@ -237,21 +245,17 @@ public struct UrkelParser {
         skipTrivia()
 
         if index < lines.count {
+            let machineLineParser = UrkelMachineLineParser()
             let line = trimmed(lines[index])
             if line.hasPrefix("machine ") {
-                let pattern = #"^machine\s+([A-Za-z][A-Za-z0-9_]*)(?:\s*<\s*([A-Za-z][A-Za-z0-9_]*)\s*>)?$"#
-                guard let match = line.range(of: pattern, options: .regularExpression) else {
+                let parsedMachine: UrkelMachineLineParser.Output
+                do {
+                    parsedMachine = try machineLineParser.parse(line[...])
+                } catch {
                     throw UrkelParseError(line: index + 1, column: 1, message: "Invalid machine declaration")
                 }
-                let capture = String(line[match])
-                let prefixRemoved = capture.dropFirst("machine".count).trimmingCharacters(in: .whitespaces)
-
-                if let genericStart = prefixRemoved.firstIndex(of: "<"), let genericEnd = prefixRemoved.lastIndex(of: ">"), genericStart < genericEnd {
-                    machineName = String(prefixRemoved[..<genericStart]).trimmingCharacters(in: .whitespaces)
-                    contextType = String(prefixRemoved[prefixRemoved.index(after: genericStart)..<genericEnd]).trimmingCharacters(in: .whitespaces)
-                } else {
-                    machineName = prefixRemoved
-                }
+                machineName = parsedMachine.name
+                contextType = parsedMachine.contextType
 
                 guard isIdentifier(machineName) else {
                     throw UrkelParseError(line: index + 1, column: 1, message: "Invalid machine name '\(machineName)'")
@@ -264,24 +268,24 @@ public struct UrkelParser {
         skipTrivia()
 
         if index < lines.count {
+            let factoryLineParser = UrkelFactoryLineParser()
             let line = trimmed(lines[index])
             if line.hasPrefix("@factory ") {
-                let pattern = #"^@factory\s+([A-Za-z][A-Za-z0-9_]*)\((.*)\)$"#
-                guard let range = line.range(of: pattern, options: .regularExpression) else {
+                let parsedFactory: UrkelFactoryLineParser.Output
+                do {
+                    parsedFactory = try factoryLineParser.parse(line[...])
+                } catch {
                     throw UrkelParseError(line: index + 1, column: 1, message: "Invalid @factory declaration")
                 }
-                let matched = String(line[range])
-                let openParen = matched.firstIndex(of: "(")!
-                let closeParen = matched.lastIndex(of: ")")!
-                let name = matched[matched.index(matched.startIndex, offsetBy: "@factory".count)..<openParen]
-                    .trimmingCharacters(in: .whitespaces)
+                let name = parsedFactory.name
                 guard isIdentifier(name) else {
                     throw UrkelParseError(line: index + 1, column: 1, message: "Invalid factory name '\(name)'")
                 }
-                let rawParameters = String(matched[matched.index(after: openParen)..<closeParen])
-                let parameterColumn = line.distance(from: line.startIndex, to: matched.index(after: openParen)) + 1
+                let openParen = line.firstIndex(of: "(")!
+                let rawParameters = parsedFactory.rawParameters
+                let parameterColumn = line.distance(from: line.startIndex, to: line.index(after: openParen)) + 1
                 let parsedParameters = try parseParameters(rawParameters, line: index + 1, baseColumn: parameterColumn)
-                let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: matched)
+                let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: line)
                 factory = MachineAST.Factory(name: name, parameters: parsedParameters, range: rangeValue)
                 index += 1
             }
@@ -295,6 +299,7 @@ public struct UrkelParser {
         index += 1
 
         while index < lines.count {
+            let stateLineParser = UrkelStateLineParser()
             if isTrivia(lines[index]) {
                 index += 1
                 continue
@@ -304,23 +309,24 @@ public struct UrkelParser {
                 break
             }
 
-            let parts = line.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-            guard parts.count == 2 else {
+            let parsedState: UrkelStateLineParser.Output
+            do {
+                parsedState = try stateLineParser.parse(line[...])
+            } catch {
                 throw UrkelParseError(line: index + 1, column: 1, message: "Invalid state statement")
             }
-            let kindText = parts[0]
-            let stateName = parts[1]
+            let stateName = parsedState.name
             guard isIdentifier(stateName) else {
                 throw UrkelParseError(line: index + 1, column: 1, message: "Invalid state identifier '\(stateName)'")
             }
 
             let kind: MachineAST.StateNode.Kind
-            switch kindText {
+            switch parsedState.kindText {
             case "init": kind = .initial
             case "state": kind = .normal
             case "final": kind = .terminal
             default:
-                throw UrkelParseError(line: index + 1, column: 1, message: "Unknown state kind '\(kindText)'")
+                throw UrkelParseError(line: index + 1, column: 1, message: "Unknown state kind '\(parsedState.kindText)'")
             }
 
             let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: stateName)
@@ -459,5 +465,98 @@ public struct UrkelParser {
         })
 
         return lines.joined(separator: "\n")
+    }
+}
+
+private struct UrkelIdentifierParser: Parser {
+    func parse(_ input: inout Substring) throws -> String {
+        let parser = Parse(input: Substring.self) {
+            Prefix(1...) { $0.isLetter }
+            Prefix { $0.isLetter || $0.isNumber || $0 == "_" }
+        }
+        let (head, tail) = try parser.parse(&input)
+        return String(head) + String(tail)
+    }
+}
+
+private struct UrkelImportLineParser: Parser {
+    func parse(_ input: inout Substring) throws -> String {
+        let parser = Parse(input: Substring.self) {
+            "import"
+            Skip { Prefix(1...) { $0.isWhitespace } }
+            Rest()
+        }
+        return String(try parser.parse(&input))
+    }
+}
+
+private struct UrkelMachineLineParser: Parser {
+    struct Output {
+        let name: String
+        let contextType: String?
+    }
+
+    func parse(_ input: inout Substring) throws -> Output {
+        let parser = Parse(input: Substring.self) {
+            "machine"
+            Skip { Prefix(1...) { $0.isWhitespace } }
+            UrkelIdentifierParser()
+            Optionally {
+                Skip { Prefix { $0.isWhitespace } }
+                "<"
+                Skip { Prefix { $0.isWhitespace } }
+                UrkelIdentifierParser()
+                Skip { Prefix { $0.isWhitespace } }
+                ">"
+            }
+            End()
+        }
+
+        let parsed = try parser.parse(&input)
+        return Output(name: parsed.0, contextType: parsed.1)
+    }
+}
+
+private struct UrkelFactoryLineParser: Parser {
+    struct Output {
+        let name: String
+        let rawParameters: String
+    }
+
+    func parse(_ input: inout Substring) throws -> Output {
+        let parser = Parse(input: Substring.self) {
+            "@factory"
+            Skip { Prefix(1...) { $0.isWhitespace } }
+            UrkelIdentifierParser()
+            "("
+            Prefix { _ in true }
+        }
+        let parsed = try parser.parse(&input)
+        let name = parsed.0
+        let tail = parsed.1
+
+        guard tail.last == ")" else {
+            throw UrkelInternalParseError.invalidFactoryDeclaration
+        }
+        let parameters = String(tail.dropLast())
+        return Output(name: name, rawParameters: parameters)
+    }
+}
+
+private struct UrkelStateLineParser: Parser {
+    struct Output {
+        let kindText: String
+        let name: String
+    }
+
+    func parse(_ input: inout Substring) throws -> Output {
+        let parser = Parse(input: Substring.self) {
+            Prefix(1...) { $0.isLetter }
+            Skip { Prefix(1...) { $0.isWhitespace } }
+            UrkelIdentifierParser()
+            End()
+        }
+        let parsed = try parser.parse(&input)
+        return Output(kindText: String(parsed.0), name: parsed.1)
     }
 }

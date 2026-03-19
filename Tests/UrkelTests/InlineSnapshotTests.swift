@@ -213,4 +213,44 @@ struct InlineSnapshotTests {
             """
         }
     }
+
+    @Test("Parser round-trip print snapshot")
+    func parserRoundTripPrintSnapshot() throws {
+        let source = """
+        @imports
+         import Foundation
+           import Dependencies
+
+        machine  Bluetooth
+        @factory   makeObserver( url : URL , debounceMs : Int )
+        @states
+          init    Idle
+             state Running
+          final Stopped
+        @transitions
+           Idle  ->   start  ->   Running
+        Running->stop( reason : String )->Stopped
+        """
+
+        let parser = UrkelParser()
+        let ast = try parser.parse(source: source)
+        let roundTrip = parser.print(ast: ast)
+        assertSwiftEmission(roundTrip) {
+            """
+            @imports
+              import Foundation
+              import Dependencies
+
+            machine Bluetooth
+            @factory makeObserver(url: URL, debounceMs: Int)
+            @states
+              init Idle
+              state Running
+              final Stopped
+            @transitions
+              Idle -> start -> Running
+              Running -> stop(reason: String) -> Stopped
+            """
+        }
+    }
 }
