@@ -75,7 +75,8 @@ public struct UrkelGenerator {
                 contextType: ast.contextType,
                 factory: ast.factory,
                 states: ast.states,
-                transitions: ast.transitions
+                transitions: ast.transitions,
+                range: ast.range
             )
         }
 
