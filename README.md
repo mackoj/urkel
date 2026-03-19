@@ -1,7 +1,7 @@
 # 🤓 Urkel
 **"Did I do that?" — Never ask that about your state transitions again.**
 
-Urkel is a lightweight Domain-Specific Language (DSL) and compiler for generating mathematically sound, **compile-time safe** state machines in Swift. 
+Urkel is a lightweight Domain-Specific Language (DSL) and compiler for generating mathematically sound, **compile-time safe** Finite State Machines (FSMs) in Swift. State Machines are defined in a human-readable text format.
 
 By utilizing the **Typestate Design Pattern** and Swift's modern `~Copyable` (noncopyable) and `~Escapable`(nonescapable) types, Urkel ensures that invalid state transitions are entirely unrepresentable in your code. If an event isn't valid for the current state, your app simply will not compile. You will always be able to call the right function at the right time.
 
