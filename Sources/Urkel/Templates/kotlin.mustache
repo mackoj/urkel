@@ -1,0 +1,19 @@
+package generated
+
+sealed interface {{machineName}}State {
+{{#states}}
+    data object {{name}} : {{machineName}}State
+{{/states}}
+}
+
+data class {{machineName}}Transition(
+    val from: {{machineName}}State,
+    val event: String,
+    val to: {{machineName}}State
+)
+
+val {{machineName}}Transitions = listOf(
+{{#transitions}}
+    {{machineName}}Transition({{machineName}}State.{{from}}, "{{event}}", {{machineName}}State.{{to}}){{^isLast}},{{/isLast}}
+{{/transitions}}
+)

@@ -1,0 +1,9 @@
+machine Test
+@factory makeObserver()
+@states
+  init Idle
+  state Running
+  final Stopped
+@transitions
+  Idle -> start -> Running
+  Running -> stop -> Stopped

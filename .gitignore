@@ -1,5 +1,5 @@
 .DS_Store
-/.build
+**/.build
 /Packages
 /*.xcodeproj
 Workspace.xcworkspace
@@ -16,3 +16,4 @@ node_modules/
 .husky/*
 output/
 *.profraw
+**/Generated/
