@@ -3,7 +3,6 @@ import JSONRPC
 import LanguageServerProtocol
 import Urkel
 
-@main
 struct UrkelLSPMain {
     static func main() async {
         await UrkelLSPRunner().run()

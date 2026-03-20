@@ -3,6 +3,7 @@ import Foundation
 public enum UrkelGeneratorError: Error, LocalizedError {
     case fileNotFound(String)
     case notAFile(String)
+    case outputFileOnlySupportsSingleInput(String)
     case unsupportedLanguage(String)
     case languageTemplateMissing(String)
 
@@ -12,6 +13,8 @@ public enum UrkelGeneratorError: Error, LocalizedError {
             return "Error: File not found at path: \(path)"
         case .notAFile(let path):
             return "Error: Path is not a readable file: \(path)"
+        case .outputFileOnlySupportsSingleInput(let path):
+            return "Error: The output file option only supports single-file input: \(path)"
         case .unsupportedLanguage(let language):
             return "Unsupported language: \(language)"
         case .languageTemplateMissing(let language):
@@ -50,6 +53,7 @@ public struct UrkelGenerator {
     public func generate(
         inputPath: String,
         outputPath: String,
+        outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil
@@ -86,26 +90,45 @@ public struct UrkelGenerator {
         try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
         let body: String
-        let fileExtension: String
-        let outputName: String
+        let generatedURL: URL
 
         if let templatePath {
             let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
             body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
-            fileExtension = outputExtension ?? inferExtension(fromTemplatePath: templatePath)
-            outputName = "\(fallbackName).\(fileExtension)"
+            let fileExtension = outputExtension ?? inferExtension(fromTemplatePath: templatePath)
+            generatedURL = Self.generatedURL(
+                for: fallbackName,
+                outputExtension: fileExtension,
+                outputFilePath: outputFilePath,
+                relativeTo: outputURL
+            )
         } else if let language {
             let templateString = try loadBundledTemplate(language: language)
             body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
-            fileExtension = outputExtension ?? defaultExtension(forLanguage: language)
-            outputName = "\(fallbackName).\(fileExtension)"
+            let fileExtension = outputExtension ?? defaultExtension(forLanguage: language)
+            generatedURL = Self.generatedURL(
+                for: fallbackName,
+                outputExtension: fileExtension,
+                outputFilePath: outputFilePath,
+                relativeTo: outputURL
+            )
         } else {
             body = UrkelEmitter().emit(ast: ast)
-            fileExtension = "swift"
-            outputName = "\(fallbackName)+Generated.\(fileExtension)"
+            generatedURL = Self.generatedURL(
+                for: fallbackName,
+                outputExtension: "swift",
+                outputFilePath: outputFilePath,
+                relativeTo: outputURL
+            )
         }
 
-        let generatedURL = outputURL.appendingPathComponent(outputName)
+        if outputFilePath != nil {
+            try FileManager.default.createDirectory(
+                at: generatedURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        }
+
         try body.write(to: generatedURL, atomically: true, encoding: .utf8)
         return generatedURL
     }
@@ -113,10 +136,15 @@ public struct UrkelGenerator {
     public func generateDirectory(
         inputDirectoryPath: String,
         outputPath: String,
+        outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil
     ) throws -> [URL] {
+        if let outputFilePath {
+            throw UrkelGeneratorError.outputFileOnlySupportsSingleInput(outputFilePath)
+        }
+
         let root = URL(fileURLWithPath: inputDirectoryPath, isDirectory: true)
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
             return []
@@ -127,6 +155,7 @@ public struct UrkelGenerator {
             let generated = try generate(
                 inputPath: file.path,
                 outputPath: outputPath,
+                outputFilePath: nil,
                 templatePath: templatePath,
                 outputExtension: outputExtension,
                 language: language
@@ -154,6 +183,28 @@ public struct UrkelGenerator {
         default:
             return "txt"
         }
+    }
+
+    private static func generatedURL(
+        for fallbackName: String,
+        outputExtension: String,
+        outputFilePath: String?,
+        relativeTo outputURL: URL
+    ) -> URL {
+        if let outputFilePath {
+            return resolvedOutputFileURL(outputFilePath, relativeTo: outputURL)
+        }
+
+        let outputName = fallbackName + (outputExtension == "swift" ? "+Generated.swift" : ".\(outputExtension)")
+        return outputURL.appendingPathComponent(outputName)
+    }
+
+    private static func resolvedOutputFileURL(_ outputFilePath: String, relativeTo outputURL: URL) -> URL {
+        if NSString(string: outputFilePath).isAbsolutePath {
+            return URL(fileURLWithPath: outputFilePath).standardizedFileURL
+        }
+
+        return URL(fileURLWithPath: outputFilePath, relativeTo: outputURL).standardizedFileURL
     }
 
     private func loadBundledTemplate(language: String) throws -> String {
