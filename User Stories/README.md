@@ -53,3 +53,11 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [US-8.4 templating guide](us-8-4-templating.md)
 - [US-8.5 interactive tutorial](us-8-5-tutorial.md)
 - [US-8.6 generated file integration](us-8-6-generated-file-integration.md)
+
+## Epic 9 — FSM Decoupling
+
+- [US-9.1 generic FSM scaffold](us-9-1-fsm-scaffold.md)
+- [US-9.2 lifecycle context storage](us-9-2-lifecycle-context-storage.md)
+- [US-9.3 dependency client boilerplate](us-9-3-dependency-client-boilerplate.md)
+- [US-9.4 runtime stream helpers](us-9-4-runtime-stream-helpers.md)
+- [US-9.5 domain boundaries](us-9-5-domain-boundaries.md)
