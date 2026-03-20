@@ -126,6 +126,15 @@ Add the Build Tool Plugin to your specific target:
     ]
 )
 ```
+The plugin runs automatically when Xcode or SwiftPM builds the target, so there is no separate “run plugin” button. The plugin resolves the `UrkelCLI` executable tool under the hood.
+
+If you want the generated file checked into your package instead of written to DerivedData, run the command plugin instead:
+
+```bash
+swift package plugin --allow-writing-to-package-directory urkel-generate
+```
+
+That command writes directly into the package directory, so it can update a file like `Sources/FolderWatch/FolderWatchClient+Generated.swift`.
 
 ### 2. Create your first Machine
 Add a file named `Machine.urkel` anywhere in your target's source folder. The plugin will automatically detect it, compile it, and make the Typestate boilerplate available to your Swift code immediately.
@@ -150,12 +159,14 @@ Supported keys:
 * `outputExtension`: overrides the generated file extension.
 * `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
 
+For build tool plugins, `outputFile` is resolved relative to the plugin output directory in DerivedData. For the command plugin, the same setting is resolved relative to the package directory so the generated file can be checked into the repository.
+
 ### 3. CLI Usage (Optional)
 If you prefer manual generation or want to watch a directory during development outside of Xcode:
 ```bash
 # Generate Swift files once
-swift run urkel generate ./Sources --output ./Generated
+swift run UrkelCLI generate ./Sources --output ./Generated
 
 # Watch a directory and regenerate live on file save
-swift run urkel watch ./Sources --output ./Generated
+swift run UrkelCLI watch ./Sources --output ./Generated
 ```

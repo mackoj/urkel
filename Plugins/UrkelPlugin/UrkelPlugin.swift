@@ -17,10 +17,10 @@ struct UrkelPlugin: BuildToolPlugin {
     }
     
     let tool = try context.tool(named: "UrkelCLI")
+    let targetDirectoryURL = sourceTarget.directoryURL
     
         return try sourceTarget.sourceFiles.compactMap { source in
             let sourceURL = source.url
-            let targetDirectoryURL = URL(fileURLWithPath: sourceTarget.directory.string)
             let configuration = try self.configuration(
                 for: sourceURL,
                 targetDirectoryURL: targetDirectoryURL,
@@ -82,7 +82,7 @@ struct UrkelPlugin: BuildToolPlugin {
   ) throws -> ResolvedConfiguration {
         let configurationURL = Self.configurationURL(for: sourceURL)
             ?? Self.configurationURL(in: targetDirectoryURL)
-            ?? Self.configurationURL(in: URL(fileURLWithPath: context.package.directory.string))
+            ?? Self.configurationURL(in: context.package.directoryURL)
             ?? Self.configurationURL(in: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
     
     guard let configurationURL else {

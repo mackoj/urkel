@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.1
 import PackageDescription
 
 let package = Package(
@@ -8,10 +8,10 @@ let package = Package(
     ],
     products: [
         .library(name: "Urkel", targets: ["Urkel"]),
-        .executable(name: "urkel", targets: ["UrkelCLI"]),
         .executable(name: "UrkelCLI", targets: ["UrkelCLI"]),
-        .executable(name: "urkel-lsp", targets: ["UrkelLSP"]),
-        .plugin(name: "UrkelPlugin", targets: ["UrkelPlugin"])
+//        .executable(name: "urkel-lsp", targets: ["UrkelLSP"]),
+        .plugin(name: "UrkelPlugin", targets: ["UrkelPlugin"]),
+        .plugin(name: "UrkelGenerate", targets: ["UrkelGenerate"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
@@ -58,6 +58,22 @@ let package = Package(
             name: "UrkelPlugin",
             capability: .buildTool(),
             dependencies: ["UrkelCLI"]
+        ),
+        .plugin(
+            name: "UrkelGenerate",
+            capability: .command(
+                intent: .custom(
+                    verb: "urkel-generate",
+                    description: "Generate checked-in Urkel Swift files from .urkel sources"
+                ),
+                permissions: [
+                    .writeToPackageDirectory(
+                        reason: "Generate checked-in Swift files from .urkel sources."
+                    )
+                ]
+            ),
+            dependencies: ["UrkelCLI"],
+            path: "Plugins/UrkelGenerate"
         ),
         .testTarget(
             name: "UrkelTests",

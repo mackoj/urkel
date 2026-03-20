@@ -39,7 +39,7 @@ struct UrkelCLI: AsyncParsableCommand {
 
             let generator = UrkelGenerator()
             if isDirectory.boolValue {
-                if let outputFile {
+                if outputFile != nil {
                     throw ValidationError("The output file option only works when generating a single .urkel file.")
                 }
 
