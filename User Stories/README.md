@@ -26,11 +26,12 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [US-4.4 runtime scaffolding](us-4-4-runtime-scaffolding.md)
 - [US-4.5 namespaced typed context](us-4-5-namespaced-typed-context.md)
 
-## Epic 5 — File Watching and SPM
+## Epic 5 — File Watching, SPM, and Checked-in Generation
 
 - [US-5.1 folder watching](us-5-1-folder-watching.md)
 - [US-5.2 SPM plugin](us-5-2-spm.md)
-- [US-5.3 external build tool plugin configuration](us-5-3-external-plugin-configuration.md)
+- [US-5.3 external generation configuration](us-5-3-external-plugin-configuration.md)
+- [US-5.4 checked-in generated source workflow](us-5-4-command-plugin-generated-source.md)
 
 ## Epic 6 — LSP
 

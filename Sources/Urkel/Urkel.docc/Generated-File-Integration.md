@@ -1,6 +1,6 @@
 # Generated File Integration
 
-The safest Urkel integration pattern is to treat generated Swift as read-only and place custom behavior in sidecar files next to it.
+The safest Urkel integration pattern is to treat generated Swift as read-only and place custom behavior in sidecar files next to it. You can either let the build tool plugin generate the file into DerivedData during builds, or use the `UrkelGenerate` command plugin to write a checked-in file inside your package.
 
 ## Recommended layout
 
@@ -24,6 +24,6 @@ The safest Urkel integration pattern is to treat generated Swift as read-only an
 3. Re-run the package tests.
 4. Only then consider the integration complete.
 
-If you need to customize the generated output, add a `.urkel-config.json` file next to the machine definition and set `template`, `language`, `outputExtension`, or `outputDirectory` there instead of editing the generated file by hand.
+If you need to customize the generated output, add a `urkel-config.json` or `.urkel-config.json` file next to the machine definition and set `template`, `language`, `outputExtension`, `outputDirectory`, or `outputFile` there instead of editing the generated file by hand.
 
 For build tool plugin integrations, the generated file is written to the plugin work directory in DerivedData. SwiftPM/Xcode sandboxing does not allow a build tool plugin to write directly into your package source tree during a build, so the file will not appear inside `Sources/...` unless you generate it through the `UrkelGenerate` command plugin or another manual flow with write access.

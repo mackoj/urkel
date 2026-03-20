@@ -117,7 +117,7 @@ dependencies: [
     .package(url: "https://github.com/mackoj/urkel.git", from: "1.0.0")
 ]
 ```
-Add the Build Tool Plugin to your specific target:
+If you want generated files to appear in DerivedData during a normal build, add the build tool plugin to your target:
 ```swift
 .target(
     name: "MyApp",
@@ -126,15 +126,17 @@ Add the Build Tool Plugin to your specific target:
     ]
 )
 ```
-The plugin runs automatically when Xcode or SwiftPM builds the target, so there is no separate “run plugin” button. The plugin resolves the `UrkelCLI` executable tool under the hood.
+The plugin runs automatically when Xcode or SwiftPM builds the target, so there is no separate “run plugin” button. It resolves the `UrkelCLI` executable tool under the hood and writes generated files into the plugin work directory.
 
-If you want the generated file checked into your package instead of written to DerivedData, run the command plugin instead:
+If you want the generated file checked into your package and committed to source control, run the command plugin instead:
 
 ```bash
 swift package plugin --allow-writing-to-package-directory urkel-generate
 ```
 
 That command writes directly into the package directory, so it can update a file like `Sources/FolderWatch/FolderWatchClient+Generated.swift`.
+
+Both plugins read the same package-local `urkel-config.json` style files. The only difference is where the generated output lands: the build tool plugin uses DerivedData, while the command plugin can write back into the repository.
 
 ### 2. Create your first Machine
 Add a file named `Machine.urkel` anywhere in your target's source folder. The plugin will automatically detect it, compile it, and make the Typestate boilerplate available to your Swift code immediately.
@@ -153,13 +155,11 @@ If you want to change where generated files go or export to another language/tem
 
 Supported keys:
 
-* `outputFile`: full output path relative to the plugin work directory.
+* `outputFile`: output path relative to the current generator root. In build-tool mode that root is the plugin work directory; in command-plugin mode it is the package directory.
 * `template`: path to a custom Mustache template, resolved relative to the config file.
 * `language`: bundled language template name, currently `kotlin`.
 * `outputExtension`: overrides the generated file extension.
 * `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
-
-For build tool plugins, `outputFile` is resolved relative to the plugin output directory in DerivedData. For the command plugin, the same setting is resolved relative to the package directory so the generated file can be checked into the repository.
 
 ### 3. CLI Usage (Optional)
 If you prefer manual generation or want to watch a directory during development outside of Xcode:

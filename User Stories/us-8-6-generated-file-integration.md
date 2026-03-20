@@ -4,12 +4,12 @@
 Document a canonical, regeneration-safe integration pattern for Urkel-generated files so teams can wire runtime logic without editing generated code and without breaking when regeneration occurs.
 
 ## 2. Context
-Urkel intentionally separates generated typestate interfaces from runtime/business logic. In practice, teams often need guidance on where to place custom code (`live`, `mock`, runtime actors, computed helpers), how to survive regeneration, and how to migrate when generated APIs evolve (such as namespaced states and typed context).
+Urkel intentionally separates generated typestate interfaces from runtime/business logic. In practice, teams often need guidance on where to place custom code (`live`, `mock`, runtime actors, computed helpers), how to survive regeneration, and how to migrate when generated APIs evolve (such as namespaced states and typed context). Some packages also want to check the generated file into `Sources/...`, while others prefer DerivedData output from the build tool plugin.
 
 ## 3. Acceptance Criteria
 * **Given** a developer using Urkel in a Swift package.
 * **When** they read the integration guide.
-* **Then** they understand that `*+Generated.swift` is generated-only and must never be manually edited.
+* **Then** they understand that `*+Generated.swift` is generated-only and must never be manually edited, regardless of whether it is produced by the build tool plugin or the command plugin.
 
 * **Given** custom runtime behavior is needed.
 * **When** they follow the guide.
@@ -23,12 +23,19 @@ Urkel intentionally separates generated typestate interfaces from runtime/busine
 * **When** the build and tests execute.
 * **Then** sidecar integration remains source-compatible or migration points are clearly identified.
 
+* **Given** a package wants the generated file checked into source control.
+* **When** they follow the guide.
+* **Then** they know to use the `UrkelGenerate` command plugin and keep the generated file under `Sources/...`.
+
 ## 4. Implementation Details
 * Create a DocC article (for example `Generated-File-Integration.md`) under the Urkel documentation catalog.
 * Include a recommended folder layout:
   * `Machine.urkel` (source of truth)
   * `machine+Generated.swift` (generated, read-only)
   * sidecars for runtime/live/test helpers
+* Explain both generation modes:
+  * build tool plugin writes to DerivedData during builds
+  * command plugin writes checked-in output into the package directory
 * Document namespace-aware usage in sidecars:
   * refer to states as `MachineMachine.Idle/Running/Stopped` (or current generator naming)
   * avoid top-level state symbol assumptions
