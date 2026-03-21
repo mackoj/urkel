@@ -4,14 +4,31 @@ Urkel can export machine definitions into foreign languages using Mustache templ
 
 ## How it works
 
-The generator converts the parsed `MachineAST` into a dictionary-like context and feeds it into a template.
+Urkel has two generation paths from the same parsed `MachineAST`:
+
+- `SwiftCodeEmitter`: native Swift output (`+Generated.swift`)
+- `TemplateCodeEmitter`: template-based output (for example, Kotlin)
+
+For template-based generation, `TemplateCodeEmitter` renders `MachineAST.templateContext` into your Mustache file (`.mustache`).
 
 Common keys include:
 
 - `machineName`
+- `contextType`
 - `imports`
 - `states`
 - `transitions`
+- `initialState`
+- `factory`
+
+## Bundled Kotlin template
+
+`--lang kotlin` uses the bundled `Templates/kotlin.mustache` through `TemplateCodeEmitter`.
+
+This means Kotlin improvements generally happen in two places:
+
+- enrich `MachineAST.templateContext` when new data is needed
+- evolve `kotlin.mustache` to consume that richer model
 
 ## CLI usage
 

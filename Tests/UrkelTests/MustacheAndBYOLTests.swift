@@ -2,11 +2,11 @@ import Foundation
 import Testing
 @testable import Urkel
 
-@Suite("US 7.1 + 7.2 + 7.3 - Mustache + BYOL")
-struct MustacheAndBYOLTests {
-    @Test("Mustache engine renders machine name")
+@Suite("US 7.1 + 7.2 + 7.3 - Template emitter + BYOL")
+struct TemplateEmitterAndBYOLTests {
+    @Test("Template emitter renders machine name")
     func mustacheRender() throws {
-        let output = try MustacheExportEngine().render(
+        let output = try TemplateCodeEmitter().render(
             ast: makeFolderWatchAST(),
             templateString: "Hello {{machineName}}"
         )

@@ -3,11 +3,11 @@ import Testing
 @testable import Urkel
 
 @Suite("US 4.1 + 4.2 + 4.3 + 4.4 + 4.5 - Emitter")
-struct UrkelEmitterTests {
+struct SwiftCodeEmitterTests {
     @Test("Emitter includes imports, states, observer and client")
     func emitsCoreSections() {
         let ast = makeFolderWatchAST()
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
 
         #expect(output.contains("import Foundation"))
         #expect(output.contains("public enum FolderWatchMachine {"))
@@ -39,7 +39,7 @@ struct UrkelEmitterTests {
             ]
         )
 
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         #expect(output.contains("extension BluetoothObserver where State == BluetoothMachine.Idle"))
         #expect(output.contains("public consuming func start() async throws -> BluetoothObserver<BluetoothMachine.Scanning>"))
         #expect(output.contains("public consuming func fail() async throws -> BluetoothObserver<BluetoothMachine.Error>"))
@@ -64,7 +64,7 @@ struct UrkelEmitterTests {
             ]
         )
 
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         #expect(output.contains("private let _connect: @Sendable (String) async throws -> String"))
         #expect(output.contains("private let _connectErrorError: @Sendable (String, Error) async throws -> String"))
         #expect(output.contains("let connectTransition: ConnectTransition"))
@@ -74,7 +74,7 @@ struct UrkelEmitterTests {
 
     @Test("Emitter includes runtime scaffolding wrapper and unwrapping")
     func emitsRuntimeScaffolding() {
-        let output = UrkelEmitter().emit(ast: makeFolderWatchAST())
+        let output = SwiftCodeEmitter().emit(ast: makeFolderWatchAST())
 
         #expect(output.contains("// MARK: - FolderWatch Combined State"))
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
@@ -87,7 +87,7 @@ struct UrkelEmitterTests {
 
     @Test("Emitter includes dependency defaults for preview/test/live")
     func emitsDependencyDefaults() {
-        let output = UrkelEmitter().emit(ast: makeFolderWatchAST())
+        let output = SwiftCodeEmitter().emit(ast: makeFolderWatchAST())
 
         #expect(output.contains("// MARK: - FolderWatch Client"))
         #expect(output.contains("public static let testValue = Self("))
@@ -113,7 +113,7 @@ struct UrkelEmitterTests {
             ]
         )
 
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
         #expect(output.contains("public enum FolderWatchMachine {"))
@@ -123,8 +123,8 @@ struct UrkelEmitterTests {
 
     @Test("Emitter namespaces states to avoid machine collisions")
     func namespacesStatesAcrossMachines() {
-        let lhs = UrkelEmitter().emit(ast: makeFolderWatchAST(machineName: "FolderWatch"))
-        let rhs = UrkelEmitter().emit(ast: makeFolderWatchAST(machineName: "Bluetooth"))
+        let lhs = SwiftCodeEmitter().emit(ast: makeFolderWatchAST(machineName: "FolderWatch"))
+        let rhs = SwiftCodeEmitter().emit(ast: makeFolderWatchAST(machineName: "Bluetooth"))
         let combined = lhs + "\n\n" + rhs
 
         #expect(combined.contains("public enum FolderWatchMachine {"))
@@ -148,7 +148,7 @@ struct UrkelEmitterTests {
             ]
         )
 
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         #expect(output.contains("public enum NoContextMachine {"))
         #expect(output.contains("public struct RuntimeContext: Sendable {"))
         #expect(output.contains("struct NoContextRuntimeContext: Sendable"))
@@ -177,7 +177,7 @@ struct UrkelEmitterTests {
             ]
         )
 
-        let generated = UrkelEmitter().emit(ast: ast)
+        let generated = SwiftCodeEmitter().emit(ast: ast)
 
         try """
         // swift-tools-version: 6.0

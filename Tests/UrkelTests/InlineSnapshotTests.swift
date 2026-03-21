@@ -53,7 +53,7 @@ struct InlineSnapshotTests {
     @Test("Swift emission snapshot for FolderWatch")
     func swiftEmissionSnapshot() {
         let ast = makeFolderWatchAST()
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         assertSwiftEmission(output) {
             """
             import Foundation

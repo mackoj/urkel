@@ -1,6 +1,7 @@
 import Foundation
 
-public struct UrkelEmitter {
+/// Native Swift code emitter used for the default Urkel generation path.
+public struct SwiftCodeEmitter {
     public init() {}
 
     public func emit(ast: MachineAST) -> String {
@@ -638,13 +639,13 @@ public struct UrkelEmitter {
         let dependencyKeyName: String
 
         init(from machineName: String) {
-            let machineType = UrkelEmitter().normalizedTypeName(machineName)
+            let machineType = SwiftCodeEmitter().normalizedTypeName(machineName)
             self.machineTypeName = machineType
             self.machineNamespaceTypeName = "\(machineType)Machine"
             self.observerTypeName = "\(machineType)Observer"
             self.clientTypeName = "\(machineType)Client"
             self.stateWrapperTypeName = "\(machineType)State"
-            self.dependencyKeyName = UrkelEmitter().lowerCamelName(from: machineType)
+            self.dependencyKeyName = SwiftCodeEmitter().lowerCamelName(from: machineType)
         }
     }
 
@@ -658,3 +659,6 @@ public struct UrkelEmitter {
         let parameters: [TransitionParameterSignature]
     }
 }
+
+/// Backward-compatible alias for the native Swift emitter.
+public typealias UrkelEmitter = SwiftCodeEmitter

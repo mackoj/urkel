@@ -94,7 +94,8 @@ public struct UrkelGenerator {
 
         if let templatePath {
             let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
-            body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
+            // Template-based path (used for Kotlin and custom non-Swift outputs).
+            body = try TemplateCodeEmitter().render(ast: ast, templateString: templateString)
             let fileExtension = outputExtension ?? inferExtension(fromTemplatePath: templatePath)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
@@ -104,7 +105,8 @@ public struct UrkelGenerator {
             )
         } else if let language {
             let templateString = try loadBundledTemplate(language: language)
-            body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
+            // Bundled language templates also route through the template emitter.
+            body = try TemplateCodeEmitter().render(ast: ast, templateString: templateString)
             let fileExtension = outputExtension ?? defaultExtension(forLanguage: language)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
@@ -113,7 +115,8 @@ public struct UrkelGenerator {
                 relativeTo: outputURL
             )
         } else {
-            body = UrkelEmitter().emit(ast: ast)
+            // Native Swift path uses the dedicated Swift code emitter.
+            body = SwiftCodeEmitter().emit(ast: ast)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: "swift",

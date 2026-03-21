@@ -1,7 +1,8 @@
 import Foundation
 
 public extension MachineAST {
-    var dictionaryRepresentation: [String: Any] {
+    /// Canonical template context used by template-based emitters.
+    var templateContext: [String: Any] {
         let statePayload = states.enumerated().map { index, state in
             [
                 "name": state.name,
@@ -50,6 +51,11 @@ public extension MachineAST {
             "initialState": states.first(where: { $0.kind == .initial })?.name as Any,
             "factory": factoryPayload as Any
         ]
+    }
+
+    /// Backward-compatible alias for template context payload.
+    var dictionaryRepresentation: [String: Any] {
+        templateContext
     }
 }
 

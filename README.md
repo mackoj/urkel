@@ -170,3 +170,16 @@ swift run UrkelCLI generate ./Sources --output ./Generated
 # Watch a directory and regenerate live on file save
 swift run UrkelCLI watch ./Sources --output ./Generated
 ```
+
+### 4. Generation Architecture (for contributors)
+
+Urkel parses `.urkel` files once into `MachineAST`, then emits code through one of two paths:
+
+* `SwiftCodeEmitter` for native Swift generation
+* `TemplateCodeEmitter` for template-based generation (`--template` and `--lang kotlin`)
+
+Kotlin currently uses the template emitter with the bundled `kotlin.mustache` template.
+
+For deeper internals (CLI/plugins/watch/LSP, module map, and diagrams), see:
+
+* `Sources/Urkel/Urkel.docc/Codebase-Architecture.md`
