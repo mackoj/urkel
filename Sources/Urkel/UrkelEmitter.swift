@@ -8,7 +8,10 @@ public struct UrkelEmitter {
         return [
             emitImports(for: ast),
             emitStates(for: ast, names: names),
+            emitRuntimeContextBridge(for: ast, names: names),
             emitObserver(for: ast, names: names),
+            emitRuntimeStreamHelper(for: ast, names: names),
+            emitClientRuntimeBuilder(for: ast, names: names),
             emitExtensions(for: ast, names: names),
             emitCombinedStateWrapper(for: ast, names: names),
             emitClient(for: ast, names: names)
@@ -43,36 +46,80 @@ public struct UrkelEmitter {
             : ""
 
         return """
+        // MARK: - \(names.machineTypeName) State Machine
+
+        /// Typestate markers for the `\(names.machineTypeName)` machine.
         public enum \(names.machineNamespaceTypeName) {
         \(stateLines)\(runtimeContext)
         }
         """
     }
 
-    private func emitObserver(for ast: MachineAST, names: Names) -> String {
+    private func emitRuntimeContextBridge(for ast: MachineAST, names: Names) -> String {
         let contextType = ast.contextType ?? "\(names.machineNamespaceTypeName).RuntimeContext"
+        guard !ast.states.isEmpty else { return "" }
 
-        let uniqueTransitions = ast.transitions.reduce(into: [MachineAST.TransitionNode]()) { partial, transition in
-            if !partial.contains(where: { $0.event == transition.event }) {
-                partial.append(transition)
+        let storageCases = ast.states
+            .map { "        case \(caseName(for: $0.name))(\(contextType))" }
+            .joined(separator: "\n")
+        let accessors = ast.states
+            .map { state in
+                """
+                static func \(caseName(for: state.name))(_ value: \(contextType)) -> Self {
+                    .init(storage: .\(caseName(for: state.name))(value))
+                }
+                """
             }
-        }
-
-        let closureProps = uniqueTransitions.map { transition in
-            let eventParamTypes = transition.parameters.map(\.type)
-            let closureInput = ([contextType] + eventParamTypes).joined(separator: ", ")
-            return "    private let _\(transition.event): @Sendable (\(closureInput)) async throws -> \(contextType)"
-        }.joined(separator: "\n")
-
-        let initParams = uniqueTransitions.map { transition in
-            let eventParamTypes = transition.parameters.map(\.type)
-            let closureInput = ([contextType] + eventParamTypes).joined(separator: ", ")
-            return "        _\(transition.event): @escaping @Sendable (\(closureInput)) async throws -> \(contextType)"
-        }.joined(separator: ",\n")
-
-        let assignments = uniqueTransitions.map { "        self._\($0.event) = _\($0.event)" }.joined(separator: "\n")
+            .joined(separator: "\n\n")
 
         return """
+        // MARK: - \(names.machineTypeName) Runtime Context Bridge
+
+        /// Internal state-aware context wrapper used by generated runtime helpers.
+        struct \(names.machineTypeName)RuntimeContext: Sendable {
+            enum Storage: Sendable {
+        \(storageCases)
+            }
+
+            let storage: Storage
+
+            init(storage: Storage) {
+                self.storage = storage
+            }
+
+        \(accessors)
+        }
+        """
+    }
+
+    private func emitObserver(for ast: MachineAST, names: Names) -> String {
+        let contextType = ast.contextType ?? "\(names.machineNamespaceTypeName).RuntimeContext"
+        let signatures = orderedTransitionSignatures(in: ast)
+
+        let closureProps = signatures.compactMap { signature -> String? in
+            guard let exemplar = transitions(for: signature, in: ast).first else { return nil }
+            let eventParamTypes = exemplar.parameters.map(\.type)
+            let closureInput = ([contextType] + eventParamTypes).joined(separator: ", ")
+            return "    private let \(transitionPropertyName(for: signature)): @Sendable (\(closureInput)) async throws -> \(contextType)"
+        }.joined(separator: "\n")
+
+        let initParams = signatures.compactMap { signature -> String? in
+            guard let exemplar = transitions(for: signature, in: ast).first else { return nil }
+            let eventParamTypes = exemplar.parameters.map(\.type)
+            let closureInput = ([contextType] + eventParamTypes).joined(separator: ", ")
+            return "        \(transitionPropertyName(for: signature)): @escaping @Sendable (\(closureInput)) async throws -> \(contextType)"
+        }.joined(separator: ",\n")
+
+        let assignments = signatures.compactMap { signature -> String? in
+            guard transitions(for: signature, in: ast).first != nil else { return nil }
+            let closureName = transitionPropertyName(for: signature)
+            return "        self.\(closureName) = \(closureName)"
+        }.joined(separator: "\n")
+
+        return """
+        // MARK: - \(names.machineTypeName) Observer
+
+        /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
         public struct \(names.observerTypeName)<State>: ~Copyable {
             private var internalContext: \(contextType)
         \(closureProps.isEmpty ? "" : "\n\(closureProps)")
@@ -84,8 +131,157 @@ public struct UrkelEmitter {
         \(assignments.isEmpty ? "" : "\n\(assignments)")
             }
 
+            /// Access the internal context while preserving borrowing semantics.
             public borrowing func withInternalContext<R>(_ body: (borrowing \(contextType)) throws -> R) rethrows -> R {
                 try body(self.internalContext)
+            }
+        }
+        """
+    }
+
+    private func emitRuntimeStreamHelper(for ast: MachineAST, names: Names) -> String {
+        guard !ast.transitions.isEmpty else { return "" }
+
+        return """
+        // MARK: - \(names.machineTypeName) Runtime Stream
+
+        /// Generic stream lifecycle helper for event-driven runtimes generated from this machine.
+        actor \(names.machineTypeName)RuntimeStream<Element: Sendable> {
+            nonisolated let events: AsyncThrowingStream<Element, Error>
+
+            private var continuation: AsyncThrowingStream<Element, Error>.Continuation?
+            private var pendingEvent: Element?
+            private var debounceTask: Task<Void, Never>?
+            private let debounceMs: Int
+
+            init(debounceMs: Int = 0) {
+                self.debounceMs = max(0, debounceMs)
+
+                var capturedContinuation: AsyncThrowingStream<Element, Error>.Continuation?
+                self.events = AsyncThrowingStream<Element, Error> { continuation in
+                    capturedContinuation = continuation
+                }
+                self.continuation = capturedContinuation
+            }
+
+            func emit(_ event: Element) {
+                guard let continuation else { return }
+
+                if debounceMs == 0 {
+                    continuation.yield(event)
+                    return
+                }
+
+                pendingEvent = event
+                debounceTask?.cancel()
+                debounceTask = Task { [debounceMs] in
+                    try? await Task.sleep(nanoseconds: UInt64(debounceMs) * 1_000_000)
+                    self.flushPendingEvent()
+                }
+            }
+
+            func finish(throwing error: Error? = nil) {
+                debounceTask?.cancel()
+                debounceTask = nil
+                pendingEvent = nil
+                continuation?.finish(throwing: error)
+                continuation = nil
+            }
+
+            private func flushPendingEvent() {
+                guard let event = pendingEvent else { return }
+                pendingEvent = nil
+                continuation?.yield(event)
+            }
+        }
+        """
+    }
+
+    private func emitClientRuntimeBuilder(for ast: MachineAST, names: Names) -> String {
+        let contextType = ast.contextType ?? "\(names.machineNamespaceTypeName).RuntimeContext"
+        let signatures = orderedTransitionSignatures(in: ast)
+        guard !signatures.isEmpty else { return "" }
+
+        let factoryName = ast.factory?.name ?? "makeObserver"
+        let factoryParameters = ast.factory?.parameters ?? []
+        let initialContextTypeAlias: String = {
+            let paramTypes = factoryParameters.map(\.type)
+            if paramTypes.isEmpty {
+                return "@Sendable () -> \(contextType)"
+            }
+            return "@Sendable (\(paramTypes.joined(separator: ", "))) -> \(contextType)"
+        }()
+
+        let closureAliases = signatures.compactMap { signature -> String? in
+            guard let exemplar = transitions(for: signature, in: ast).first else { return nil }
+            let eventParamTypes = exemplar.parameters.map(\.type)
+            let closureInput = ([contextType] + eventParamTypes).joined(separator: ", ")
+            return "    typealias \(transitionAliasName(for: signature)) = @Sendable (\(closureInput)) async throws -> \(contextType)"
+        }.joined(separator: "\n")
+
+        let properties = signatures.compactMap { signature -> String? in
+            guard transitions(for: signature, in: ast).first != nil else { return nil }
+            return "    let \(transitionBuilderName(for: signature)): \(transitionAliasName(for: signature))"
+        }.joined(separator: "\n")
+
+        let factoryInitArgs = factoryParameters.map(\.name).joined(separator: ", ")
+        let factorySignatureParameters = factoryParameters
+            .map { "\($0.name): \($0.type)" }
+            .joined(separator: ", ")
+        let factoryClosureSignature: String = factorySignatureParameters.isEmpty ? "" : "\(factorySignatureParameters) in"
+
+        let initParams = signatures.compactMap { signature -> String? in
+            guard transitions(for: signature, in: ast).first != nil else { return nil }
+            return "\(transitionBuilderName(for: signature)): @escaping \(transitionAliasName(for: signature))"
+        }.joined(separator: ",\n        ")
+        let initParamList = ([ "initialContext: @escaping InitialContextBuilder" ] + (initParams.isEmpty ? [] : [initParams]))
+            .joined(separator: ",\n        ")
+
+        let assignments = signatures.compactMap { signature -> String? in
+            guard transitions(for: signature, in: ast).first != nil else { return nil }
+            let builder = transitionBuilderName(for: signature)
+            return "        self.\(builder) = \(builder)"
+        }.joined(separator: "\n")
+        let assignmentBlock = ([
+            "        self.initialContext = initialContext"
+        ] + (assignments.isEmpty ? [] : [assignments])).joined(separator: "\n")
+
+        let observerArgs = signatures.compactMap { signature -> String? in
+            guard transitions(for: signature, in: ast).first != nil else { return nil }
+            return "\(transitionPropertyName(for: signature)): runtime.\(transitionBuilderName(for: signature))"
+        }.joined(separator: ",\n                ")
+
+        let initialState = ast.states.first(where: { $0.kind == .initial }).map(\.name) ?? "Initial"
+        let initialStateType = stateTypeName(for: initialState, names: names)
+
+        return """
+        // MARK: - \(names.machineTypeName) Runtime Builder
+
+        /// Runtime transition hooks used to construct a machine observer without editing generated code.
+        struct \(names.machineTypeName)ClientRuntime {
+            typealias InitialContextBuilder = \(initialContextTypeAlias)
+        \(closureAliases)
+            let initialContext: InitialContextBuilder
+        \(properties)
+
+            init(
+                \(initParamList)
+            ) {
+        \(assignmentBlock)
+            }
+        }
+
+        extension \(names.clientTypeName) {
+            /// Builds a client factory from explicit runtime transition hooks.
+            static func fromRuntime(_ runtime: \(names.machineTypeName)ClientRuntime) -> Self {
+                Self(
+                    \(factoryName): { \(factoryClosureSignature)
+                        let context = runtime.initialContext(\(factoryInitArgs))
+                        return \(names.observerTypeName)<\(initialStateType)>(
+                            internalContext: context\((observerArgs.isEmpty ? "" : ",\n                \(observerArgs)"))
+                        )
+                    }
+                )
             }
         }
         """
@@ -100,21 +296,22 @@ public struct UrkelEmitter {
         }
 
         return orderedStates.compactMap { fromState in
-            guard let transitions = grouped[fromState] else { return nil }
-            let methods = transitions.map { transition in
+            guard let stateTransitions = grouped[fromState] else { return nil }
+            let methods = stateTransitions.map { transition in
                 let params = transition.parameters
                 let destinationType = stateTypeName(for: transition.to, names: names)
                 let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
                 let callArgs = params.map { $0.name }.joined(separator: ", ")
-                let observerPassThrough = ast.transitions.reduce(into: [String]()) { partial, next in
-                    if !partial.contains(next.event) {
-                        partial.append(next.event)
-                    }
-                }.map { event in "                _\(event): self._\(event)" }.joined(separator: ",\n")
+                let observerPassThrough = orderedTransitionSignatures(in: ast).compactMap { signature -> String? in
+                    guard self.transitions(for: signature, in: ast).first != nil else { return nil }
+                    let closureName = transitionPropertyName(for: signature)
+                    return "                \(closureName): self.\(closureName)"
+                }.joined(separator: ",\n")
 
                 return """
+                    /// Handles the `\(transition.event)` transition from \(fromState) to \(transition.to).
                     public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.observerTypeName)<\(destinationType)> {
-                        let nextContext = try await self._\(transition.event)(self.internalContext\(callArgs.isEmpty ? "" : ", \(callArgs)"))
+                        let nextContext = try await self.\(transitionPropertyName(for: transition))(self.internalContext\(callArgs.isEmpty ? "" : ", \(callArgs)"))
                         return \(names.observerTypeName)<\(destinationType)>(
                             internalContext: nextContext\(observerPassThrough.isEmpty ? "" : ",\n\(observerPassThrough)")
                         )
@@ -124,6 +321,8 @@ public struct UrkelEmitter {
 
             let fromStateType = stateTypeName(for: fromState, names: names)
             return """
+            // MARK: - \(names.machineTypeName).\(fromState) Transitions
+
             extension \(names.observerTypeName) where State == \(fromStateType) {
             \(methods)
             }
@@ -194,7 +393,7 @@ public struct UrkelEmitter {
             guard let transitions = transitionsBySignature[signature], let exemplar = transitions.first else { return nil }
             let params = exemplar.parameters
             let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
-            let callArgs = params.map(\.name).joined(separator: ", ")
+            let callArgs = params.map { "\($0.name): \($0.name)" }.joined(separator: ", ")
 
             let transitionByFrom = Dictionary(uniqueKeysWithValues: transitions.map { ($0.from, $0) })
             let switchCases = ast.states.map { state in
@@ -214,6 +413,7 @@ public struct UrkelEmitter {
             }.joined(separator: "\n")
 
             return """
+                /// Attempts the `\(signature.event)` transition from the current wrapper state.
                 public consuming func \(signature.event)(\(signatureParams)) async throws -> Self {
                     switch consume self {
             \(switchCases)
@@ -223,6 +423,9 @@ public struct UrkelEmitter {
         }.joined(separator: "\n\n")
 
         return """
+        // MARK: - \(names.machineTypeName) Combined State
+
+        /// A runtime-friendly wrapper over all observer states.
         public enum \(names.stateWrapperTypeName): ~Copyable {
         \(cases)
         \(initialInit)
@@ -252,6 +455,9 @@ public struct UrkelEmitter {
         }()
 
         return """
+        // MARK: - \(names.machineTypeName) Client
+
+        /// Dependency client entry point for constructing \(names.machineTypeName) observers.
         public struct \(names.clientTypeName): Sendable {
             public var \(factoryName): \(propertyFunctionType)
 
@@ -275,6 +481,7 @@ public struct UrkelEmitter {
         }
 
         extension DependencyValues {
+            /// Accessor for the generated \(names.clientTypeName) dependency.
             public var \(names.dependencyKeyName): \(names.clientTypeName) {
                 get { self[\(names.clientTypeName).self] }
                 set { self[\(names.clientTypeName).self] = newValue }
@@ -305,6 +512,60 @@ public struct UrkelEmitter {
 
     private func stateTypeName(for stateName: String, names: Names) -> String {
         "\(names.machineNamespaceTypeName).\(stateName)"
+    }
+
+    private func transitionPropertyName(for transition: MachineAST.TransitionNode) -> String {
+        transitionPropertyName(for: transitionSignature(for: transition))
+    }
+
+    private func transitionSignature(for transition: MachineAST.TransitionNode) -> TransitionSignature {
+        .init(
+            event: transition.event,
+            parameters: transition.parameters.map { .init(name: $0.name, type: $0.type) }
+        )
+    }
+
+    private func orderedTransitionSignatures(in ast: MachineAST) -> [TransitionSignature] {
+        ast.transitions.reduce(into: [TransitionSignature]()) { partial, transition in
+            let signature = transitionSignature(for: transition)
+            if !partial.contains(signature) {
+                partial.append(signature)
+            }
+        }
+    }
+
+    private func transitions(for signature: TransitionSignature, in ast: MachineAST) -> [MachineAST.TransitionNode] {
+        ast.transitions.filter { transitionSignature(for: $0) == signature }
+    }
+
+    private func transitionPropertyName(for signature: TransitionSignature) -> String {
+        let suffix = signature.parameters
+            .map { parameter -> String in
+                [
+                    normalizedTypeName(parameter.name),
+                    normalizedTypeName(parameter.type)
+                ]
+                .joined()
+            }
+            .joined()
+
+        return "_\(lowerCamelName(from: signature.event))\(suffix)"
+    }
+
+    private func transitionAliasName(for signature: TransitionSignature) -> String {
+        "\(normalizedTypeName(signature.event))\(transitionParameterSuffix(for: signature))Transition"
+    }
+
+    private func transitionBuilderName(for signature: TransitionSignature) -> String {
+        lowerCamelName(from: "\(signature.event)\(transitionParameterSuffix(for: signature))Transition")
+    }
+
+    private func transitionParameterSuffix(for signature: TransitionSignature) -> String {
+        signature.parameters
+            .map { parameter in
+                normalizedTypeName(parameter.name) + normalizedTypeName(parameter.type)
+            }
+            .joined()
     }
 
     private func normalizedTypeName(_ raw: String) -> String {

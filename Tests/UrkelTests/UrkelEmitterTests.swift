@@ -12,7 +12,10 @@ struct UrkelEmitterTests {
         #expect(output.contains("import Foundation"))
         #expect(output.contains("public enum FolderWatchMachine {"))
         #expect(output.contains("public enum Idle {}"))
+        #expect(output.contains("struct FolderWatchRuntimeContext: Sendable"))
         #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable"))
+        #expect(output.contains("actor FolderWatchRuntimeStream<Element: Sendable>"))
+        #expect(output.contains("struct FolderWatchClientRuntime"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
         #expect(output.contains("extension DependencyValues"))
     }
@@ -43,13 +46,41 @@ struct UrkelEmitterTests {
         #expect(output.contains("public consuming func found(device: Peripheral) async throws -> BluetoothObserver<BluetoothMachine.Idle>"))
     }
 
+    @Test("Emitter keeps distinct transition closures for same event with different payloads")
+    func distinctClosureNamesForEventOverloads() {
+        let ast = MachineAST(
+            imports: ["Foundation", "Dependencies"],
+            machineName: "Overloaded",
+            contextType: "String",
+            factory: .init(name: "makeObserver", parameters: []),
+            states: [
+                .init(name: "Idle", kind: .initial),
+                .init(name: "Running", kind: .normal),
+                .init(name: "Errored", kind: .terminal),
+            ],
+            transitions: [
+                .init(from: "Idle", event: "connect", parameters: [], to: "Running"),
+                .init(from: "Running", event: "connect", parameters: [.init(name: "error", type: "Error")], to: "Errored"),
+            ]
+        )
+
+        let output = UrkelEmitter().emit(ast: ast)
+        #expect(output.contains("private let _connect: @Sendable (String) async throws -> String"))
+        #expect(output.contains("private let _connectErrorError: @Sendable (String, Error) async throws -> String"))
+        #expect(output.contains("let connectTransition: ConnectTransition"))
+        #expect(output.contains("let connectErrorErrorTransition: ConnectErrorErrorTransition"))
+        #expect(output.contains("let context = runtime.initialContext()"))
+    }
+
     @Test("Emitter includes runtime scaffolding wrapper and unwrapping")
     func emitsRuntimeScaffolding() {
         let output = UrkelEmitter().emit(ast: makeFolderWatchAST())
 
+        #expect(output.contains("// MARK: - FolderWatch Combined State"))
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
         #expect(output.contains("case idle(FolderWatchObserver<FolderWatchMachine.Idle>)"))
         #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Running>) throws -> R) rethrows -> R?"))
+        #expect(output.contains("/// Attempts the `start` transition from the current wrapper state."))
         #expect(output.contains("public consuming func start() async throws -> Self"))
         #expect(output.contains("public consuming func stop() async throws -> Self"))
     }
@@ -58,6 +89,7 @@ struct UrkelEmitterTests {
     func emitsDependencyDefaults() {
         let output = UrkelEmitter().emit(ast: makeFolderWatchAST())
 
+        #expect(output.contains("// MARK: - FolderWatch Client"))
         #expect(output.contains("public static let testValue = Self("))
         #expect(output.contains("public static let previewValue = Self("))
         #expect(output.contains("public static let liveValue = Self("))
@@ -119,6 +151,7 @@ struct UrkelEmitterTests {
         let output = UrkelEmitter().emit(ast: ast)
         #expect(output.contains("public enum NoContextMachine {"))
         #expect(output.contains("public struct RuntimeContext: Sendable {"))
+        #expect(output.contains("struct NoContextRuntimeContext: Sendable"))
         #expect(output.contains("private var internalContext: NoContextMachine.RuntimeContext"))
     }
 

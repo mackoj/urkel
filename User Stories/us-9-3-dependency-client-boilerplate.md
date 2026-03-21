@@ -27,3 +27,6 @@ FolderWatch’s client layer follows a pattern that is likely to repeat in many 
 ## 5. Testing Strategy
 * Add a generated-client compile test with `Dependencies`.
 * Add a test that verifies the dependency value can be overridden in a test environment.
+
+## 6. Follow-up Scope Extension
+The dependency surface should optionally expose generated test convenience builders (for mock/noop/failing patterns) behind extension points so teams can standardize testing ergonomics without inflating the mandatory public API.

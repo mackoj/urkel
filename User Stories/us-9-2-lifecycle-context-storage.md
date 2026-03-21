@@ -27,3 +27,6 @@ FolderWatch uses a context type to move data between idle, running, and stopped 
 ## 5. Testing Strategy
 * Add a snapshot test for the generated context wrapper.
 * Add a multi-machine compile test that proves the helpers remain namespaced.
+
+## 6. Follow-up Scope Extension
+The generated code should include a machine-scoped runtime context adapter that sidecar files can use to map domain-specific lifecycle data (idle/running/stopped payloads) without rebuilding the same wrapper boilerplate per machine.

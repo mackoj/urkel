@@ -27,3 +27,6 @@ The FolderWatch package makes it clear that Urkel should generate the state-mach
 ## 5. Testing Strategy
 * Add docs or examples that show a custom domain integration next to the generated scaffold.
 * Add a regression test that proves the core generator does not require a domain-specific implementation.
+
+## 6. Follow-up Scope Extension
+Validate the boundary with a second concrete package (BluetoothBlender) generated from Urkel output and sidecars, documenting what becomes generic and what remains intentionally domain-owned.

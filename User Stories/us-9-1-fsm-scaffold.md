@@ -28,3 +28,6 @@ FolderWatch shows that a lot of FSM code is not domain logic at all. The repeate
 ## 5. Testing Strategy
 * Add emitter tests for a small machine with one start transition and one stop transition.
 * Add a compile test that confirms invalid transitions fail to build.
+
+## 6. Follow-up Scope Extension
+To reduce implementation burden for packages like BluetoothBlender, the scaffold should also emit ergonomic structure markers (`// MARK:` sections) and concise public API docs so generated code stays human-readable without manual cleanup.

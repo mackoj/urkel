@@ -27,3 +27,6 @@ FolderWatch uses an async throwing stream to surface file events. That pattern i
 ## 5. Testing Strategy
 * Add unit tests for event ordering, cancellation, and finish behavior.
 * Add a debounced event test to ensure the helper remains deterministic.
+
+## 6. Follow-up Scope Extension
+Add a generated runtime builder pattern that wires state transitions to stream lifecycle primitives, so real clients (for example BluetoothBlender) only implement domain callbacks instead of recreating generic start/stop/emit boilerplate.
