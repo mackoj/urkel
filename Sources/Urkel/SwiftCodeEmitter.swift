@@ -229,7 +229,7 @@ public struct SwiftCodeEmitter {
         let factoryClosureParameters = factoryParameters
             .map(\.name)
             .joined(separator: ", ")
-        let factoryClosureSignature: String = factoryClosureParameters.isEmpty ? "in" : "\(factoryClosureParameters) in"
+        let factoryClosureSignature: String = factoryClosureParameters.isEmpty ? "" : "\(factoryClosureParameters) in"
 
         let initParams = signatures.compactMap { signature -> String? in
             guard transitions(for: signature, in: ast).first != nil else { return nil }
@@ -276,7 +276,7 @@ public struct SwiftCodeEmitter {
             /// Builds a client factory from explicit runtime transition hooks.
             static func fromRuntime(_ runtime: \(names.machineTypeName)ClientRuntime) -> Self {
                 Self(
-                    \(factoryName): { \(factoryClosureSignature)
+                    \(factoryName): {\(factoryClosureSignature.isEmpty ? "" : " \(factoryClosureSignature)")
                         let context = runtime.initialContext(\(factoryInitArgs))
                         return \(names.observerTypeName)<\(initialStateType)>(
                             internalContext: context\((observerArgs.isEmpty ? "" : ",\n                \(observerArgs)"))

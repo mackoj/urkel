@@ -1,0 +1,18 @@
+@imports
+  import Foundation
+  import Dependencies
+
+machine UrkelBird<UrkelBirdContext>
+@factory makeGame()
+
+@states
+  init Ready
+  state Playing
+  final Crashed
+
+@transitions
+  Ready   -> flap                    -> Playing
+  Playing -> flap                    -> Playing
+  Playing -> tick(deltaY: Int)       -> Playing
+  Playing -> scorePipe               -> Playing
+  Playing -> collide(reason: String) -> Crashed

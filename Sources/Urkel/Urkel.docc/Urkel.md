@@ -18,6 +18,7 @@ This documentation catalog covers the language, the generated runtime API, templ
 - <doc:Codebase-Architecture>
 - <doc:Build-Tool-Plugin-Configuration>
 - <doc:Generated-File-Integration>
+- <doc:Grammar-and-User-Stories>
 
 ### Editor Setup
 

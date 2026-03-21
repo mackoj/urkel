@@ -201,7 +201,7 @@ struct InlineSnapshotTests {
                 /// Builds a client factory from explicit runtime transition hooks.
                 static func fromRuntime(_ runtime: FolderWatchClientRuntime) -> Self {
                     Self(
-                        makeObserver: { directory: URL, debounceMs: Int in
+                        makeObserver: { directory, debounceMs in
                             let context = runtime.initialContext(directory, debounceMs)
                             return FolderWatchObserver<FolderWatchMachine.Idle>(
                                 internalContext: context,

@@ -61,3 +61,12 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [US-9.3 dependency client boilerplate](us-9-3-dependency-client-boilerplate.md)
 - [US-9.4 runtime stream helpers](us-9-4-runtime-stream-helpers.md)
 - [US-9.5 domain boundaries](us-9-5-domain-boundaries.md)
+
+## Epic 10 — Reliability, Expressiveness, and Tooling Quality
+
+- [US-10.1 zero-arg factory closure emission](us-10-1-factory-zero-arg-closure-emission.md)
+- [US-10.2 full Swift context types in machine declaration](us-10-2-parser-full-swift-context-types.md)
+- [US-10.3 richer semantic validation rules](us-10-3-validator-richer-semantic-rules.md)
+- [US-10.4 CLI/plugin/watch configuration parity](us-10-4-plugin-watch-config-parity.md)
+- [US-10.5 template model expansion and Kotlin parity](us-10-5-template-model-and-kotlin-parity.md)
+- [US-10.6 LSP performance and partial-AST resilience](us-10-6-lsp-performance-and-partial-ast.md)

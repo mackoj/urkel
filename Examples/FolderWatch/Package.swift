@@ -27,7 +27,7 @@ let package = Package(
       url: "https://github.com/Frizlab/FSEventsWrapper.git",
       from: "2.1.0"
     ),
-    .package(path: "../urkel"),
+    .package(path: "../../"),
   ],
     targets: [
     .target(

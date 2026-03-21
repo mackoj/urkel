@@ -22,6 +22,28 @@ swift package plugin --allow-writing-to-package-directory urkel-generate
 
 The command plugin has write permission for the package directory, so it can update the checked-in generated file directly.
 
+## Generated vs sidecar responsibilities
+
+This example intentionally separates generated and domain-owned code.
+
+Urkel-generated code (`Sources/FolderWatch/FolderWatchClient+Generated/FolderWatchClient+Generated.swift`) provides:
+
+- typestate markers and typed observer transitions
+- combined state wrapper (`FolderWatchState`)
+- dependency client and `DependencyValues` accessor
+- runtime builder primitives (`FolderWatchClientRuntime` + `.fromRuntime`)
+- generic runtime stream helper (`FolderWatchRuntimeStream`)
+
+Sidecar code (the rest of `Sources/FolderWatch/`) provides:
+
+- domain models (`DirectoryEvent`, `FileInfo`, `DirectoryObserverError`)
+- platform integration (`FSEventsWrapper`) and event mapping
+- runtime assembly (`FolderWatchClient+Runtime.swift`)
+- convenience clients (`.live`, `.noop`, `.mock`, `.failing`)
+- ergonomic extensions (`FolderWatchObserver.swift`, `FolderWatchState.swift`)
+
+This is the recommended usage pattern for Urkel consumers: keep generated code generic and stable, keep platform/business logic in sidecar files you own.
+
 ## Quick Start
 
 ```swift
@@ -88,9 +110,9 @@ targets: [
   .target(
     name: "YourTarget",
     dependencies: [
-      .product(name: "FolderWatch", package: "token-processor"),
-    ]
-  )
+        .product(name: "FolderWatch", package: "FolderWatch"),
+      ]
+    )
 ]
 ```
 

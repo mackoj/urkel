@@ -183,3 +183,21 @@ Kotlin currently uses the template emitter with the bundled `kotlin.mustache` te
 For deeper internals (CLI/plugins/watch/LSP, module map, and diagrams), see:
 
 * `Sources/Urkel/Urkel.docc/Codebase-Architecture.md`
+
+### 5. User Stories and Roadmap
+
+Urkel implementation decisions and roadmap are tracked as user stories in:
+
+* `User Stories/README.md`
+
+Stories are grouped by epic and include objective, acceptance criteria, implementation notes, and test strategy.
+
+### 6. Grammar Reference
+
+The formal language grammar is versioned at repository root:
+
+* `grammar.ebnf`
+
+For narrative documentation of the same grammar and language rules, see:
+
+* `Sources/Urkel/Urkel.docc/Language-Spec.md`
