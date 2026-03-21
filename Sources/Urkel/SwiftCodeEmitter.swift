@@ -226,10 +226,10 @@ public struct SwiftCodeEmitter {
         }.joined(separator: "\n")
 
         let factoryInitArgs = factoryParameters.map(\.name).joined(separator: ", ")
-        let factorySignatureParameters = factoryParameters
-            .map { "\($0.name): \($0.type)" }
+        let factoryClosureParameters = factoryParameters
+            .map(\.name)
             .joined(separator: ", ")
-        let factoryClosureSignature: String = factorySignatureParameters.isEmpty ? "" : "\(factorySignatureParameters) in"
+        let factoryClosureSignature: String = factoryClosureParameters.isEmpty ? "in" : "\(factoryClosureParameters) in"
 
         let initParams = signatures.compactMap { signature -> String? in
             guard transitions(for: signature, in: ast).first != nil else { return nil }
