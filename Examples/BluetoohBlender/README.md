@@ -14,8 +14,8 @@ The goal is to keep generated code stable and generic, while keeping platform/do
 
 Urkel-generated code provides:
 
-- machine state markers (`Disconnected`, `Scanning`, `Connecting`, `Connected`, `Error`)
-- typed transitions (`startScan`, `deviceFound`, `timeout`, `connectSuccess`, `connectFail`, `disconnect`)
+- machine state markers (`Disconnected`, `Scanning`, `Connecting`, `ConnectedWithBowl`, `ConnectedWithoutBowl`, `Blend`, `Error`)
+- typed transitions (`startScan`, `deviceFound`, `timeout`, `connectSuccess`, `connectFail`, `removeBowl`, `addBowl`, `blending`, `finished`, `disconnect`)
 - dependency client and `DependencyValues` integration
 - runtime builder (`BluetoohBlenderClientRuntime` + `BluetoohBlenderClient.fromRuntime`)
 
@@ -59,9 +59,32 @@ let client = BluetoohBlenderClient.runtime(
     timeout: { /* cancel scan */ },
     connectSuccess: { /* update connection state */ },
     connectFail: { error in /* map/log error */ },
+    removeBowl: { /* bowl removed while idle in connected mode */ },
+    addBowl: { /* bowl added back */ },
+    blending: { /* start motor */ },
+    finished: { /* stop motor after blend cycle */ },
     disconnect: { /* clean up */ }
   )
 )
 ```
 
 That keeps platform behavior local while preserving type-safe state transitions from generated code.
+
+## Bowl presence + blend flow example
+
+```swift
+let blender = BluetoohBlenderClient.noop.makeBlender()
+let state = BluetoohBlenderState(blender)
+
+let scanning = try await state.startScan()
+// In real code this peripheral comes from CBCentralManagerDelegate.
+let connecting = try await scanning.deviceFound(device: discoveredPeripheral)
+let connectedWithBowl = try await connecting.connectSuccess()
+let connectedWithoutBowl = try await connectedWithBowl.removeBowl()
+let stillNoBlend = try await BluetoohBlenderState.connectedWithoutBowl(connectedWithoutBowl).blending() // no transition
+let connectedAgain = try await connectedWithoutBowl.addBowl()
+let blending = try await connectedAgain.blending()
+let connectedAfterBlend = try await blending.finished()
+```
+
+`removeBowl` is intentionally only available in `ConnectedWithBowl`, and `blending` is only available when the bowl is present.

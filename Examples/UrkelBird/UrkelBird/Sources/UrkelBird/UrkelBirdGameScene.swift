@@ -204,8 +204,8 @@ private actor UrkelBirdSceneRuntime {
     }
 
     private static func makeInitialState() -> UrkelBirdState {
-        let observer = UrkelBirdClient.simpleGame.makeGame()
-        return UrkelBirdState(observer)
+        let gameLogic = UrkelBirdClient.simpleGame.makeGame()
+        return UrkelBirdState(gameLogic)
     }
 }
 

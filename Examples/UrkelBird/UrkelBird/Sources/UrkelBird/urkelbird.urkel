@@ -1,7 +1,3 @@
-@imports
-  import Foundation
-  import Dependencies
-
 machine UrkelBird<UrkelBirdContext>
 @factory makeGame()
 

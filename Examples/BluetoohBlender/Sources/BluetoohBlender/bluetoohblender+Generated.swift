@@ -8,7 +8,9 @@ public enum BluetoohBlenderMachine {
     public enum Disconnected {}
     public enum Scanning {}
     public enum Connecting {}
-    public enum Connected {}
+    public enum ConnectedWithBowl {}
+    public enum ConnectedWithoutBowl {}
+    public enum Blend {}
     public enum Error {}
     public struct RuntimeContext: Sendable {
         public init() {}
@@ -23,7 +25,9 @@ struct BluetoohBlenderRuntimeContext: Sendable {
         case disconnected(BluetoohBlenderMachine.RuntimeContext)
         case scanning(BluetoohBlenderMachine.RuntimeContext)
         case connecting(BluetoohBlenderMachine.RuntimeContext)
-        case connected(BluetoohBlenderMachine.RuntimeContext)
+        case connectedWithBowl(BluetoohBlenderMachine.RuntimeContext)
+        case connectedWithoutBowl(BluetoohBlenderMachine.RuntimeContext)
+        case blend(BluetoohBlenderMachine.RuntimeContext)
         case error(BluetoohBlenderMachine.RuntimeContext)
     }
 
@@ -45,8 +49,16 @@ static func connecting(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
     .init(storage: .connecting(value))
 }
 
-static func connected(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .connected(value))
+static func connectedWithBowl(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
+    .init(storage: .connectedWithBowl(value))
+}
+
+static func connectedWithoutBowl(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
+    .init(storage: .connectedWithoutBowl(value))
+}
+
+static func blend(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
+    .init(storage: .blend(value))
 }
 
 static func error(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
@@ -65,6 +77,10 @@ public struct BluetoohBlenderObserver<State>: ~Copyable {
     private let _timeout: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     private let _connectSuccess: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     private let _connectFailErrorError: @Sendable (BluetoohBlenderMachine.RuntimeContext, Error) async throws -> BluetoohBlenderMachine.RuntimeContext
+    private let _blending: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    private let _finished: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    private let _removeBowl: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    private let _addBowl: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     private let _disconnect: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
 
     public init(
@@ -74,6 +90,10 @@ public struct BluetoohBlenderObserver<State>: ~Copyable {
         _timeout: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
         _connectSuccess: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
         _connectFailErrorError: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext, Error) async throws -> BluetoohBlenderMachine.RuntimeContext,
+        _blending: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
+        _finished: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
+        _removeBowl: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
+        _addBowl: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
         _disconnect: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     ) {
         self.internalContext = internalContext
@@ -83,6 +103,10 @@ public struct BluetoohBlenderObserver<State>: ~Copyable {
         self._timeout = _timeout
         self._connectSuccess = _connectSuccess
         self._connectFailErrorError = _connectFailErrorError
+        self._blending = _blending
+        self._finished = _finished
+        self._removeBowl = _removeBowl
+        self._addBowl = _addBowl
         self._disconnect = _disconnect
     }
 
@@ -154,6 +178,10 @@ struct BluetoohBlenderClientRuntime {
     typealias TimeoutTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     typealias ConnectSuccessTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     typealias ConnectFailErrorErrorTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext, Error) async throws -> BluetoohBlenderMachine.RuntimeContext
+    typealias BlendingTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    typealias FinishedTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    typealias RemoveBowlTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
+    typealias AddBowlTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     typealias DisconnectTransition = @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     let initialContext: InitialContextBuilder
     let startScanTransition: StartScanTransition
@@ -161,6 +189,10 @@ struct BluetoohBlenderClientRuntime {
     let timeoutTransition: TimeoutTransition
     let connectSuccessTransition: ConnectSuccessTransition
     let connectFailErrorErrorTransition: ConnectFailErrorErrorTransition
+    let blendingTransition: BlendingTransition
+    let finishedTransition: FinishedTransition
+    let removeBowlTransition: RemoveBowlTransition
+    let addBowlTransition: AddBowlTransition
     let disconnectTransition: DisconnectTransition
 
     init(
@@ -170,6 +202,10 @@ struct BluetoohBlenderClientRuntime {
         timeoutTransition: @escaping TimeoutTransition,
         connectSuccessTransition: @escaping ConnectSuccessTransition,
         connectFailErrorErrorTransition: @escaping ConnectFailErrorErrorTransition,
+        blendingTransition: @escaping BlendingTransition,
+        finishedTransition: @escaping FinishedTransition,
+        removeBowlTransition: @escaping RemoveBowlTransition,
+        addBowlTransition: @escaping AddBowlTransition,
         disconnectTransition: @escaping DisconnectTransition
     ) {
         self.initialContext = initialContext
@@ -178,6 +214,10 @@ struct BluetoohBlenderClientRuntime {
         self.timeoutTransition = timeoutTransition
         self.connectSuccessTransition = connectSuccessTransition
         self.connectFailErrorErrorTransition = connectFailErrorErrorTransition
+        self.blendingTransition = blendingTransition
+        self.finishedTransition = finishedTransition
+        self.removeBowlTransition = removeBowlTransition
+        self.addBowlTransition = addBowlTransition
         self.disconnectTransition = disconnectTransition
     }
 }
@@ -186,7 +226,7 @@ extension BluetoohBlenderClient {
     /// Builds a client factory from explicit runtime transition hooks.
     static func fromRuntime(_ runtime: BluetoohBlenderClientRuntime) -> Self {
         Self(
-            makeBlender: { 
+            makeBlender: {
                 let context = runtime.initialContext()
                 return BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected>(
                     internalContext: context,
@@ -195,6 +235,10 @@ extension BluetoohBlenderClient {
                 _timeout: runtime.timeoutTransition,
                 _connectSuccess: runtime.connectSuccessTransition,
                 _connectFailErrorError: runtime.connectFailErrorErrorTransition,
+                _blending: runtime.blendingTransition,
+                _finished: runtime.finishedTransition,
+                _removeBowl: runtime.removeBowlTransition,
+                _addBowl: runtime.addBowlTransition,
                 _disconnect: runtime.disconnectTransition
                 )
             }
@@ -215,6 +259,10 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Disconne
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
@@ -233,6 +281,10 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Scanning
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
@@ -247,6 +299,10 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Scanning
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
@@ -255,16 +311,20 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Scanning
 // MARK: - BluetoohBlender.Connecting Transitions
 
 extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Connecting {
-    /// Handles the `connectSuccess` transition from Connecting to Connected.
-    public consuming func connectSuccess() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.Connected> {
+    /// Handles the `connectSuccess` transition from Connecting to ConnectedWithBowl.
+    public consuming func connectSuccess() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl> {
         let nextContext = try await self._connectSuccess(self.internalContext)
-        return BluetoohBlenderObserver<BluetoohBlenderMachine.Connected>(
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl>(
             internalContext: nextContext,
                 _startScan: self._startScan,
                 _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
@@ -279,15 +339,55 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Connecti
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
 }
 
-// MARK: - BluetoohBlender.Connected Transitions
+// MARK: - BluetoohBlender.ConnectedWithBowl Transitions
 
-extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Connected {
-    /// Handles the `disconnect` transition from Connected to Disconnected.
+extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.ConnectedWithBowl {
+    /// Handles the `blending` transition from ConnectedWithBowl to Blend.
+    public consuming func blending() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.Blend> {
+        let nextContext = try await self._blending(self.internalContext)
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.Blend>(
+            internalContext: nextContext,
+                _startScan: self._startScan,
+                _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
+                _timeout: self._timeout,
+                _connectSuccess: self._connectSuccess,
+                _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
+                _disconnect: self._disconnect
+        )
+    }
+
+    /// Handles the `removeBowl` transition from ConnectedWithBowl to ConnectedWithoutBowl.
+    public consuming func removeBowl() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithoutBowl> {
+        let nextContext = try await self._removeBowl(self.internalContext)
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithoutBowl>(
+            internalContext: nextContext,
+                _startScan: self._startScan,
+                _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
+                _timeout: self._timeout,
+                _connectSuccess: self._connectSuccess,
+                _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
+                _disconnect: self._disconnect
+        )
+    }
+
+    /// Handles the `disconnect` transition from ConnectedWithBowl to Disconnected.
     public consuming func disconnect() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected> {
         let nextContext = try await self._disconnect(self.internalContext)
         return BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected>(
@@ -297,6 +397,72 @@ extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Connecte
                 _timeout: self._timeout,
                 _connectSuccess: self._connectSuccess,
                 _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
+                _disconnect: self._disconnect
+        )
+    }
+}
+
+// MARK: - BluetoohBlender.Blend Transitions
+
+extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.Blend {
+    /// Handles the `finished` transition from Blend to ConnectedWithBowl.
+    public consuming func finished() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl> {
+        let nextContext = try await self._finished(self.internalContext)
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl>(
+            internalContext: nextContext,
+                _startScan: self._startScan,
+                _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
+                _timeout: self._timeout,
+                _connectSuccess: self._connectSuccess,
+                _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
+                _disconnect: self._disconnect
+        )
+    }
+}
+
+// MARK: - BluetoohBlender.ConnectedWithoutBowl Transitions
+
+extension BluetoohBlenderObserver where State == BluetoohBlenderMachine.ConnectedWithoutBowl {
+    /// Handles the `addBowl` transition from ConnectedWithoutBowl to ConnectedWithBowl.
+    public consuming func addBowl() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl> {
+        let nextContext = try await self._addBowl(self.internalContext)
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl>(
+            internalContext: nextContext,
+                _startScan: self._startScan,
+                _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
+                _timeout: self._timeout,
+                _connectSuccess: self._connectSuccess,
+                _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
+                _disconnect: self._disconnect
+        )
+    }
+
+    /// Handles the `disconnect` transition from ConnectedWithoutBowl to Disconnected.
+    public consuming func disconnect() async throws -> BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected> {
+        let nextContext = try await self._disconnect(self.internalContext)
+        return BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected>(
+            internalContext: nextContext,
+                _startScan: self._startScan,
+                _deviceFoundDeviceCBPeripheral: self._deviceFoundDeviceCBPeripheral,
+                _timeout: self._timeout,
+                _connectSuccess: self._connectSuccess,
+                _connectFailErrorError: self._connectFailErrorError,
+                _blending: self._blending,
+                _finished: self._finished,
+                _removeBowl: self._removeBowl,
+                _addBowl: self._addBowl,
                 _disconnect: self._disconnect
         )
     }
@@ -309,7 +475,9 @@ public enum BluetoohBlenderState: ~Copyable {
     case disconnected(BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected>)
     case scanning(BluetoohBlenderObserver<BluetoohBlenderMachine.Scanning>)
     case connecting(BluetoohBlenderObserver<BluetoohBlenderMachine.Connecting>)
-    case connected(BluetoohBlenderObserver<BluetoohBlenderMachine.Connected>)
+    case connectedWithBowl(BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl>)
+    case connectedWithoutBowl(BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithoutBowl>)
+    case blend(BluetoohBlenderObserver<BluetoohBlenderMachine.Blend>)
     case error(BluetoohBlenderObserver<BluetoohBlenderMachine.Error>)
 
     public init(_ observer: consuming BluetoohBlenderObserver<BluetoohBlenderMachine.Disconnected>) {
@@ -327,7 +495,11 @@ extension BluetoohBlenderState {
             return nil
         case .connecting:
             return nil
-        case .connected:
+        case .connectedWithBowl:
+            return nil
+        case .connectedWithoutBowl:
+            return nil
+        case .blend:
             return nil
         case .error:
             return nil
@@ -343,7 +515,11 @@ extension BluetoohBlenderState {
             return nil
         case .connecting:
             return nil
-        case .connected:
+        case .connectedWithBowl:
+            return nil
+        case .connectedWithoutBowl:
+            return nil
+        case .blend:
             return nil
         case .error:
             return nil
@@ -359,16 +535,20 @@ extension BluetoohBlenderState {
             return nil
         case .scanning:
             return nil
-        case .connected:
+        case .connectedWithBowl:
+            return nil
+        case .connectedWithoutBowl:
+            return nil
+        case .blend:
             return nil
         case .error:
             return nil
         }
     }
 
-    public borrowing func withConnected<R>(_ body: (borrowing BluetoohBlenderObserver<BluetoohBlenderMachine.Connected>) throws -> R) rethrows -> R? {
+    public borrowing func withConnectedWithBowl<R>(_ body: (borrowing BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl>) throws -> R) rethrows -> R? {
         switch self {
-        case let .connected(observer):
+        case let .connectedWithBowl(observer):
             return try body(observer)
 
         case .disconnected:
@@ -376,6 +556,50 @@ extension BluetoohBlenderState {
         case .scanning:
             return nil
         case .connecting:
+            return nil
+        case .connectedWithoutBowl:
+            return nil
+        case .blend:
+            return nil
+        case .error:
+            return nil
+        }
+    }
+
+    public borrowing func withConnectedWithoutBowl<R>(_ body: (borrowing BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithoutBowl>) throws -> R) rethrows -> R? {
+        switch self {
+        case let .connectedWithoutBowl(observer):
+            return try body(observer)
+
+        case .disconnected:
+            return nil
+        case .scanning:
+            return nil
+        case .connecting:
+            return nil
+        case .connectedWithBowl:
+            return nil
+        case .blend:
+            return nil
+        case .error:
+            return nil
+        }
+    }
+
+    public borrowing func withBlend<R>(_ body: (borrowing BluetoohBlenderObserver<BluetoohBlenderMachine.Blend>) throws -> R) rethrows -> R? {
+        switch self {
+        case let .blend(observer):
+            return try body(observer)
+
+        case .disconnected:
+            return nil
+        case .scanning:
+            return nil
+        case .connecting:
+            return nil
+        case .connectedWithBowl:
+            return nil
+        case .connectedWithoutBowl:
             return nil
         case .error:
             return nil
@@ -393,7 +617,11 @@ extension BluetoohBlenderState {
             return nil
         case .connecting:
             return nil
-        case .connected:
+        case .connectedWithBowl:
+            return nil
+        case .connectedWithoutBowl:
+            return nil
+        case .blend:
             return nil
         }
     }
@@ -409,8 +637,12 @@ extension BluetoohBlenderState {
         return .scanning(observer)
     case let .connecting(observer):
         return .connecting(observer)
-    case let .connected(observer):
-        return .connected(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }
@@ -426,8 +658,12 @@ extension BluetoohBlenderState {
         return .connecting(next)
     case let .connecting(observer):
         return .connecting(observer)
-    case let .connected(observer):
-        return .connected(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }
@@ -443,8 +679,12 @@ extension BluetoohBlenderState {
         return .disconnected(next)
     case let .connecting(observer):
         return .connecting(observer)
-    case let .connected(observer):
-        return .connected(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }
@@ -459,9 +699,13 @@ extension BluetoohBlenderState {
         return .scanning(observer)
     case let .connecting(observer):
         let next = try await observer.connectSuccess()
-        return .connected(next)
-    case let .connected(observer):
-        return .connected(observer)
+        return .connectedWithBowl(next)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }
@@ -477,8 +721,96 @@ extension BluetoohBlenderState {
     case let .connecting(observer):
         let next = try await observer.connectFail(error: error)
         return .error(next)
-    case let .connected(observer):
-        return .connected(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
+    case let .error(observer):
+        return .error(observer)
+        }
+    }
+
+    /// Attempts the `blending` transition from the current wrapper state.
+    public consuming func blending() async throws -> Self {
+        switch consume self {
+    case let .disconnected(observer):
+        return .disconnected(observer)
+    case let .scanning(observer):
+        return .scanning(observer)
+    case let .connecting(observer):
+        return .connecting(observer)
+    case let .connectedWithBowl(observer):
+        let next = try await observer.blending()
+        return .blend(next)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
+    case let .error(observer):
+        return .error(observer)
+        }
+    }
+
+    /// Attempts the `finished` transition from the current wrapper state.
+    public consuming func finished() async throws -> Self {
+        switch consume self {
+    case let .disconnected(observer):
+        return .disconnected(observer)
+    case let .scanning(observer):
+        return .scanning(observer)
+    case let .connecting(observer):
+        return .connecting(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        let next = try await observer.finished()
+        return .connectedWithBowl(next)
+    case let .error(observer):
+        return .error(observer)
+        }
+    }
+
+    /// Attempts the `removeBowl` transition from the current wrapper state.
+    public consuming func removeBowl() async throws -> Self {
+        switch consume self {
+    case let .disconnected(observer):
+        return .disconnected(observer)
+    case let .scanning(observer):
+        return .scanning(observer)
+    case let .connecting(observer):
+        return .connecting(observer)
+    case let .connectedWithBowl(observer):
+        let next = try await observer.removeBowl()
+        return .connectedWithoutBowl(next)
+    case let .connectedWithoutBowl(observer):
+        return .connectedWithoutBowl(observer)
+    case let .blend(observer):
+        return .blend(observer)
+    case let .error(observer):
+        return .error(observer)
+        }
+    }
+
+    /// Attempts the `addBowl` transition from the current wrapper state.
+    public consuming func addBowl() async throws -> Self {
+        switch consume self {
+    case let .disconnected(observer):
+        return .disconnected(observer)
+    case let .scanning(observer):
+        return .scanning(observer)
+    case let .connecting(observer):
+        return .connecting(observer)
+    case let .connectedWithBowl(observer):
+        return .connectedWithBowl(observer)
+    case let .connectedWithoutBowl(observer):
+        let next = try await observer.addBowl()
+        return .connectedWithBowl(next)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }
@@ -493,9 +825,14 @@ extension BluetoohBlenderState {
         return .scanning(observer)
     case let .connecting(observer):
         return .connecting(observer)
-    case let .connected(observer):
+    case let .connectedWithBowl(observer):
         let next = try await observer.disconnect()
         return .disconnected(next)
+    case let .connectedWithoutBowl(observer):
+        let next = try await observer.disconnect()
+        return .disconnected(next)
+    case let .blend(observer):
+        return .blend(observer)
     case let .error(observer):
         return .error(observer)
         }

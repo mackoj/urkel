@@ -14,6 +14,10 @@ public struct BluetoohBlenderRuntimeHandlers: Sendable {
     public var timeout: @Sendable () async throws -> Void
     public var connectSuccess: @Sendable () async throws -> Void
     public var connectFail: @Sendable (Error) async throws -> Void
+    public var blending: @Sendable () async throws -> Void
+    public var finished: @Sendable () async throws -> Void
+    public var removeBowl: @Sendable () async throws -> Void
+    public var addBowl: @Sendable () async throws -> Void
     public var disconnect: @Sendable () async throws -> Void
 
     public init(
@@ -22,6 +26,10 @@ public struct BluetoohBlenderRuntimeHandlers: Sendable {
         timeout: @escaping @Sendable () async throws -> Void,
         connectSuccess: @escaping @Sendable () async throws -> Void,
         connectFail: @escaping @Sendable (Error) async throws -> Void,
+        blending: @escaping @Sendable () async throws -> Void,
+        finished: @escaping @Sendable () async throws -> Void,
+        removeBowl: @escaping @Sendable () async throws -> Void,
+        addBowl: @escaping @Sendable () async throws -> Void,
         disconnect: @escaping @Sendable () async throws -> Void
     ) {
         self.startScan = startScan
@@ -29,6 +37,10 @@ public struct BluetoohBlenderRuntimeHandlers: Sendable {
         self.timeout = timeout
         self.connectSuccess = connectSuccess
         self.connectFail = connectFail
+        self.blending = blending
+        self.finished = finished
+        self.removeBowl = removeBowl
+        self.addBowl = addBowl
         self.disconnect = disconnect
     }
 }
@@ -41,6 +53,10 @@ extension BluetoohBlenderRuntimeHandlers {
         timeout: {},
         connectSuccess: {},
         connectFail: { _ in },
+        blending: {},
+        finished: {},
+        removeBowl: {},
+        addBowl: {},
         disconnect: {}
     )
 }
@@ -79,6 +95,22 @@ extension BluetoohBlenderClient {
                 },
                 connectFailErrorErrorTransition: { context, error in
                     try await handlers.connectFail(error)
+                    return context
+                },
+                blendingTransition: { context in
+                    try await handlers.blending()
+                    return context
+                },
+                finishedTransition: { context in
+                    try await handlers.finished()
+                    return context
+                },
+                removeBowlTransition: { context in
+                    try await handlers.removeBowl()
+                    return context
+                },
+                addBowlTransition: { context in
+                    try await handlers.addBowl()
                     return context
                 },
                 disconnectTransition: { context in

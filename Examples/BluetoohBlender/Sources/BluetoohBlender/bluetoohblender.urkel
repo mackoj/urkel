@@ -1,0 +1,29 @@
+@imports
+  import CoreBluetooth
+  import Dependencies
+
+machine BluetoohBlender
+@factory makeBlender()
+
+@states
+  init Disconnected
+  state Scanning
+  state Connecting
+  state ConnectedWithBowl
+  state ConnectedWithoutBowl
+  state Blend
+  final Error
+
+@transitions
+  # [Current]   -> [Trigger(Payload)]                -> [Next]
+  Disconnected -> startScan                         -> Scanning
+  Scanning     -> deviceFound(device: CBPeripheral) -> Connecting
+  Scanning     -> timeout                           -> Disconnected
+  Connecting   -> connectSuccess                    -> ConnectedWithBowl
+  Connecting   -> connectFail(error: Error)         -> Error
+  ConnectedWithBowl -> blending                     -> Blend
+  Blend        -> finished                          -> ConnectedWithBowl
+  ConnectedWithBowl -> removeBowl                   -> ConnectedWithoutBowl
+  ConnectedWithoutBowl -> addBowl                   -> ConnectedWithBowl
+  ConnectedWithBowl -> disconnect                   -> Disconnected
+  ConnectedWithoutBowl -> disconnect                -> Disconnected

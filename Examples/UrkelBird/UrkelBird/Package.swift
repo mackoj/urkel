@@ -14,10 +14,6 @@ let package = Package(
             name: "UrkelBird",
             targets: ["UrkelBird"]
         ),
-        .executable(
-            name: "UrkelBirdDemo",
-            targets: ["UrkelBirdDemo"]
-        )
     ],
     dependencies: [
         .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0")
@@ -30,15 +26,10 @@ let package = Package(
             ],
             exclude: [
                 "urkelbird.urkel",
-                ".DS_Store"
             ],
             resources: [
                 .process("Assets.xcassets")
             ]
-        ),
-        .executableTarget(
-            name: "UrkelBirdDemo",
-            dependencies: ["UrkelBird"]
         ),
         .testTarget(
             name: "UrkelBirdTests",
