@@ -96,6 +96,9 @@ struct WatchAndPluginTests {
         while let url = enumerator?.nextObject() as? URL {
             if url.lastPathComponent == "Test.kt" {
                 foundGeneratedKotlinFile = true
+                let body = try String(contentsOf: url, encoding: .utf8)
+                #expect(body.contains("import kotlin.collections"))
+                #expect(body.contains("import kotlin.io"))
                 break
             }
         }

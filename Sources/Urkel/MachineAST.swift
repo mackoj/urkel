@@ -1,4 +1,17 @@
 public struct MachineAST: Equatable, Sendable {
+    public struct EmitterOptions: Equatable, Sendable {
+        public let swiftImports: [String]?
+        public let templateImports: [String]?
+
+        public init(
+            swiftImports: [String]? = nil,
+            templateImports: [String]? = nil
+        ) {
+            self.swiftImports = swiftImports
+            self.templateImports = templateImports
+        }
+    }
+
     public struct SourceLocation: Equatable, Sendable {
         public let line: Int
         public let column: Int
@@ -83,6 +96,7 @@ public struct MachineAST: Equatable, Sendable {
     public let factory: Factory?
     public let states: [StateNode]
     public let transitions: [TransitionNode]
+    public let emitterOptions: EmitterOptions?
     public let range: SourceRange?
 
     public init(
@@ -92,6 +106,7 @@ public struct MachineAST: Equatable, Sendable {
         factory: Factory?,
         states: [StateNode],
         transitions: [TransitionNode],
+        emitterOptions: EmitterOptions? = nil,
         range: SourceRange? = nil
     ) {
         self.imports = imports
@@ -100,6 +115,7 @@ public struct MachineAST: Equatable, Sendable {
         self.factory = factory
         self.states = states
         self.transitions = transitions
+        self.emitterOptions = emitterOptions
         self.range = range
     }
 }

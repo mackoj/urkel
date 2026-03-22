@@ -3,6 +3,11 @@ import Foundation
 public extension MachineAST {
     /// Canonical template context used by template-based emitters.
     var templateContext: [String: Any] {
+        templateContext(templateImportsOverride: nil)
+    }
+
+    /// Canonical template context with optional import overrides.
+    func templateContext(templateImportsOverride: [String]?) -> [String: Any] {
         let statePayload = states.enumerated().map { index, state in
             [
                 "name": state.name,
@@ -41,6 +46,10 @@ public extension MachineAST {
                 }
             ]
         }
+
+        let imports = templateImportsOverride
+            ?? emitterOptions?.templateImports
+            ?? self.imports
 
         return [
             "machineName": machineName,

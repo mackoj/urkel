@@ -34,6 +34,21 @@ This means Kotlin improvements generally happen in two places:
 
 Use `--template` to point at a custom template file and `--ext` to choose the output extension.
 
+You can pass template-specific imports at generation time:
+
+```bash
+urkel generate machine.urkel --output out --template custom.kt.mustache --ext kt \
+  --template-import kotlin.collections --template-import kotlin.io
+```
+
+The build plugins also support config-driven overrides via `urkel-config.json`:
+
+```json
+{
+  "templateImports": ["kotlin.collections", "kotlin.io"]
+}
+```
+
 ## Best practices
 
 Keep templates deterministic, match the shape of the exported AST carefully, and prefer simple data shaping in Swift rather than complex logic in the template.

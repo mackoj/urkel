@@ -31,6 +31,12 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .shortAndLong, help: "Use a bundled language template (currently: kotlin)")
         var lang: String?
 
+        @Option(name: .customLong("swift-import"), help: "Override Swift emitter imports (repeat option or use comma-separated values)")
+        var swiftImports: [String] = []
+
+        @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
+        var templateImports: [String] = []
+
         mutating func run() async throws {
             var isDirectory = ObjCBool(false)
             guard FileManager.default.fileExists(atPath: input, isDirectory: &isDirectory) else {
@@ -38,6 +44,10 @@ struct UrkelCLI: AsyncParsableCommand {
             }
 
             let generator = UrkelGenerator()
+            let normalizedSwiftImports = normalizedImportList(swiftImports)
+            let normalizedTemplateImports = normalizedImportList(templateImports)
+            let swiftImportsOption = normalizedSwiftImports.isEmpty ? nil : normalizedSwiftImports
+            let templateImportsOption = normalizedTemplateImports.isEmpty ? nil : normalizedTemplateImports
             if isDirectory.boolValue {
                 if outputFile != nil {
                     throw ValidationError("The output file option only works when generating a single .urkel file.")
@@ -48,7 +58,9 @@ struct UrkelCLI: AsyncParsableCommand {
                     outputPath: output,
                     templatePath: template,
                     outputExtension: ext,
-                    language: lang
+                    language: lang,
+                    swiftImports: swiftImportsOption,
+                    templateImports: templateImportsOption
                 )
                 for file in generated {
                     print("Generated: \(file.path)")
@@ -60,7 +72,9 @@ struct UrkelCLI: AsyncParsableCommand {
                     outputFilePath: outputFile,
                     templatePath: template,
                     outputExtension: ext,
-                    language: lang
+                    language: lang,
+                    swiftImports: swiftImportsOption,
+                    templateImports: templateImportsOption
                 )
                 print("Generated: \(generated.path)")
             }
@@ -85,14 +99,39 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .shortAndLong, help: "Use a bundled language template (currently: kotlin)")
         var lang: String?
 
+        @Option(name: .customLong("swift-import"), help: "Override Swift emitter imports (repeat option or use comma-separated values)")
+        var swiftImports: [String] = []
+
+        @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
+        var templateImports: [String] = []
+
         mutating func run() async throws {
             try await UrkelWatchService().run(
                 inputDirectory: input,
                 outputDirectory: output,
                 templatePath: template,
                 outputExtension: ext,
-                language: lang
+                language: lang,
+                swiftImports: normalizedImportList(swiftImports),
+                templateImports: normalizedImportList(templateImports)
             )
         }
     }
+}
+
+private func normalizedImportList(_ values: [String]) -> [String] {
+    var seen = Set<String>()
+    var result: [String] = []
+
+    for raw in values {
+        for segment in raw.split(separator: ",") {
+            let value = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty else { continue }
+            if seen.insert(value).inserted {
+                result.append(value)
+            }
+        }
+    }
+
+    return result
 }

@@ -4,10 +4,21 @@ This article describes the `.urkel` format in practical terms.
 
 ## Core sections
 
-- `@imports` declares the Swift imports needed by the generated file.
+- `@imports` declares import hints in the DSL (still supported).
 - `@factory` names the initializer/factory method for the generated client.
 - `@states` defines the typestate markers.
 - `@transitions` defines the legal state transitions.
+
+For cross-emitter generation, prefer emitter-specific configuration in `urkel-config.json`:
+
+```json
+{
+  "swiftImports": ["Foundation", "Dependencies"],
+  "templateImports": ["kotlin.collections", "kotlin.io"]
+}
+```
+
+This keeps `.urkel` source emitter-agnostic while letting each emitter control imports appropriately.
 
 ## Example
 

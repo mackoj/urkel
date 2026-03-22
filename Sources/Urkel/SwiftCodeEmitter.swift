@@ -4,10 +4,13 @@ import Foundation
 public struct SwiftCodeEmitter {
     public init() {}
 
-    public func emit(ast: MachineAST) -> String {
+    public func emit(
+        ast: MachineAST,
+        swiftImportsOverride: [String]? = nil
+    ) -> String {
         let names = Names(from: ast.machineName)
         return [
-            emitImports(for: ast),
+            emitImports(for: ast, swiftImportsOverride: swiftImportsOverride),
             emitStates(for: ast, names: names),
             emitRuntimeContextBridge(for: ast, names: names),
             emitObserver(for: ast, names: names),
@@ -21,9 +24,14 @@ public struct SwiftCodeEmitter {
         .joined(separator: "\n\n")
     }
 
-    private func emitImports(for ast: MachineAST) -> String {
+    private func emitImports(
+        for ast: MachineAST,
+        swiftImportsOverride: [String]?
+    ) -> String {
         var lines: [String] = []
-        let allImports = ast.imports.isEmpty ? ["Foundation"] : ast.imports
+        let allImports = swiftImportsOverride
+            ?? ast.emitterOptions?.swiftImports
+            ?? (ast.imports.isEmpty ? ["Foundation"] : ast.imports)
         for item in allImports where !lines.contains("import \(item)") {
             lines.append("import \(item)")
         }

@@ -1,7 +1,3 @@
-@imports
-  import CoreBluetooth
-  import Dependencies
-
 machine BluetoohBlender
 @factory makeBlender()
 
@@ -11,19 +7,45 @@ machine BluetoohBlender
   state Connecting
   state ConnectedWithBowl
   state ConnectedWithoutBowl
-  state Blend
-  final Error
+  state BlendSlow
+  state BlendMedium
+  state BlendHigh
+  state Paused
+  state Error
+  final TurnedOff
 
 @transitions
   # [Current]   -> [Trigger(Payload)]                -> [Next]
   Disconnected -> startScan                         -> Scanning
+  Scanning     -> stopScan                          -> Disconnected
   Scanning     -> deviceFound(device: CBPeripheral) -> Connecting
   Scanning     -> timeout                           -> Disconnected
+  Connecting   -> cancelConnect                     -> Disconnected
   Connecting   -> connectSuccess                    -> ConnectedWithBowl
   Connecting   -> connectFail(error: Error)         -> Error
-  ConnectedWithBowl -> blending                     -> Blend
-  Blend        -> finished                          -> ConnectedWithBowl
+  ConnectedWithBowl -> startBlendSlow               -> BlendSlow
+  ConnectedWithBowl -> startBlendMedium             -> BlendMedium
+  ConnectedWithBowl -> startBlendHigh               -> BlendHigh
+  BlendSlow    -> changeSpeedMedium                 -> BlendMedium
+  BlendSlow    -> changeSpeedHigh                   -> BlendHigh
+  BlendMedium  -> changeSpeedSlow                   -> BlendSlow
+  BlendMedium  -> changeSpeedHigh                   -> BlendHigh
+  BlendHigh    -> changeSpeedSlow                   -> BlendSlow
+  BlendHigh    -> changeSpeedMedium                 -> BlendMedium
+  BlendSlow    -> pauseBlend                        -> Paused
+  BlendMedium  -> pauseBlend                        -> Paused
+  BlendHigh    -> pauseBlend                        -> Paused
+  Paused       -> resumeBlendSlow                   -> BlendSlow
+  Paused       -> resumeBlendMedium                 -> BlendMedium
+  Paused       -> resumeBlendHigh                   -> BlendHigh
+  BlendSlow    -> stopBlend                         -> ConnectedWithBowl
+  BlendMedium  -> stopBlend                         -> ConnectedWithBowl
+  BlendHigh    -> stopBlend                         -> ConnectedWithBowl
+  Paused       -> stopBlend                         -> ConnectedWithBowl
   ConnectedWithBowl -> removeBowl                   -> ConnectedWithoutBowl
+  ConnectedWithBowl -> switchOff                    -> TurnedOff
   ConnectedWithoutBowl -> addBowl                   -> ConnectedWithBowl
   ConnectedWithBowl -> disconnect                   -> Disconnected
   ConnectedWithoutBowl -> disconnect                -> Disconnected
+  ConnectedWithoutBowl -> switchOff                 -> TurnedOff
+  Error                -> switchOff                 -> TurnedOff

@@ -20,6 +20,15 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("extension DependencyValues"))
     }
 
+    @Test("Swift emitter supports import override")
+    func swiftImportOverride() {
+        let ast = makeFolderWatchAST()
+        let output = SwiftCodeEmitter().emit(ast: ast, swiftImportsOverride: ["Foundation", "CustomSDK"])
+        #expect(output.contains("import CustomSDK"))
+        #expect(output.contains("import Dependencies"))
+        #expect(output.contains("import Foundation"))
+    }
+
     @Test("Emitter groups transitions by source state and emits consuming funcs")
     func emitsGroupedTransitionExtensions() {
         let ast = MachineAST(

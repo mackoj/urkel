@@ -16,10 +16,14 @@ public enum TemplateCodeEmitterError: Error, LocalizedError, Sendable {
 public struct TemplateCodeEmitter {
     public init() {}
 
-    public func render(ast: MachineAST, templateString: String) throws -> String {
+    public func render(
+        ast: MachineAST,
+        templateString: String,
+        templateImportsOverride: [String]? = nil
+    ) throws -> String {
         do {
             let template = try MustacheTemplate(string: templateString)
-            return template.render(ast.templateContext)
+            return template.render(ast.templateContext(templateImportsOverride: templateImportsOverride))
         } catch {
             throw TemplateCodeEmitterError.invalidTemplate(String(describing: error))
         }

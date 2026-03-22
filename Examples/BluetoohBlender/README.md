@@ -1,90 +1,39 @@
 # BluetoohBlender
 
-A minimal, developer-facing example showing how to use Urkel-generated Swift code for a Bluetooth-like finite state machine.
+A richer developer-facing Urkel example showing:
 
-## What this example demonstrates
+- Bluetooth lifecycle states (`Disconnected`, `Scanning`, `Connecting`, `Connected*`, `Error`, `TurnedOff`)
+- Bowl-presence constraints (`ConnectedWithBowl`, `ConnectedWithoutBowl`)
+- Blending lifecycle/speeds (`BlendSlow`, `BlendMedium`, `BlendHigh`, `Paused`)
 
-- Generated typestate API from `bluetoohblender.urkel` in `Sources/BluetoohBlender/bluetoohblender+Generated.swift`
-- Domain sidecar runtime wiring in `Sources/BluetoohBlender/BluetoohBlender.swift`
-- Swift Testing coverage in `Tests/BluetoohBlenderTests/BluetoohBlenderTests.swift`
+## What this demonstrates
 
-The goal is to keep generated code stable and generic, while keeping platform/domain behavior in sidecar code you own.
+- Generated typestate API from `bluetoohblender.urkel`
+- Domain runtime wiring in `BluetoohBlender.swift`
+- Swift Testing coverage for realistic transitions
 
-## Generated vs sidecar responsibilities
+## Regenerate after editing machine
 
-Urkel-generated code provides:
-
-- machine state markers (`Disconnected`, `Scanning`, `Connecting`, `ConnectedWithBowl`, `ConnectedWithoutBowl`, `Blend`, `Error`)
-- typed transitions (`startScan`, `deviceFound`, `timeout`, `connectSuccess`, `connectFail`, `removeBowl`, `addBowl`, `blending`, `finished`, `disconnect`)
-- dependency client and `DependencyValues` integration
-- runtime builder (`BluetoohBlenderClientRuntime` + `BluetoohBlenderClient.fromRuntime`)
-
-Sidecar code (`BluetoohBlender.swift`) provides:
-
-- domain callbacks (`BluetoohBlenderRuntimeHandlers`)
-- adaptation from domain callbacks to generated runtime transitions (`BluetoohBlenderClient.runtime`)
-- convenience configuration (`.noop`)
-
-## Regenerate after editing the machine
-
-When you change `bluetoohblender.urkel`, regenerate the checked-in Swift source:
+This example uses config-driven emitter imports in `urkel-config.json` (`swiftImports`), so the `.urkel` stays emitter-agnostic.
 
 ```bash
-swift package --package-path ../../ plugin \
-  --allow-writing-to-package-directory urkel-generate \
-  --package-path /Users/mac-JMACKO01/Developer/urkel/Examples/BluetoohBlender
-```
-
-Or from this directory:
-
-```bash
-swift package plugin --allow-writing-to-package-directory urkel-generate
+cd /Users/mac-JMACKO01/Developer/urkel
+swift run UrkelCLI generate \
+  Examples/BluetoohBlender/Sources/BluetoohBlender/bluetoohblender.urkel \
+  --output Examples/BluetoohBlender/Sources/BluetoohBlender
 ```
 
 ## Run tests
 
 ```bash
+cd /Users/mac-JMACKO01/Developer/urkel/Examples/BluetoohBlender
 swift test --quiet
 ```
 
-## Typical app integration shape
+## Notes on bowl + blending rules
 
-In your app target, build a real runtime by mapping Bluetooth APIs/delegate events into handlers:
-
-```swift
-let client = BluetoohBlenderClient.runtime(
-  handlers: .init(
-    startScan: { /* centralManager.scanForPeripherals */ },
-    deviceFound: { peripheral in /* track selected peripheral */ },
-    timeout: { /* cancel scan */ },
-    connectSuccess: { /* update connection state */ },
-    connectFail: { error in /* map/log error */ },
-    removeBowl: { /* bowl removed while idle in connected mode */ },
-    addBowl: { /* bowl added back */ },
-    blending: { /* start motor */ },
-    finished: { /* stop motor after blend cycle */ },
-    disconnect: { /* clean up */ }
-  )
-)
-```
-
-That keeps platform behavior local while preserving type-safe state transitions from generated code.
-
-## Bowl presence + blend flow example
-
-```swift
-let blender = BluetoohBlenderClient.noop.makeBlender()
-let state = BluetoohBlenderState(blender)
-
-let scanning = try await state.startScan()
-// In real code this peripheral comes from CBCentralManagerDelegate.
-let connecting = try await scanning.deviceFound(device: discoveredPeripheral)
-let connectedWithBowl = try await connecting.connectSuccess()
-let connectedWithoutBowl = try await connectedWithBowl.removeBowl()
-let stillNoBlend = try await BluetoohBlenderState.connectedWithoutBowl(connectedWithoutBowl).blending() // no transition
-let connectedAgain = try await connectedWithoutBowl.addBowl()
-let blending = try await connectedAgain.blending()
-let connectedAfterBlend = try await blending.finished()
-```
-
-`removeBowl` is intentionally only available in `ConnectedWithBowl`, and `blending` is only available when the bowl is present.
+- You can remove/add bowl only while connected.
+- Starting blend requires `ConnectedWithBowl`.
+- If bowl is absent, blend transitions are blocked by typestate wrapper behavior.
+- Blending can change speed, pause/resume, and stop back to connected-with-bowl.
+- Bluetooth lifecycle includes scan start/stop, connect cancel, connect fail, and power off (`switchOff`).
