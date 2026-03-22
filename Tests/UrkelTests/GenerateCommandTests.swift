@@ -97,4 +97,50 @@ struct GenerateCommandTests {
         let body = try String(contentsOf: generated, encoding: .utf8)
         #expect(body.contains("import MySDK"))
     }
+
+    @Test("Generate rejects legacy config import keys with actionable error")
+    func generateRejectsLegacyConfigImportKeys() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let inputDir = root.appendingPathComponent("Machines")
+        let outputDir = root.appendingPathComponent("Generated")
+        try fm.createDirectory(at: inputDir, withIntermediateDirectories: true)
+
+        let machine = inputDir.appendingPathComponent("LegacyConfig.urkel")
+        let config = inputDir.appendingPathComponent("urkel-config.json")
+
+        try """
+        machine LegacyConfig
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> start -> Running
+        """.write(to: machine, atomically: true, encoding: .utf8)
+
+        try """
+        {
+          "swiftImports": ["Foundation"]
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
+
+        let parsed = try UrkelCLI.parseAsRoot([
+            "generate",
+            machine.path,
+            "--output",
+            outputDir.path
+        ])
+        guard var command = parsed as? UrkelCLI.Generate else {
+            Issue.record("Expected generate command")
+            return
+        }
+
+        do {
+            try await command.run()
+            Issue.record("Expected legacy config validation error")
+        } catch let error as UrkelGeneratorError {
+            #expect(error.localizedDescription.contains("swiftImports"))
+            #expect(error.localizedDescription.contains("\"imports\""))
+        }
+    }
 }

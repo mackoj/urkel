@@ -28,6 +28,8 @@ The same configuration format is also used by the `UrkelGenerate` command plugin
 - `outputExtension`: Override the generated file extension.
 - `sourceExtensions`: Limit which source file extensions the plugin should process. Defaults to `["urkel"]`.
 
+Legacy keys `swiftImports` and `templateImports` are intentionally rejected with an actionable error. Replace them with `imports.swift` and `imports.<language>`.
+
 ## Notes
 
 - `template` takes precedence over `language` because the generator uses the custom template path first.

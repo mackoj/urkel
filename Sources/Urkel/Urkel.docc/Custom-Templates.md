@@ -54,6 +54,8 @@ The build plugins also support config-driven overrides via `urkel-config.json`:
 }
 ```
 
+Legacy keys like `templateImports` are not supported; configure template imports under `imports.<language>` (for example `imports.kotlin`).
+
 ## Best practices
 
 Keep templates deterministic, match the shape of the exported AST carefully, and prefer simple data shaping in Swift rather than complex logic in the template.

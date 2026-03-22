@@ -127,7 +127,7 @@ struct WatchAndPluginTests {
         let buildDirectory = fixture.appendingPathComponent(".build")
         try? FileManager.default.removeItem(at: buildDirectory)
 
-        let result = try runProcess("/usr/bin/env", ["swift", "build"], cwd: fixture)
+        let result = try runProcess("/usr/bin/env", ["swift", "build", "--quiet"], cwd: fixture)
         #expect(result.0 == 0)
 
         let enumerator = FileManager.default.enumerator(at: buildDirectory, includingPropertiesForKeys: nil)
@@ -144,5 +144,76 @@ struct WatchAndPluginTests {
         }
 
         #expect(foundGeneratedKotlinFile)
+    }
+
+    @Test("Plugin fixture reports actionable error for legacy config import keys")
+    func pluginFixtureLegacyConfigKeyFailsCleanly() throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fixture = root.appendingPathComponent("PluginLegacyFixture")
+        let sourceDirectory = fixture.appendingPathComponent("Sources/Fixture")
+        try fm.createDirectory(at: sourceDirectory, withIntermediateDirectories: true)
+
+        try """
+        // swift-tools-version: 6.0
+        import PackageDescription
+
+        let package = Package(
+            name: "PluginLegacyFixture",
+            platforms: [.macOS(.v13)],
+            dependencies: [
+                .package(path: "\(packageRoot.path)")
+            ],
+            targets: [
+                .executableTarget(
+                    name: "Fixture",
+                    plugins: [
+                        .plugin(name: "UrkelPlugin", package: "Urkel")
+                    ]
+                )
+            ]
+        )
+        """.write(
+            to: fixture.appendingPathComponent("Package.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try """
+        machine Test
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> start -> Running
+        """.write(
+            to: sourceDirectory.appendingPathComponent("Test.urkel"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        try "print(\"fixture\")\n".write(
+            to: sourceDirectory.appendingPathComponent("main.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let config = fixture.appendingPathComponent("Sources/Fixture/urkel-config.json")
+        try """
+        {
+          "swiftImports": ["Foundation"]
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
+
+        let result = try runProcess("/usr/bin/env", ["swift", "build", "--quiet"], cwd: fixture)
+        #expect(result.0 != 0)
+        let combinedOutput = result.1 + "\n" + result.2
+        #expect(combinedOutput.contains("swiftImports"))
+        #expect(combinedOutput.contains("Legacy config key"))
+        #expect(combinedOutput.contains("\"imports\""))
     }
 }

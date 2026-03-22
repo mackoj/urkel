@@ -164,6 +164,8 @@ Supported keys:
 * `outputExtension`: overrides the generated file extension.
 * `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
 
+Legacy config keys `swiftImports` and `templateImports` are no longer supported. Use `imports.swift` and `imports.<language>` instead.
+
 For troubleshooting, CLI and watch mode can print the effective resolved config with `--print-effective-config`.
 
 ### 3. CLI Usage (Optional)

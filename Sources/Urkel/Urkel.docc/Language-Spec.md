@@ -23,6 +23,8 @@ For cross-emitter generation, prefer emitter-specific configuration in `urkel-co
 
 This keeps `.urkel` source emitter-agnostic while letting each emitter control imports appropriately.
 
+Legacy config keys `swiftImports` and `templateImports` are not supported; prefer `imports.swift` and `imports.<language>`.
+
 ## Example
 
 ```text

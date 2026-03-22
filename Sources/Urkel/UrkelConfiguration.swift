@@ -113,6 +113,7 @@ public enum UrkelConfigurationResolver {
         if let configurationURL {
             do {
                 let data = try Data(contentsOf: configurationURL)
+                try validateConfigurationData(data)
                 rawConfiguration = try JSONDecoder().decode(RawConfiguration.self, from: data)
             } catch {
                 throw UrkelConfigurationError.invalidConfiguration(configurationURL, underlyingError: error)
@@ -133,14 +134,14 @@ public enum UrkelConfigurationResolver {
 
         let resolvedSwiftImports = overrideOrConfigured(
             override: normalized(overrides.swiftImports),
-            configured: importsByLanguage["swift"] ?? normalized(rawConfiguration.swiftImports)
+            configured: importsByLanguage["swift"]
         )
 
         let templateLanguageKey = resolvedLanguage?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let templateImportsFromMap = templateLanguageKey.flatMap { importsByLanguage[$0] } ?? importsByLanguage["template"]
         let resolvedTemplateImports = overrideOrConfigured(
             override: normalized(overrides.templateImports),
-            configured: templateImportsFromMap ?? normalized(rawConfiguration.templateImports)
+            configured: templateImportsFromMap
         )
 
         return UrkelResolvedConfiguration(
@@ -215,9 +216,9 @@ private extension UrkelConfigurationResolver {
         var outputExtension: String? = nil
         var language: String? = nil
         var imports: [String: [String]]? = nil
-        var swiftImports: [String]? = nil
-        var templateImports: [String]? = nil
     }
+
+    static let legacyImportKeys: Set<String> = ["swiftImports", "templateImports"]
 
     static func configurationURL(
         in startDirectoryURL: URL,
@@ -279,6 +280,22 @@ private extension UrkelConfigurationResolver {
         override ?? configured
     }
 
+    static func validateConfigurationData(_ data: Data) throws {
+        let rawObject = try JSONSerialization.jsonObject(with: data)
+        guard let object = rawObject as? [String: Any] else {
+            throw InvalidConfigurationShapeError()
+        }
+
+        let matchedLegacyKeys = legacyImportKeys
+            .filter { object[$0] != nil }
+            .sorted()
+        guard !matchedLegacyKeys.isEmpty else {
+            return
+        }
+
+        throw LegacyImportKeysError(keys: matchedLegacyKeys)
+    }
+
     static func resolvedTemplatePath(
         overridePath: String?,
         configuredPath: String?,
@@ -292,5 +309,22 @@ private extension UrkelConfigurationResolver {
         }
 
         return URL(fileURLWithPath: templatePath, relativeTo: configurationDirectoryURL).standardizedFileURL.path
+    }
+
+    struct LegacyImportKeysError: LocalizedError {
+        let keys: [String]
+
+        var errorDescription: String? {
+            let joinedKeys = keys.map { "'\($0)'" }.joined(separator: ", ")
+            return """
+            Legacy config key(s) \(joinedKeys) are no longer supported. Use the \"imports\" map instead, for example: "imports": { "swift": ["Foundation"], "kotlin": ["kotlin.collections"] }.
+            """
+        }
+    }
+
+    struct InvalidConfigurationShapeError: LocalizedError {
+        var errorDescription: String? {
+            "Configuration root must be a JSON object."
+        }
     }
 }

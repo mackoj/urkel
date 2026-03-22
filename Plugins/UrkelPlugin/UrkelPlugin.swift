@@ -10,6 +10,7 @@ struct UrkelPlugin: BuildToolPlugin {
     ".urkelconfig.json",
     ".urkelconfig"
   ]
+  private static let legacyImportKeys: Set<String> = ["swiftImports", "templateImports"]
 
   func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
     guard let sourceTarget = target as? SourceModuleTarget else {
@@ -99,9 +100,12 @@ struct UrkelPlugin: BuildToolPlugin {
 
     do {
       let data = try Data(contentsOf: configurationURL)
+      try Self.validateConfigurationData(data)
       let decoded = try JSONDecoder().decode(RawConfiguration.self, from: data)
       return ResolvedConfiguration(configurationURL: configurationURL, raw: decoded)
     } catch {
+      let details = Self.humanReadableError(error)
+      Diagnostics.error("Invalid Urkel plugin configuration at \(configurationURL.path): \(details)")
       throw PluginConfigurationError.invalidConfiguration(configurationURL, underlyingError: error)
     }
   }
@@ -139,8 +143,6 @@ struct UrkelPlugin: BuildToolPlugin {
     var outputExtension: String? = nil
     var language: String? = nil
     var imports: [String: [String]]? = nil
-    var swiftImports: [String]? = nil
-    var templateImports: [String]? = nil
   }
   
   private struct ResolvedConfiguration {
@@ -163,10 +165,7 @@ struct UrkelPlugin: BuildToolPlugin {
 
     var swiftImports: [String] {
       let imports = normalized(raw.imports?["swift"])
-      if !imports.isEmpty {
-        return imports
-      }
-      return normalized(raw.swiftImports)
+      return imports
     }
 
     var templateImports: [String] {
@@ -177,10 +176,7 @@ struct UrkelPlugin: BuildToolPlugin {
         }
       }
       let templateImports = normalized(raw.imports?["template"])
-      if !templateImports.isEmpty {
-        return templateImports
-      }
-      return normalized(raw.templateImports)
+      return templateImports
     }
     
     var resolvedTemplatePath: String? {
@@ -302,6 +298,46 @@ struct UrkelPlugin: BuildToolPlugin {
         case .invalidConfiguration(let url, let underlyingError):
           return "Invalid Urkel plugin configuration at \(url.path): \(underlyingError.localizedDescription)"
       }
+    }
+  }
+
+  private static func humanReadableError(_ error: Error) -> String {
+    if let localized = (error as? LocalizedError)?.errorDescription, !localized.isEmpty {
+      return localized
+    }
+    return String(describing: error)
+  }
+
+  private static func validateConfigurationData(_ data: Data) throws {
+    let rawObject = try JSONSerialization.jsonObject(with: data)
+    guard let object = rawObject as? [String: Any] else {
+      throw InvalidConfigurationShapeError()
+    }
+
+    let matchedLegacyKeys = legacyImportKeys
+      .filter { object[$0] != nil }
+      .sorted()
+    guard !matchedLegacyKeys.isEmpty else {
+      return
+    }
+
+    throw LegacyImportKeysError(keys: matchedLegacyKeys)
+  }
+
+  private struct LegacyImportKeysError: LocalizedError {
+    let keys: [String]
+
+    var errorDescription: String? {
+      let joinedKeys = keys.map { "'\($0)'" }.joined(separator: ", ")
+      return """
+      Legacy config key(s) \(joinedKeys) are no longer supported. Use the "imports" map instead, for example: "imports": { "swift": ["Foundation"], "kotlin": ["kotlin.collections"] }.
+      """
+    }
+  }
+
+  private struct InvalidConfigurationShapeError: LocalizedError {
+    var errorDescription: String? {
+      "Configuration root must be a JSON object."
     }
   }
 }
