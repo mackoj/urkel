@@ -66,35 +66,6 @@ struct InlineSnapshotTests {
                 public enum Stopped {}
             }
 
-            // MARK: - FolderWatch Runtime Context Bridge
-
-            /// Internal state-aware context wrapper used by generated runtime helpers.
-            struct FolderWatchRuntimeContext: Sendable {
-                enum Storage: Sendable {
-                    case idle(FolderContext)
-                    case running(FolderContext)
-                    case stopped(FolderContext)
-                }
-
-                let storage: Storage
-
-                init(storage: Storage) {
-                    self.storage = storage
-                }
-
-            static func idle(_ value: FolderContext) -> Self {
-                .init(storage: .idle(value))
-            }
-
-            static func running(_ value: FolderContext) -> Self {
-                .init(storage: .running(value))
-            }
-
-            static func stopped(_ value: FolderContext) -> Self {
-                .init(storage: .stopped(value))
-            }
-            }
-
             // MARK: - FolderWatch Observer
 
             /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
@@ -103,7 +74,6 @@ struct InlineSnapshotTests {
 
                 private let _start: @Sendable (FolderContext) async throws -> FolderContext
                 private let _stop: @Sendable (FolderContext) async throws -> FolderContext
-
                 public init(
                     internalContext: FolderContext,
                     _start: @escaping @Sendable (FolderContext) async throws -> FolderContext,
@@ -257,10 +227,7 @@ struct InlineSnapshotTests {
                     switch self {
                     case let .idle(observer):
                         return try body(observer)
-
-                    case .running:
-                        return nil
-                    case .stopped:
+                    default:
                         return nil
                     }
                 }
@@ -269,10 +236,7 @@ struct InlineSnapshotTests {
                     switch self {
                     case let .running(observer):
                         return try body(observer)
-
-                    case .idle:
-                        return nil
-                    case .stopped:
+                    default:
                         return nil
                     }
                 }
@@ -281,10 +245,7 @@ struct InlineSnapshotTests {
                     switch self {
                     case let .stopped(observer):
                         return try body(observer)
-
-                    case .idle:
-                        return nil
-                    case .running:
+                    default:
                         return nil
                     }
                 }
