@@ -170,3 +170,34 @@ swift run UrkelCLI generate ./Sources --output ./Generated
 # Watch a directory and regenerate live on file save
 swift run UrkelCLI watch ./Sources --output ./Generated
 ```
+
+### 4. Generation Architecture (for contributors)
+
+Urkel parses `.urkel` files once into `MachineAST`, then emits code through one of two paths:
+
+* `SwiftCodeEmitter` for native Swift generation
+* `TemplateCodeEmitter` for template-based generation (`--template` and `--lang kotlin`)
+
+Kotlin currently uses the template emitter with the bundled `kotlin.mustache` template.
+
+For deeper internals (CLI/plugins/watch/LSP, module map, and diagrams), see:
+
+* `Sources/Urkel/Urkel.docc/Codebase-Architecture.md`
+
+### 5. User Stories and Roadmap
+
+Urkel implementation decisions and roadmap are tracked as user stories in:
+
+* `User Stories/README.md`
+
+Stories are grouped by epic and include objective, acceptance criteria, implementation notes, and test strategy.
+
+### 6. Grammar Reference
+
+The formal language grammar is versioned at repository root:
+
+* `grammar.ebnf`
+
+For narrative documentation of the same grammar and language rules, see:
+
+* `Sources/Urkel/Urkel.docc/Language-Spec.md`

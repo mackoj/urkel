@@ -18,3 +18,5 @@ output/
 *.profraw
 **/Generated/
 .vscode/
+**/.build/
+**/.swiftpm/

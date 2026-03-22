@@ -9,6 +9,8 @@ public struct UrkelWatchService {
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil,
+        swiftImports: [String] = [],
+        templateImports: [String] = [],
         pollIntervalNanoseconds: UInt64 = 300_000_000,
         stopAfterInitial: Bool = false
     ) async throws {
@@ -18,7 +20,9 @@ public struct UrkelWatchService {
             outputPath: outputDirectory,
             templatePath: templatePath,
             outputExtension: outputExtension,
-            language: language
+            language: language,
+            swiftImports: swiftImports.isEmpty ? nil : swiftImports,
+            templateImports: templateImports.isEmpty ? nil : templateImports
         )
 
         guard !stopAfterInitial else {
@@ -37,7 +41,9 @@ public struct UrkelWatchService {
                         outputPath: outputDirectory,
                         templatePath: templatePath,
                         outputExtension: outputExtension,
-                        language: language
+                        language: language,
+                        swiftImports: swiftImports.isEmpty ? nil : swiftImports,
+                        templateImports: templateImports.isEmpty ? nil : templateImports
                     )
                 }
             }

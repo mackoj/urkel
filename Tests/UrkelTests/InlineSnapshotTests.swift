@@ -53,18 +53,53 @@ struct InlineSnapshotTests {
     @Test("Swift emission snapshot for FolderWatch")
     func swiftEmissionSnapshot() {
         let ast = makeFolderWatchAST()
-        let output = UrkelEmitter().emit(ast: ast)
+        let output = SwiftCodeEmitter().emit(ast: ast)
         assertSwiftEmission(output) {
             """
             import Foundation
             import Dependencies
 
+            // MARK: - FolderWatch State Machine
+
+            /// Typestate markers for the `FolderWatch` machine.
             public enum FolderWatchMachine {
                 public enum Idle {}
                 public enum Running {}
                 public enum Stopped {}
             }
 
+            // MARK: - FolderWatch Runtime Context Bridge
+
+            /// Internal state-aware context wrapper used by generated runtime helpers.
+            struct FolderWatchRuntimeContext: Sendable {
+                enum Storage: Sendable {
+                    case idle(FolderContext)
+                    case running(FolderContext)
+                    case stopped(FolderContext)
+                }
+
+                let storage: Storage
+
+                init(storage: Storage) {
+                    self.storage = storage
+                }
+
+            static func idle(_ value: FolderContext) -> Self {
+                .init(storage: .idle(value))
+            }
+
+            static func running(_ value: FolderContext) -> Self {
+                .init(storage: .running(value))
+            }
+
+            static func stopped(_ value: FolderContext) -> Self {
+                .init(storage: .stopped(value))
+            }
+            }
+
+            // MARK: - FolderWatch Observer
+
+            /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
             public struct FolderWatchObserver<State>: ~Copyable {
                 private var internalContext: FolderContext
 
@@ -82,12 +117,106 @@ struct InlineSnapshotTests {
                     self._stop = _stop
                 }
 
+                /// Access the internal context while preserving borrowing semantics.
                 public borrowing func withInternalContext<R>(_ body: (borrowing FolderContext) throws -> R) rethrows -> R {
                     try body(self.internalContext)
                 }
             }
 
+            // MARK: - FolderWatch Runtime Stream
+
+            /// Generic stream lifecycle helper for event-driven runtimes generated from this machine.
+            actor FolderWatchRuntimeStream<Element: Sendable> {
+                nonisolated let events: AsyncThrowingStream<Element, Error>
+
+                private var continuation: AsyncThrowingStream<Element, Error>.Continuation?
+                private var pendingEvent: Element?
+                private var debounceTask: Task<Void, Never>?
+                private let debounceMs: Int
+
+                init(debounceMs: Int = 0) {
+                    self.debounceMs = max(0, debounceMs)
+
+                    var capturedContinuation: AsyncThrowingStream<Element, Error>.Continuation?
+                    self.events = AsyncThrowingStream<Element, Error> { continuation in
+                        capturedContinuation = continuation
+                    }
+                    self.continuation = capturedContinuation
+                }
+
+                func emit(_ event: Element) {
+                    guard let continuation else { return }
+
+                    if debounceMs == 0 {
+                        continuation.yield(event)
+                        return
+                    }
+
+                    pendingEvent = event
+                    debounceTask?.cancel()
+                    debounceTask = Task { [debounceMs] in
+                        try? await Task.sleep(nanoseconds: UInt64(debounceMs) * 1_000_000)
+                        self.flushPendingEvent()
+                    }
+                }
+
+                func finish(throwing error: Error? = nil) {
+                    debounceTask?.cancel()
+                    debounceTask = nil
+                    pendingEvent = nil
+                    continuation?.finish(throwing: error)
+                    continuation = nil
+                }
+
+                private func flushPendingEvent() {
+                    guard let event = pendingEvent else { return }
+                    pendingEvent = nil
+                    continuation?.yield(event)
+                }
+            }
+
+            // MARK: - FolderWatch Runtime Builder
+
+            /// Runtime transition hooks used to construct a machine observer without editing generated code.
+            struct FolderWatchClientRuntime {
+                typealias InitialContextBuilder = @Sendable (URL, Int) -> FolderContext
+                typealias StartTransition = @Sendable (FolderContext) async throws -> FolderContext
+                typealias StopTransition = @Sendable (FolderContext) async throws -> FolderContext
+                let initialContext: InitialContextBuilder
+                let startTransition: StartTransition
+                let stopTransition: StopTransition
+
+                init(
+                    initialContext: @escaping InitialContextBuilder,
+                    startTransition: @escaping StartTransition,
+                    stopTransition: @escaping StopTransition
+                ) {
+                    self.initialContext = initialContext
+                    self.startTransition = startTransition
+                    self.stopTransition = stopTransition
+                }
+            }
+
+            extension FolderWatchClient {
+                /// Builds a client factory from explicit runtime transition hooks.
+                static func fromRuntime(_ runtime: FolderWatchClientRuntime) -> Self {
+                    Self(
+                        makeObserver: { directory, debounceMs in
+                            let context = runtime.initialContext(directory, debounceMs)
+                            return FolderWatchObserver<FolderWatchMachine.Idle>(
+                                internalContext: context,
+                            _start: runtime.startTransition,
+                            _stop: runtime.stopTransition
+                            )
+                        }
+                    )
+                }
+            }
+
+            // MARK: - FolderWatch.Idle Transitions
+
             extension FolderWatchObserver where State == FolderWatchMachine.Idle {
+                /// Handles the `start` transition from Idle to Running.
                 public consuming func start() async throws -> FolderWatchObserver<FolderWatchMachine.Running> {
                     let nextContext = try await self._start(self.internalContext)
                     return FolderWatchObserver<FolderWatchMachine.Running>(
@@ -98,7 +227,10 @@ struct InlineSnapshotTests {
                 }
             }
 
+            // MARK: - FolderWatch.Running Transitions
+
             extension FolderWatchObserver where State == FolderWatchMachine.Running {
+                /// Handles the `stop` transition from Running to Stopped.
                 public consuming func stop() async throws -> FolderWatchObserver<FolderWatchMachine.Stopped> {
                     let nextContext = try await self._stop(self.internalContext)
                     return FolderWatchObserver<FolderWatchMachine.Stopped>(
@@ -109,6 +241,9 @@ struct InlineSnapshotTests {
                 }
             }
 
+            // MARK: - FolderWatch Combined State
+
+            /// A runtime-friendly wrapper over all observer states.
             public enum FolderWatchState: ~Copyable {
                 case idle(FolderWatchObserver<FolderWatchMachine.Idle>)
                 case running(FolderWatchObserver<FolderWatchMachine.Running>)
@@ -157,6 +292,7 @@ struct InlineSnapshotTests {
                 }
 
 
+                /// Attempts the `start` transition from the current wrapper state.
                 public consuming func start() async throws -> Self {
                     switch consume self {
                 case let .idle(observer):
@@ -169,6 +305,7 @@ struct InlineSnapshotTests {
                     }
                 }
 
+                /// Attempts the `stop` transition from the current wrapper state.
                 public consuming func stop() async throws -> Self {
                     switch consume self {
                 case let .idle(observer):
@@ -182,6 +319,9 @@ struct InlineSnapshotTests {
                 }
             }
 
+            // MARK: - FolderWatch Client
+
+            /// Dependency client entry point for constructing FolderWatch observers.
             public struct FolderWatchClient: Sendable {
                 public var makeObserver: @Sendable (URL, Int) -> FolderWatchObserver<FolderWatchMachine.Idle>
 
@@ -211,6 +351,7 @@ struct InlineSnapshotTests {
             }
 
             extension DependencyValues {
+                /// Accessor for the generated FolderWatchClient dependency.
                 public var folderWatch: FolderWatchClient {
                     get { self[FolderWatchClient.self] }
                     set { self[FolderWatchClient.self] = newValue }

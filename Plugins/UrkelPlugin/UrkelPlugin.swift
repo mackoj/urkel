@@ -59,6 +59,14 @@ struct UrkelPlugin: BuildToolPlugin {
       if let outputFile = configuration.outputFile {
         arguments += ["--output-file", outputFile]
       }
+
+      for item in configuration.swiftImports {
+        arguments += ["--swift-import", item]
+      }
+
+      for item in configuration.templateImports {
+        arguments += ["--template-import", item]
+      }
       
       var inputFiles = [sourceURL]
       if let configurationURL = configuration.configurationURL {
@@ -130,6 +138,8 @@ struct UrkelPlugin: BuildToolPlugin {
     var template: String? = nil
     var outputExtension: String? = nil
     var language: String? = nil
+    var swiftImports: [String]? = nil
+    var templateImports: [String]? = nil
   }
   
   private struct ResolvedConfiguration {
@@ -148,6 +158,14 @@ struct UrkelPlugin: BuildToolPlugin {
     
     var outputFile: String? {
       raw.outputFile
+    }
+
+    var swiftImports: [String] {
+      normalized(raw.swiftImports)
+    }
+
+    var templateImports: [String] {
+      normalized(raw.templateImports)
     }
     
     var resolvedTemplatePath: String? {
@@ -237,6 +255,23 @@ struct UrkelPlugin: BuildToolPlugin {
         default:
           return "txt"
       }
+    }
+
+    private func normalized(_ values: [String]?) -> [String] {
+      guard let values else { return [] }
+
+      var seen = Set<String>()
+      var result: [String] = []
+      for raw in values {
+        for segment in raw.split(separator: ",") {
+          let value = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !value.isEmpty else { continue }
+          if seen.insert(value).inserted {
+            result.append(value)
+          }
+        }
+      }
+      return result
     }
   }
   

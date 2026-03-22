@@ -62,6 +62,14 @@ struct UrkelGenerate: CommandPlugin {
                     processArguments += ["--output-file", outputFile]
                 }
 
+                for item in configuration.swiftImports {
+                    processArguments += ["--swift-import", item]
+                }
+
+                for item in configuration.templateImports {
+                    processArguments += ["--template-import", item]
+                }
+
                 let process = Process()
                 process.executableURL = tool.url
                 process.arguments = processArguments
@@ -141,6 +149,8 @@ struct UrkelGenerate: CommandPlugin {
         var template: String? = nil
         var outputExtension: String? = nil
         var language: String? = nil
+        var swiftImports: [String]? = nil
+        var templateImports: [String]? = nil
     }
 
     private struct ResolvedConfiguration {
@@ -159,6 +169,14 @@ struct UrkelGenerate: CommandPlugin {
 
         var outputFile: String? {
             raw.outputFile
+        }
+
+        var swiftImports: [String] {
+            normalized(raw.swiftImports)
+        }
+
+        var templateImports: [String] {
+            normalized(raw.templateImports)
         }
 
         var resolvedTemplatePath: String? {
@@ -248,6 +266,23 @@ struct UrkelGenerate: CommandPlugin {
                 default:
                     return "txt"
             }
+        }
+
+        private func normalized(_ values: [String]?) -> [String] {
+            guard let values else { return [] }
+
+            var seen = Set<String>()
+            var result: [String] = []
+            for raw in values {
+                for segment in raw.split(separator: ",") {
+                    let value = segment.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !value.isEmpty else { continue }
+                    if seen.insert(value).inserted {
+                        result.append(value)
+                    }
+                }
+            }
+            return result
         }
     }
 

@@ -56,7 +56,9 @@ public struct UrkelGenerator {
         outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
-        language: String? = nil
+        language: String? = nil,
+        swiftImports: [String]? = nil,
+        templateImports: [String]? = nil
     ) throws -> URL {
         let inputURL = URL(fileURLWithPath: inputPath)
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
@@ -80,6 +82,25 @@ public struct UrkelGenerator {
                 factory: ast.factory,
                 states: ast.states,
                 transitions: ast.transitions,
+                emitterOptions: ast.emitterOptions,
+                range: ast.range
+            )
+        }
+
+        let hasEmitterOverrides = (swiftImports?.isEmpty == false) || (templateImports?.isEmpty == false)
+        if hasEmitterOverrides {
+            let emitterOptions = MachineAST.EmitterOptions(
+                swiftImports: swiftImports,
+                templateImports: templateImports
+            )
+            ast = MachineAST(
+                imports: ast.imports,
+                machineName: ast.machineName,
+                contextType: ast.contextType,
+                factory: ast.factory,
+                states: ast.states,
+                transitions: ast.transitions,
+                emitterOptions: emitterOptions,
                 range: ast.range
             )
         }
@@ -94,7 +115,12 @@ public struct UrkelGenerator {
 
         if let templatePath {
             let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
-            body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
+            // Template-based path (used for Kotlin and custom non-Swift outputs).
+            body = try TemplateCodeEmitter().render(
+                ast: ast,
+                templateString: templateString,
+                templateImportsOverride: templateImports
+            )
             let fileExtension = outputExtension ?? inferExtension(fromTemplatePath: templatePath)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
@@ -104,7 +130,12 @@ public struct UrkelGenerator {
             )
         } else if let language {
             let templateString = try loadBundledTemplate(language: language)
-            body = try MustacheExportEngine().render(ast: ast, templateString: templateString)
+            // Bundled language templates also route through the template emitter.
+            body = try TemplateCodeEmitter().render(
+                ast: ast,
+                templateString: templateString,
+                templateImportsOverride: templateImports
+            )
             let fileExtension = outputExtension ?? defaultExtension(forLanguage: language)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
@@ -113,7 +144,8 @@ public struct UrkelGenerator {
                 relativeTo: outputURL
             )
         } else {
-            body = UrkelEmitter().emit(ast: ast)
+            // Native Swift path uses the dedicated Swift code emitter.
+            body = SwiftCodeEmitter().emit(ast: ast, swiftImportsOverride: swiftImports)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: "swift",
@@ -139,7 +171,9 @@ public struct UrkelGenerator {
         outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
-        language: String? = nil
+        language: String? = nil,
+        swiftImports: [String]? = nil,
+        templateImports: [String]? = nil
     ) throws -> [URL] {
         if let outputFilePath {
             throw UrkelGeneratorError.outputFileOnlySupportsSingleInput(outputFilePath)
@@ -158,7 +192,9 @@ public struct UrkelGenerator {
                 outputFilePath: nil,
                 templatePath: templatePath,
                 outputExtension: outputExtension,
-                language: language
+                language: language,
+                swiftImports: swiftImports,
+                templateImports: templateImports
             )
             outputs.append(generated)
         }
