@@ -18,6 +18,36 @@ struct LSPTests {
         #expect(diagnostics[0].message.contains("Unresolved state reference: Missing"))
     }
 
+    @Test("Semantic diagnostics include duplicate state validation")
+    func duplicateStateDiagnostic() async {
+        let source = """
+        machine Example
+        @states
+          init Idle
+          state Idle
+        @transitions
+          Idle -> start -> Idle
+        """
+
+        let diagnostics = await UrkelLanguageServer().diagnostics(in: source)
+        #expect(diagnostics.contains(where: { $0.message.contains("Duplicate state declaration: Idle") }))
+    }
+
+    @Test("Semantic diagnostics include unreachable state validation")
+    func unreachableStateDiagnostic() async {
+        let source = """
+        machine Example
+        @states
+          init Idle
+          state NeverReached
+        @transitions
+          Idle -> start -> Idle
+        """
+
+        let diagnostics = await UrkelLanguageServer().diagnostics(in: source)
+        #expect(diagnostics.contains(where: { $0.message.contains("Unreachable state: NeverReached") }))
+    }
+
     @Test("Syntax diagnostics for malformed transition")
     func syntaxDiagnostic() async {
         let source = """
@@ -122,6 +152,46 @@ struct LSPTests {
         #expect(tokens != nil)
         #expect(tokens?.data.isEmpty == false)
         #expect(tokens?.data.count.isMultiple(of: 5) == true)
+    }
+
+    @Test("Semantic tokens still return for partial transition lines")
+    func semanticTokensBestEffortForPartialSource() async {
+        let server = UrkelLanguageServer()
+        let uri: DocumentUri = "file:///PartialTokens.urkel"
+        let source = """
+        machine Example
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> start(
+        """
+
+        _ = await server.didOpen(uri: uri, text: source)
+        let tokens = await server.semanticTokens(for: uri)
+        #expect(tokens != nil)
+        #expect(tokens?.data.isEmpty == false)
+    }
+
+    @Test("Completions still suggest values when transition line is incomplete")
+    func completionBestEffortForPartialSource() async {
+        let server = UrkelLanguageServer()
+        let uri: DocumentUri = "file:///PartialCompletion.urkel"
+        let source = """
+        machine Example
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> star
+        """
+
+        _ = await server.didOpen(uri: uri, text: source)
+        let response = await server.completion(for: uri, position: .init(line: 5, character: 14))
+        let labels = response?.items.map(\.label) ?? []
+        #expect(labels.contains("start"))
+        #expect(labels.contains("Idle"))
+        #expect(labels.contains("Running"))
     }
 
     @Test("Code actions offer quick fixes")

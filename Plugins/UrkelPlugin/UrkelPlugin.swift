@@ -3,14 +3,14 @@ import PackagePlugin
 
 @main
 struct UrkelPlugin: BuildToolPlugin {
-    private static let configurationFileNames = [
-        "urkel-config.json",
-        ".urkel-config.json",
-        ".urkel-config",
-        ".urkelconfig.json",
-        ".urkelconfig"
+  private static let configurationFileNames = [
+    "urkel-config.json",
+    ".urkel-config.json",
+    ".urkel-config",
+    ".urkelconfig.json",
+    ".urkelconfig"
   ]
-  
+
   func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
     guard let sourceTarget = target as? SourceModuleTarget else {
       return []
@@ -21,11 +21,11 @@ struct UrkelPlugin: BuildToolPlugin {
     
         return try sourceTarget.sourceFiles.compactMap { source in
             let sourceURL = source.url
-            let configuration = try self.configuration(
-                for: sourceURL,
-                targetDirectoryURL: targetDirectoryURL,
-                context: context
-            )
+      let configuration = try self.configuration(
+        for: sourceURL,
+        targetDirectoryURL: targetDirectoryURL,
+        context: context
+      )
       
       guard configuration.shouldGenerate(for: sourceURL) else {
         return nil
@@ -88,15 +88,15 @@ struct UrkelPlugin: BuildToolPlugin {
     targetDirectoryURL: URL,
     context: PluginContext
   ) throws -> ResolvedConfiguration {
-        let configurationURL = Self.configurationURL(for: sourceURL)
-            ?? Self.configurationURL(in: targetDirectoryURL)
-            ?? Self.configurationURL(in: context.package.directoryURL)
-            ?? Self.configurationURL(in: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
-    
+    let configurationURL = Self.configurationURL(for: sourceURL)
+      ?? Self.configurationURL(in: targetDirectoryURL)
+      ?? Self.configurationURL(in: context.package.directoryURL)
+      ?? Self.configurationURL(in: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+
     guard let configurationURL else {
       return .default
     }
-    
+
     do {
       let data = try Data(contentsOf: configurationURL)
       let decoded = try JSONDecoder().decode(RawConfiguration.self, from: data)
@@ -105,11 +105,11 @@ struct UrkelPlugin: BuildToolPlugin {
       throw PluginConfigurationError.invalidConfiguration(configurationURL, underlyingError: error)
     }
   }
-  
+
   private static func configurationURL(in startDirectoryURL: URL) -> URL? {
     var directoryURL = startDirectoryURL
     let fileManager = FileManager.default
-    
+
     while true {
       for fileName in configurationFileNames {
         let candidateURL = directoryURL.appendingPathComponent(fileName)
@@ -117,20 +117,20 @@ struct UrkelPlugin: BuildToolPlugin {
           return candidateURL
         }
       }
-      
+
       let parentURL = directoryURL.deletingLastPathComponent()
       if parentURL.path == directoryURL.path {
         return nil
       }
-      
+
       directoryURL = parentURL
     }
   }
-  
+
   private static func configurationURL(for sourceURL: URL) -> URL? {
     Self.configurationURL(in: sourceURL.deletingLastPathComponent())
   }
-  
+
   private struct RawConfiguration: Decodable {
     var sourceExtensions: [String]? = nil
     var outputDirectory: String? = nil
@@ -138,6 +138,7 @@ struct UrkelPlugin: BuildToolPlugin {
     var template: String? = nil
     var outputExtension: String? = nil
     var language: String? = nil
+    var imports: [String: [String]]? = nil
     var swiftImports: [String]? = nil
     var templateImports: [String]? = nil
   }
@@ -161,29 +162,44 @@ struct UrkelPlugin: BuildToolPlugin {
     }
 
     var swiftImports: [String] {
-      normalized(raw.swiftImports)
+      let imports = normalized(raw.imports?["swift"])
+      if !imports.isEmpty {
+        return imports
+      }
+      return normalized(raw.swiftImports)
     }
 
     var templateImports: [String] {
-      normalized(raw.templateImports)
+      if let language = raw.language?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        let languageImports = normalized(raw.imports?[language])
+        if !languageImports.isEmpty {
+          return languageImports
+        }
+      }
+      let templateImports = normalized(raw.imports?["template"])
+      if !templateImports.isEmpty {
+        return templateImports
+      }
+      return normalized(raw.templateImports)
     }
     
     var resolvedTemplatePath: String? {
       guard let template = raw.template else {
         return nil
       }
-      
+
       guard let configurationDirectoryURL = configurationURL?.deletingLastPathComponent() else {
         return template
       }
-      
+
       return URL(fileURLWithPath: template, relativeTo: configurationDirectoryURL).standardizedFileURL.path
     }
     
     func shouldGenerate(for sourceURL: URL) -> Bool {
       let sourceExtension = sourceURL.pathExtension.lowercased()
+      let sourceExtensions = normalized(raw.sourceExtensions)
       
-      guard let sourceExtensions = raw.sourceExtensions, !sourceExtensions.isEmpty else {
+      guard !sourceExtensions.isEmpty else {
         return sourceExtension == "urkel"
       }
       
@@ -191,19 +207,14 @@ struct UrkelPlugin: BuildToolPlugin {
     }
     
     func outputDirectoryURL(in context: PluginContext) -> URL {
-      guard let outputDirectory = raw.outputDirectory, !outputDirectory.isEmpty else {
-        return context.pluginWorkDirectoryURL
-      }
-      
-      return URL(
-        fileURLWithPath: outputDirectory,
-        relativeTo: context.pluginWorkDirectoryURL
-      ).standardizedFileURL
+      context.pluginWorkDirectoryURL
     }
     
     func generatedOutputURL(for sourceURL: URL, outputDirectoryURL: URL) -> URL {
+      let resolvedOutputDirectoryURL = self.resolvedOutputDirectoryURL(from: outputDirectoryURL)
+
       if let outputFile = raw.outputFile, !outputFile.isEmpty {
-        return URL(fileURLWithPath: outputFile, relativeTo: outputDirectoryURL).standardizedFileURL
+        return URL(fileURLWithPath: outputFile, relativeTo: resolvedOutputDirectoryURL).standardizedFileURL
       }
       
       let baseName = sourceURL.deletingPathExtension().lastPathComponent
@@ -216,7 +227,7 @@ struct UrkelPlugin: BuildToolPlugin {
         outputName = "\(baseName)+Generated.\(outputExtension)"
       }
       
-      return outputDirectoryURL.appendingPathComponent(outputName)
+      return resolvedOutputDirectoryURL.appendingPathComponent(outputName)
     }
     
     private func resolvedOutputExtension(for sourceURL: URL) -> String {
@@ -255,6 +266,14 @@ struct UrkelPlugin: BuildToolPlugin {
         default:
           return "txt"
       }
+    }
+
+    private func resolvedOutputDirectoryURL(from rootOutputURL: URL) -> URL {
+      guard let outputDirectory = raw.outputDirectory, !outputDirectory.isEmpty else {
+        return rootOutputURL
+      }
+
+      return URL(fileURLWithPath: outputDirectory, relativeTo: rootOutputURL).standardizedFileURL
     }
 
     private func normalized(_ values: [String]?) -> [String] {

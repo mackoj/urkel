@@ -1,4 +1,6 @@
 {
   "outputFile": "Sources/BluetoohBlender/BluetoohBlenderFSMClient.swift",
-  "swiftImports": ["CoreBluetooth", "Dependencies"]
+  "imports": {
+    "swift": ["CoreBluetooth", "Dependencies"]
+  }
 }

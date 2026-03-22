@@ -11,6 +11,8 @@ public struct UrkelWatchService {
         language: String? = nil,
         swiftImports: [String] = [],
         templateImports: [String] = [],
+        additionalConfigSearchDirectories: [URL] = [],
+        verboseConfiguration: Bool = false,
         pollIntervalNanoseconds: UInt64 = 300_000_000,
         stopAfterInitial: Bool = false
     ) async throws {
@@ -22,7 +24,9 @@ public struct UrkelWatchService {
             outputExtension: outputExtension,
             language: language,
             swiftImports: swiftImports.isEmpty ? nil : swiftImports,
-            templateImports: templateImports.isEmpty ? nil : templateImports
+            templateImports: templateImports.isEmpty ? nil : templateImports,
+            additionalConfigSearchDirectories: additionalConfigSearchDirectories,
+            verboseConfiguration: verboseConfiguration
         )
 
         guard !stopAfterInitial else {
@@ -43,7 +47,9 @@ public struct UrkelWatchService {
                         outputExtension: outputExtension,
                         language: language,
                         swiftImports: swiftImports.isEmpty ? nil : swiftImports,
-                        templateImports: templateImports.isEmpty ? nil : templateImports
+                        templateImports: templateImports.isEmpty ? nil : templateImports,
+                        additionalConfigSearchDirectories: additionalConfigSearchDirectories,
+                        verboseConfiguration: verboseConfiguration
                     )
                 }
             }

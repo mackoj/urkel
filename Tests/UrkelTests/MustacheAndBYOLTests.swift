@@ -84,7 +84,7 @@ struct TemplateEmitterAndBYOLTests {
         let body = try String(contentsOf: generated, encoding: .utf8)
         #expect(body.contains("sealed interface SampleState"))
         #expect(body.contains("data object Idle"))
-        #expect(body.contains("SampleTransitions"))
+        #expect(body.contains("val sampleTransitions"))
     }
 
     @Test("Generator supports emitter-specific import overrides")
@@ -129,5 +129,20 @@ struct TemplateEmitterAndBYOLTests {
         let templateBody = try String(contentsOf: templateGenerated, encoding: .utf8)
         #expect(templateBody.contains("import kotlin.collections"))
         #expect(templateBody.contains("import kotlin.io"))
+    }
+
+    @Test("Template context includes grouped transitions and naming metadata")
+    func templateContextExpansion() {
+        let ast = makeFolderWatchAST(machineName: "folder_watch")
+        let context = ast.templateContext
+
+        let machineTypeName = context["machineTypeName"] as? String
+        #expect(machineTypeName == "FolderWatch")
+
+        let groupedTransitions = context["groupedTransitions"] as? [[String: Any]]
+        #expect(groupedTransitions?.isEmpty == false)
+
+        let states = context["states"] as? [[String: Any]]
+        #expect(states?.contains(where: { ($0["typeName"] as? String) == "Idle" }) == true)
     }
 }

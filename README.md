@@ -144,7 +144,10 @@ If you want to change where generated files go or export to another language/tem
 
 ```json
 {
-  "swiftImports": ["Foundation", "Dependencies"],
+  "imports": {
+    "swift": ["Foundation", "Dependencies"],
+    "kotlin": ["kotlin.collections", "kotlin.io"]
+  },
   "outputFile": "ConfiguredFolderWatch.swift",
   "template": "Templates/machine.mustache",
   "outputExtension": "kt",
@@ -157,10 +160,11 @@ Supported keys:
 * `outputFile`: output path relative to the current generator root. In build-tool mode that root is the plugin work directory; in command-plugin mode it is the package directory.
 * `template`: path to a custom Mustache template, resolved relative to the config file.
 * `language`: bundled language template name, currently `kotlin`.
-* `swiftImports`: optional import list used by the native Swift emitter.
-* `templateImports`: optional import list used by template/language emitters.
+* `imports`: per-language import map (for example `imports.swift` and `imports.kotlin`).
 * `outputExtension`: overrides the generated file extension.
 * `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
+
+For troubleshooting, CLI and watch mode can print the effective resolved config with `--print-effective-config`.
 
 ### 3. CLI Usage (Optional)
 If you prefer manual generation or want to watch a directory during development outside of Xcode:

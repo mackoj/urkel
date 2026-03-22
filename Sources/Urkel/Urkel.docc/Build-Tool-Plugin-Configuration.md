@@ -8,6 +8,10 @@ The same configuration format is also used by the `UrkelGenerate` command plugin
 
 ```json
 {
+  "imports": {
+    "swift": ["Foundation", "Dependencies"],
+    "kotlin": ["kotlin.collections", "kotlin.io"]
+  },
   "outputFile": "ConfiguredFolderWatch.swift",
   "template": "Templates/machine.mustache",
   "outputExtension": "kt",
@@ -20,6 +24,7 @@ The same configuration format is also used by the `UrkelGenerate` command plugin
 - `outputFile`: Full output path relative to the generator root. In build-tool mode that means the plugin work directory; in command-plugin mode it means the package directory. Use this when you want to control both the folder and the file name in one setting.
 - `template`: Path to a custom Mustache template. Relative paths are resolved from the config file location.
 - `language`: Use a bundled language template, currently `kotlin`.
+- `imports`: Per-language imports keyed by language (for example `swift`, `kotlin`).
 - `outputExtension`: Override the generated file extension.
 - `sourceExtensions`: Limit which source file extensions the plugin should process. Defaults to `["urkel"]`.
 

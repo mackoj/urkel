@@ -78,6 +78,46 @@ struct WatchAndPluginTests {
         #expect(!fm.fileExists(atPath: generated.path))
     }
 
+    @Test("Watch service applies config imports and output directory")
+    func watchConfigParity() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let input = root.appendingPathComponent("in")
+        let output = root.appendingPathComponent("out")
+        try fm.createDirectory(at: input, withIntermediateDirectories: true)
+
+        let machine = input.appendingPathComponent("FolderWatch.urkel")
+        let config = input.appendingPathComponent("urkel-config.json")
+        try """
+        machine FolderWatch
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> start -> Running
+        """.write(to: machine, atomically: true, encoding: .utf8)
+
+        try """
+        {
+          "outputDirectory": "nested",
+          "imports": {
+            "swift": ["Foundation", "CustomWatchSDK"]
+          }
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
+
+        try await UrkelWatchService().run(
+            inputDirectory: input.path,
+            outputDirectory: output.path,
+            stopAfterInitial: true
+        )
+
+        let generated = output.appendingPathComponent("nested/FolderWatch+Generated.swift")
+        #expect(fm.fileExists(atPath: generated.path))
+        let body = try String(contentsOf: generated, encoding: .utf8)
+        #expect(body.contains("import CustomWatchSDK"))
+    }
+
     @Test("Plugin fixture builds and triggers generation")
     func pluginFixtureBuilds() throws {
         let fixture = URL(fileURLWithPath: #filePath)

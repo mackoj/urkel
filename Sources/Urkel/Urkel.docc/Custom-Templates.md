@@ -14,10 +14,13 @@ For template-based generation, `TemplateCodeEmitter` renders `MachineAST.templat
 Common keys include:
 
 - `machineName`
+- `machineTypeName`
+- `machineVariableName`
 - `contextType`
 - `imports`
 - `states`
 - `transitions`
+- `groupedTransitions`
 - `initialState`
 - `factory`
 
@@ -45,7 +48,9 @@ The build plugins also support config-driven overrides via `urkel-config.json`:
 
 ```json
 {
-  "templateImports": ["kotlin.collections", "kotlin.io"]
+  "imports": {
+    "kotlin": ["kotlin.collections", "kotlin.io"]
+  }
 }
 ```
 

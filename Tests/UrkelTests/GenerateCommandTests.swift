@@ -50,4 +50,51 @@ struct GenerateCommandTests {
         #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("Bluetooth+Generated.swift").path))
         #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("FolderWatch+Generated.swift").path))
     }
+
+    @Test("Generate uses config imports map and output directory")
+    func generateUsesConfigImportsAndDirectory() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let inputDir = root.appendingPathComponent("Machines")
+        let outputDir = root.appendingPathComponent("Generated")
+        try fm.createDirectory(at: inputDir, withIntermediateDirectories: true)
+
+        let machine = inputDir.appendingPathComponent("ConfigDriven.urkel")
+        let config = inputDir.appendingPathComponent("urkel-config.json")
+
+        try """
+        machine ConfigDriven
+        @states
+          init Idle
+          state Running
+        @transitions
+          Idle -> start -> Running
+        """.write(to: machine, atomically: true, encoding: .utf8)
+
+        try """
+        {
+          "outputDirectory": "nested",
+          "imports": {
+            "swift": ["Foundation", "MySDK"]
+          }
+        }
+        """.write(to: config, atomically: true, encoding: .utf8)
+
+        let parsed = try UrkelCLI.parseAsRoot([
+            "generate",
+            machine.path,
+            "--output",
+            outputDir.path
+        ])
+        guard var command = parsed as? UrkelCLI.Generate else {
+            Issue.record("Expected generate command")
+            return
+        }
+        try await command.run()
+
+        let generated = outputDir.appendingPathComponent("nested/ConfigDriven+Generated.swift")
+        #expect(fm.fileExists(atPath: generated.path))
+        let body = try String(contentsOf: generated, encoding: .utf8)
+        #expect(body.contains("import MySDK"))
+    }
 }

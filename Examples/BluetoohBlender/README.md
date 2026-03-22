@@ -14,7 +14,7 @@ A richer developer-facing Urkel example showing:
 
 ## Regenerate after editing machine
 
-This example uses config-driven emitter imports in `urkel-config.json` (`swiftImports`), so the `.urkel` stays emitter-agnostic.
+This example uses config-driven emitter imports in `urkel-config.json` (`imports.swift`), so the `.urkel` stays emitter-agnostic.
 
 ```bash
 cd /Users/mac-JMACKO01/Developer/urkel

@@ -149,6 +149,7 @@ struct UrkelGenerate: CommandPlugin {
         var template: String? = nil
         var outputExtension: String? = nil
         var language: String? = nil
+        var imports: [String: [String]]? = nil
         var swiftImports: [String]? = nil
         var templateImports: [String]? = nil
     }
@@ -172,11 +173,25 @@ struct UrkelGenerate: CommandPlugin {
         }
 
         var swiftImports: [String] {
-            normalized(raw.swiftImports)
+            let imports = normalized(raw.imports?["swift"])
+            if !imports.isEmpty {
+                return imports
+            }
+            return normalized(raw.swiftImports)
         }
 
         var templateImports: [String] {
-            normalized(raw.templateImports)
+            if let language = raw.language?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+                let imports = normalized(raw.imports?[language])
+                if !imports.isEmpty {
+                    return imports
+                }
+            }
+            let templateImports = normalized(raw.imports?["template"])
+            if !templateImports.isEmpty {
+                return templateImports
+            }
+            return normalized(raw.templateImports)
         }
 
         var resolvedTemplatePath: String? {
@@ -193,8 +208,9 @@ struct UrkelGenerate: CommandPlugin {
 
         func shouldGenerate(for sourceURL: URL) -> Bool {
             let sourceExtension = sourceURL.pathExtension.lowercased()
+            let sourceExtensions = normalized(raw.sourceExtensions)
 
-            guard let sourceExtensions = raw.sourceExtensions, !sourceExtensions.isEmpty else {
+            guard !sourceExtensions.isEmpty else {
                 return sourceExtension == "urkel"
             }
 

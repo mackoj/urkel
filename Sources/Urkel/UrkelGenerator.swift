@@ -6,6 +6,7 @@ public enum UrkelGeneratorError: Error, LocalizedError {
     case outputFileOnlySupportsSingleInput(String)
     case unsupportedLanguage(String)
     case languageTemplateMissing(String)
+    case invalidConfiguration(URL, details: String)
 
     public var errorDescription: String? {
         switch self {
@@ -19,6 +20,8 @@ public enum UrkelGeneratorError: Error, LocalizedError {
             return "Unsupported language: \(language)"
         case .languageTemplateMissing(let language):
             return "Bundled template for language '\(language)' was not found."
+        case .invalidConfiguration(let url, let details):
+            return "Invalid Urkel configuration at \(url.path): \(details)"
         }
     }
 }
@@ -58,7 +61,9 @@ public struct UrkelGenerator {
         outputExtension: String? = nil,
         language: String? = nil,
         swiftImports: [String]? = nil,
-        templateImports: [String]? = nil
+        templateImports: [String]? = nil,
+        additionalConfigSearchDirectories: [URL] = [],
+        verboseConfiguration: Bool = false
     ) throws -> URL {
         let inputURL = URL(fileURLWithPath: inputPath)
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
@@ -73,6 +78,29 @@ public struct UrkelGenerator {
         let source = try String(contentsOf: inputURL, encoding: .utf8)
         let fallbackName = inputURL.deletingPathExtension().lastPathComponent
 
+        let resolvedConfiguration: UrkelResolvedConfiguration
+        do {
+            resolvedConfiguration = try UrkelConfigurationResolver.resolveGenerationConfiguration(
+                for: inputURL,
+                overrides: UrkelGenerationOverrides(
+                    outputFilePath: outputFilePath,
+                    templatePath: templatePath,
+                    outputExtension: outputExtension,
+                    language: language,
+                    swiftImports: swiftImports,
+                    templateImports: templateImports
+                ),
+                additionalSearchDirectories: additionalConfigSearchDirectories
+            )
+        } catch let error as UrkelConfigurationError {
+            switch error {
+            case .invalidConfiguration(let url, let underlying):
+                throw UrkelGeneratorError.invalidConfiguration(url, details: underlying.localizedDescription)
+            }
+        } catch {
+            throw error
+        }
+
         var ast = try UrkelParser().parse(source: source, machineNameFallback: fallbackName)
         if ast.machineName == "Machine" {
             ast = MachineAST(
@@ -80,6 +108,7 @@ public struct UrkelGenerator {
                 machineName: fallbackName,
                 contextType: ast.contextType,
                 factory: ast.factory,
+                composedMachines: ast.composedMachines,
                 states: ast.states,
                 transitions: ast.transitions,
                 emitterOptions: ast.emitterOptions,
@@ -87,17 +116,19 @@ public struct UrkelGenerator {
             )
         }
 
-        let hasEmitterOverrides = (swiftImports?.isEmpty == false) || (templateImports?.isEmpty == false)
+        let hasEmitterOverrides = (resolvedConfiguration.swiftImports?.isEmpty == false)
+            || (resolvedConfiguration.templateImports?.isEmpty == false)
         if hasEmitterOverrides {
             let emitterOptions = MachineAST.EmitterOptions(
-                swiftImports: swiftImports,
-                templateImports: templateImports
+                swiftImports: resolvedConfiguration.swiftImports,
+                templateImports: resolvedConfiguration.templateImports
             )
             ast = MachineAST(
                 imports: ast.imports,
                 machineName: ast.machineName,
                 contextType: ast.contextType,
                 factory: ast.factory,
+                composedMachines: ast.composedMachines,
                 states: ast.states,
                 transitions: ast.transitions,
                 emitterOptions: emitterOptions,
@@ -107,54 +138,66 @@ public struct UrkelGenerator {
 
         try UrkelValidator.validate(ast)
 
-        let outputURL = URL(fileURLWithPath: outputPath, isDirectory: true)
+        let outputRootURL = URL(fileURLWithPath: outputPath, isDirectory: true)
+        let outputURL = Self.resolvedOutputDirectoryURL(
+            from: outputRootURL,
+            configuredOutputDirectory: resolvedConfiguration.outputDirectory
+        )
         try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
+
+        if verboseConfiguration {
+            print(UrkelConfigurationResolver.effectiveConfigurationSummary(
+                inputFileURL: inputURL,
+                resolved: resolvedConfiguration,
+                outputDirectoryURL: outputURL
+            ))
+        }
 
         let body: String
         let generatedURL: URL
 
-        if let templatePath {
+        if let templatePath = resolvedConfiguration.templatePath {
             let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
             // Template-based path (used for Kotlin and custom non-Swift outputs).
             body = try TemplateCodeEmitter().render(
                 ast: ast,
                 templateString: templateString,
-                templateImportsOverride: templateImports
+                templateImportsOverride: resolvedConfiguration.templateImports
             )
-            let fileExtension = outputExtension ?? inferExtension(fromTemplatePath: templatePath)
+            let fileExtension = resolvedConfiguration.outputExtension ?? inferExtension(fromTemplatePath: templatePath)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: fileExtension,
-                outputFilePath: outputFilePath,
+                outputFilePath: resolvedConfiguration.outputFilePath,
                 relativeTo: outputURL
             )
-        } else if let language {
+        } else if let language = resolvedConfiguration.language {
             let templateString = try loadBundledTemplate(language: language)
             // Bundled language templates also route through the template emitter.
             body = try TemplateCodeEmitter().render(
                 ast: ast,
                 templateString: templateString,
-                templateImportsOverride: templateImports
+                templateImportsOverride: resolvedConfiguration.templateImports
             )
-            let fileExtension = outputExtension ?? defaultExtension(forLanguage: language)
+            let fileExtension = resolvedConfiguration.outputExtension ?? defaultExtension(forLanguage: language)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: fileExtension,
-                outputFilePath: outputFilePath,
+                outputFilePath: resolvedConfiguration.outputFilePath,
                 relativeTo: outputURL
             )
         } else {
             // Native Swift path uses the dedicated Swift code emitter.
-            body = SwiftCodeEmitter().emit(ast: ast, swiftImportsOverride: swiftImports)
+            body = SwiftCodeEmitter().emit(ast: ast, swiftImportsOverride: resolvedConfiguration.swiftImports)
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: "swift",
-                outputFilePath: outputFilePath,
+                outputFilePath: resolvedConfiguration.outputFilePath,
                 relativeTo: outputURL
             )
         }
 
-        if outputFilePath != nil {
+        if resolvedConfiguration.outputFilePath != nil {
             try FileManager.default.createDirectory(
                 at: generatedURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -173,7 +216,9 @@ public struct UrkelGenerator {
         outputExtension: String? = nil,
         language: String? = nil,
         swiftImports: [String]? = nil,
-        templateImports: [String]? = nil
+        templateImports: [String]? = nil,
+        additionalConfigSearchDirectories: [URL] = [],
+        verboseConfiguration: Bool = false
     ) throws -> [URL] {
         if let outputFilePath {
             throw UrkelGeneratorError.outputFileOnlySupportsSingleInput(outputFilePath)
@@ -194,7 +239,9 @@ public struct UrkelGenerator {
                 outputExtension: outputExtension,
                 language: language,
                 swiftImports: swiftImports,
-                templateImports: templateImports
+                templateImports: templateImports,
+                additionalConfigSearchDirectories: additionalConfigSearchDirectories,
+                verboseConfiguration: verboseConfiguration
             )
             outputs.append(generated)
         }
@@ -241,6 +288,17 @@ public struct UrkelGenerator {
         }
 
         return URL(fileURLWithPath: outputFilePath, relativeTo: outputURL).standardizedFileURL
+    }
+
+    private static func resolvedOutputDirectoryURL(
+        from rootOutputURL: URL,
+        configuredOutputDirectory: String?
+    ) -> URL {
+        guard let configuredOutputDirectory, !configuredOutputDirectory.isEmpty else {
+            return rootOutputURL
+        }
+
+        return URL(fileURLWithPath: configuredOutputDirectory, relativeTo: rootOutputURL).standardizedFileURL
     }
 
     private func loadBundledTemplate(language: String) throws -> String {

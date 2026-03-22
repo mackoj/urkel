@@ -14,8 +14,10 @@ For cross-emitter generation, prefer emitter-specific configuration in `urkel-co
 
 ```json
 {
-  "swiftImports": ["Foundation", "Dependencies"],
-  "templateImports": ["kotlin.collections", "kotlin.io"]
+  "imports": {
+    "swift": ["Foundation", "Dependencies"],
+    "kotlin": ["kotlin.collections", "kotlin.io"]
+  }
 }
 ```
 
@@ -55,7 +57,7 @@ Idle -> start -> Scanning
 
 ## Validation rules
 
-The parser and validator reject malformed transitions, invalid state references, unresolved composed-machine forks, and machines that do not define a valid initial state.
+The parser and validator reject malformed transitions, invalid state references, unresolved composed-machine forks, duplicate state names, duplicate transition signatures, unreachable states, and machines that do not define a valid initial state.
 
 ## Formal grammar
 

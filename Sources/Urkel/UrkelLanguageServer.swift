@@ -19,6 +19,21 @@ public actor UrkelLanguageServer {
     private struct DocumentState: Sendable {
         var text: String
         var version: Int?
+        var cachedParse: CachedParse?
+        var cachedDiagnostics: [Diagnostic]?
+        var cachedSemanticTokenData: [UInt32]?
+        var cachedBestEffortTransitions: [TransitionShape]?
+    }
+
+    private struct TransitionShape: Equatable, Sendable {
+        let from: String
+        let event: String
+        let to: String
+    }
+
+    private enum CachedParse: Sendable {
+        case success(MachineAST)
+        case failure(UrkelParseError)
     }
 
     private enum TokenKind: Int, CaseIterable, Sendable {
@@ -36,12 +51,26 @@ public actor UrkelLanguageServer {
     public init() {}
 
     public func didOpen(uri: DocumentUri, text: String, version: Int? = nil) -> PublishDiagnosticsParams {
-        documents[uri] = DocumentState(text: text, version: version)
+        documents[uri] = DocumentState(
+            text: text,
+            version: version,
+            cachedParse: nil,
+            cachedDiagnostics: nil,
+            cachedSemanticTokenData: nil,
+            cachedBestEffortTransitions: nil
+        )
         return publishDiagnostics(uri: uri, text: text, version: version)
     }
 
     public func didChange(uri: DocumentUri, text: String, version: Int? = nil) -> PublishDiagnosticsParams {
-        documents[uri] = DocumentState(text: text, version: version)
+        documents[uri] = DocumentState(
+            text: text,
+            version: version,
+            cachedParse: nil,
+            cachedDiagnostics: nil,
+            cachedSemanticTokenData: nil,
+            cachedBestEffortTransitions: nil
+        )
         return publishDiagnostics(uri: uri, text: text, version: version)
     }
 
@@ -63,7 +92,12 @@ public actor UrkelLanguageServer {
 
     public func diagnostics(for uri: DocumentUri) -> [Diagnostic]? {
         guard let source = documents[uri]?.text else { return nil }
-        return lspDiagnostics(for: source)
+        if let cached = documents[uri]?.cachedDiagnostics {
+            return cached
+        }
+        let diagnostics = lspDiagnostics(for: source)
+        documents[uri]?.cachedDiagnostics = diagnostics
+        return diagnostics
     }
 
     public func source(for uri: DocumentUri) -> String? {
@@ -87,13 +121,13 @@ public actor UrkelLanguageServer {
 
     public func completion(for uri: DocumentUri, position: Position) -> CompletionResponse {
         guard let source = documents[uri]?.text else { return nil }
-        let items = completionItems(for: source, position: position)
+        let items = completionItems(for: source, position: position, uri: uri)
         return items.isEmpty ? nil : .optionB(CompletionList(isIncomplete: false, items: items))
     }
 
     public func hover(for uri: DocumentUri, position: Position) -> HoverResponse {
         guard let source = documents[uri]?.text else { return nil }
-        return hover(in: source, position: position)
+        return hover(in: source, position: position, uri: uri)
     }
 
     public func codeActions(
@@ -126,9 +160,14 @@ public actor UrkelLanguageServer {
 
     public func semanticTokens(for uri: DocumentUri) -> SemanticTokensResponse {
         guard let source = documents[uri]?.text else { return nil }
-        guard let ast = try? UrkelParser().parse(source: source) else { return nil }
+        if let cached = documents[uri]?.cachedSemanticTokenData {
+            return SemanticTokens(resultId: nil, data: cached)
+        }
 
-        let tokens = semanticTokens(for: source, ast: ast)
+        let tokens = semanticTokens(for: source, uri: uri)
+        guard !tokens.isEmpty else { return nil }
+        let encoded = Self.encodeSemanticTokens(tokens: tokens)
+        documents[uri]?.cachedSemanticTokenData = encoded
         return SemanticTokens(tokens: tokens)
     }
 
@@ -177,11 +216,39 @@ public extension UrkelLanguageServer {
         ],
         tokenModifiers: []
     )
+
+    static func encodeSemanticTokens(tokens: [SemanticToken]) -> [UInt32] {
+        var result: [UInt32] = []
+        var previousLine: UInt32 = 0
+        var previousCharacter: UInt32 = 0
+
+        for token in tokens.sorted(by: { lhs, rhs in
+            if lhs.line == rhs.line {
+                return lhs.char < rhs.char
+            }
+            return lhs.line < rhs.line
+        }) {
+            let deltaLine = token.line - previousLine
+            let deltaStart = deltaLine == 0 ? token.char - previousCharacter : token.char
+            result.append(deltaLine)
+            result.append(deltaStart)
+            result.append(token.length)
+            result.append(token.type)
+            result.append(0)
+
+            previousLine = token.line
+            previousCharacter = token.char
+        }
+
+        return result
+    }
 }
 
 private extension UrkelLanguageServer {
     func publishDiagnostics(uri: DocumentUri, text: String, version: Int?) -> PublishDiagnosticsParams {
-        PublishDiagnosticsParams(uri: uri, version: version, diagnostics: lspDiagnostics(for: text))
+        let diagnostics = lspDiagnostics(for: text)
+        documents[uri]?.cachedDiagnostics = diagnostics
+        return PublishDiagnosticsParams(uri: uri, version: version, diagnostics: diagnostics)
     }
 
     func lspDiagnostics(for source: String) -> [Diagnostic] {
@@ -251,6 +318,14 @@ private extension UrkelLanguageServer {
             return unresolvedReferenceDiagnostics(stateName: stateName, ast: ast, source: source)
         case .unresolvedComposedMachine(let machineName):
             return unresolvedComposedMachineDiagnostics(machineName: machineName, ast: ast, source: source)
+        case .duplicateState(let stateName):
+            return duplicateStateDiagnostics(stateName: stateName, ast: ast, source: source)
+        case .duplicateTransition(let from, let event, let to):
+            return duplicateTransitionDiagnostics(from: from, event: event, to: to, ast: ast, source: source)
+        case .unreachableState(let stateName):
+            return unreachableStateDiagnostics(stateName: stateName, ast: ast, source: source)
+        case .terminalStateHasOutgoingTransitions(let stateName):
+            return terminalStateOutgoingDiagnostics(stateName: stateName, ast: ast, source: source)
         }
     }
 
@@ -331,19 +406,103 @@ private extension UrkelLanguageServer {
             : matches
     }
 
+    func duplicateStateDiagnostics(stateName: String, ast: MachineAST, source: String) -> [Diagnostic] {
+        let matches = ast.states.filter { $0.name == stateName }
+        let diagnostics = matches.map { state in
+            Diagnostic(
+                range: range(for: state.range) ?? referenceRange(in: source, token: stateName, line: state.range?.start.line) ?? .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Duplicate state declaration: \(stateName)"
+            )
+        }
+
+        return diagnostics.isEmpty
+            ? [Diagnostic(range: .zero, severity: .error, source: "urkel", message: "Duplicate state declaration: \(stateName)")]
+            : diagnostics
+    }
+
+    func duplicateTransitionDiagnostics(
+        from: String,
+        event: String,
+        to: String,
+        ast: MachineAST,
+        source: String
+    ) -> [Diagnostic] {
+        let matches = ast.transitions.filter { $0.from == from && $0.event == event && $0.to == to }
+        let diagnostics = matches.map { transition in
+            Diagnostic(
+                range: range(for: transition.range)
+                    ?? referenceRange(in: source, token: event, line: transition.range?.start.line)
+                    ?? .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Duplicate transition declaration: \(from) -> \(event) -> \(to)"
+            )
+        }
+
+        return diagnostics.isEmpty
+            ? [Diagnostic(
+                range: .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Duplicate transition declaration: \(from) -> \(event) -> \(to)"
+            )]
+            : diagnostics
+    }
+
+    func unreachableStateDiagnostics(stateName: String, ast: MachineAST, source: String) -> [Diagnostic] {
+        guard let state = ast.states.first(where: { $0.name == stateName }) else {
+            return [Diagnostic(range: .zero, severity: .warning, source: "urkel", message: "Unreachable state: \(stateName)")]
+        }
+
+        return [
+            Diagnostic(
+                range: range(for: state.range) ?? referenceRange(in: source, token: stateName, line: state.range?.start.line) ?? .zero,
+                severity: .warning,
+                source: "urkel",
+                message: "Unreachable state: \(stateName)"
+            )
+        ]
+    }
+
+    func terminalStateOutgoingDiagnostics(stateName: String, ast: MachineAST, source: String) -> [Diagnostic] {
+        let matches = ast.transitions.filter { $0.from == stateName }
+        let diagnostics = matches.map { transition in
+            Diagnostic(
+                range: range(for: transition.range)
+                    ?? referenceRange(in: source, token: stateName, line: transition.range?.start.line)
+                    ?? .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Terminal state '\(stateName)' cannot have outgoing transitions when strict terminal semantics are enabled."
+            )
+        }
+
+        return diagnostics.isEmpty
+            ? [Diagnostic(
+                range: .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Terminal state '\(stateName)' cannot have outgoing transitions when strict terminal semantics are enabled."
+            )]
+            : diagnostics
+    }
+
     func parseValidated(_ source: String) throws -> MachineAST {
         let ast = try UrkelParser().parse(source: source)
         try UrkelValidator.validate(ast)
         return ast
     }
 
-    func completionItems(for source: String, position: Position) -> [CompletionItem] {
+    func completionItems(for source: String, position: Position, uri: DocumentUri) -> [CompletionItem] {
         let lines = normalizedLines(source)
         guard position.line < lines.count else { return [] }
         let line = lines[position.line]
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         let prefix = String(line.prefix(min(position.character, line.count))).trimmingCharacters(in: .whitespaces)
-        let ast = try? UrkelParser().parse(source: source)
+        let ast = parseBestEffort(source: source, uri: uri)
+        let fallbackTransitions = documents[uri]?.cachedBestEffortTransitions ?? bestEffortTransitionShapes(in: lines)
 
         var items: [CompletionItem] = []
 
@@ -382,7 +541,15 @@ private extension UrkelLanguageServer {
                 )
             }
 
-            for transition in ast?.transitions ?? [] {
+            for transition in ast?.transitions ?? fallbackTransitions.map({ transition in
+                MachineAST.TransitionNode(
+                    from: transition.from,
+                    event: transition.event,
+                    parameters: [],
+                    to: transition.to,
+                    range: nil
+                )
+            }) {
                 items.append(
                     CompletionItem(
                         label: transition.event,
@@ -404,8 +571,8 @@ private extension UrkelLanguageServer {
         return deduplicatedCompletionItems(items)
     }
 
-    func hover(in source: String, position: Position) -> HoverResponse {
-        guard let ast = try? UrkelParser().parse(source: source) else { return nil }
+    func hover(in source: String, position: Position, uri: DocumentUri) -> HoverResponse {
+        let ast = parseBestEffort(source: source, uri: uri)
         let lines = normalizedLines(source)
         guard position.line < lines.count else { return nil }
 
@@ -420,7 +587,7 @@ private extension UrkelLanguageServer {
             )
         }
 
-        if let word, let state = ast.states.first(where: { $0.name == word }) {
+        if let word, let ast, let state = ast.states.first(where: { $0.name == word }) {
             let kind: String
             switch state.kind {
             case .initial: kind = "initial"
@@ -434,7 +601,7 @@ private extension UrkelLanguageServer {
             )
         }
 
-        if let word, let transition = ast.transitions.first(where: { $0.event == word }) {
+        if let word, let ast, let transition = ast.transitions.first(where: { $0.event == word }) {
             let parameters = transition.parameters.isEmpty
                 ? ""
                 : " with parameters \(transition.parameters.map { "\($0.name): \($0.type)" }.joined(separator: ", "))"
@@ -445,9 +612,10 @@ private extension UrkelLanguageServer {
         }
 
         if trimmed.contains("->"),
-           let transition = ast.transitions.first(where: {
+           let transition = ast?.transitions.first(where: {
                $0.range?.start.line == position.line + 1 || transitionLineMatches($0, trimmedLine: trimmed)
            })
+            ?? fallbackTransitionNode(in: uri, line: trimmed)
         {
             let parameters = transition.parameters.isEmpty
                 ? ""
@@ -469,8 +637,9 @@ private extension UrkelLanguageServer {
         return nil
     }
 
-    func semanticTokens(for source: String, ast: MachineAST) -> [SemanticToken] {
+    func semanticTokens(for source: String, uri: DocumentUri) -> [SemanticToken] {
         let lines = normalizedLines(source)
+        let ast = parseBestEffort(source: source, uri: uri)
         var tokens: [SemanticToken] = []
 
         func addToken(lineIndex: Int, rawLine: String, range: Range<String.Index>, kind: TokenKind) {
@@ -517,10 +686,10 @@ private extension UrkelLanguageServer {
                 if let keyword = wordRange(in: rawLine, word: "@factory") {
                     addToken(lineIndex: lineIndex, rawLine: rawLine, range: keyword, kind: .keyword)
                 }
-                if let factory = ast.factory, let range = wordRange(in: rawLine, word: factory.name) {
+                if let factory = ast?.factory, let range = wordRange(in: rawLine, word: factory.name) {
                     addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .function)
                 }
-                for parameter in ast.factory?.parameters ?? [] {
+                for parameter in ast?.factory?.parameters ?? [] {
                     if let range = wordRange(in: rawLine, word: parameter.name) {
                         addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .parameter)
                     }
@@ -535,7 +704,7 @@ private extension UrkelLanguageServer {
                 if let kindWord = firstWord(in: trimmed), let range = wordRange(in: rawLine, word: kindWord) {
                     addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .keyword)
                 }
-                if let state = ast.states.first(where: { stateLineMatches(state: $0, rawLine: trimmed) }),
+                if let state = ast?.states.first(where: { stateLineMatches(state: $0, rawLine: trimmed) }),
                    let range = wordRange(in: rawLine, word: state.name)
                 {
                     addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .type)
@@ -544,7 +713,7 @@ private extension UrkelLanguageServer {
             }
 
             if isTransitionLine(trimmed) {
-                if let transition = ast.transitions.first(where: { transitionLineMatches($0, trimmedLine: trimmed) }) {
+                if let transition = ast?.transitions.first(where: { transitionLineMatches($0, trimmedLine: trimmed) }) {
                     if let range = wordRange(in: rawLine, word: transition.from) {
                         addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .type)
                     }
@@ -563,11 +732,91 @@ private extension UrkelLanguageServer {
                         }
                     }
                 }
+                if let shape = bestEffortTransitionShape(in: rawLine) {
+                    if let range = wordRange(in: rawLine, word: shape.from) {
+                        addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .type)
+                    }
+                    if let range = wordRange(in: rawLine, word: shape.event) {
+                        addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .event)
+                    }
+                    if let range = wordRange(in: rawLine, word: shape.to) {
+                        addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .type)
+                    }
+                }
                 continue
             }
         }
 
         return tokens.sorted { $0.line == $1.line ? $0.char < $1.char : $0.line < $1.line }
+    }
+
+    func parseBestEffort(source: String, uri: DocumentUri) -> MachineAST? {
+        if let cached = documents[uri]?.cachedParse {
+            switch cached {
+            case .success(let ast):
+                return ast
+            case .failure:
+                return nil
+            }
+        }
+
+        do {
+            let ast = try UrkelParser().parse(source: source)
+            documents[uri]?.cachedParse = .success(ast)
+            documents[uri]?.cachedBestEffortTransitions = ast.transitions.map {
+                TransitionShape(from: $0.from, event: $0.event, to: $0.to)
+            }
+            return ast
+        } catch let error as UrkelParseError {
+            documents[uri]?.cachedParse = .failure(error)
+            let transitions = bestEffortTransitionShapes(in: normalizedLines(source))
+            documents[uri]?.cachedBestEffortTransitions = transitions
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    func fallbackTransitionNode(in uri: DocumentUri, line: String) -> MachineAST.TransitionNode? {
+        if let astTransition = documents[uri]?.cachedBestEffortTransitions?.first(where: {
+            line.contains($0.from) && line.contains($0.event) && line.contains($0.to)
+        }) {
+            return MachineAST.TransitionNode(
+                from: astTransition.from,
+                event: astTransition.event,
+                parameters: [],
+                to: astTransition.to,
+                range: nil
+            )
+        }
+        return nil
+    }
+
+    private func bestEffortTransitionShapes(in lines: [String]) -> [TransitionShape] {
+        lines.compactMap(bestEffortTransitionShape(in:))
+    }
+
+    private func bestEffortTransitionShape(in line: String) -> TransitionShape? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        let parts = trimmed.split(separator: "->", omittingEmptySubsequences: false).map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }
+        guard parts.count >= 3 else { return nil }
+
+        let from = String(parts[0])
+        let eventDecl = String(parts[1])
+        let toAndFork = String(parts[2])
+        let to = toAndFork.split(separator: " ", omittingEmptySubsequences: true).first.map(String.init) ?? ""
+        guard !from.isEmpty, !eventDecl.isEmpty, !to.isEmpty else { return nil }
+
+        let event: String
+        if let openParen = eventDecl.firstIndex(of: "(") {
+            event = String(eventDecl[..<openParen]).trimmingCharacters(in: .whitespaces)
+        } else {
+            event = eventDecl
+        }
+        guard !event.isEmpty else { return nil }
+        return TransitionShape(from: from, event: event, to: to)
     }
 
     func makeInitialStateFix(uri: DocumentUri, source: String, ast: MachineAST) -> CodeAction? {
