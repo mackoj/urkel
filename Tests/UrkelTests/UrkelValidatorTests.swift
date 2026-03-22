@@ -97,4 +97,31 @@ struct UrkelValidatorTests {
 
         try UrkelValidator.validate(ast)
     }
+
+    @Test("Throws unresolvedComposedMachine for undeclared fork target")
+    func unresolvedComposedMachine() {
+        let ast = MachineAST(
+            imports: [],
+            machineName: "Scale",
+            contextType: nil,
+            factory: nil,
+            composedMachines: ["BLE"],
+            states: [
+                .init(name: "WakingUp", kind: .initial),
+                .init(name: "Tare", kind: .normal),
+            ],
+            transitions: [
+                .init(from: "WakingUp", event: "hardwareReady", parameters: [], to: "Tare", spawnedMachine: "WiFi")
+            ]
+        )
+
+        do {
+            try UrkelValidator.validate(ast)
+            Issue.record("Expected unresolved composed machine")
+        } catch let error as UrkelValidationError {
+            #expect(error == .unresolvedComposedMachine(machineName: "WiFi"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 }

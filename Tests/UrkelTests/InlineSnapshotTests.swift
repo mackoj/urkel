@@ -6,11 +6,8 @@ struct InlineSnapshotTests {
     @Test("Parser snapshot for Bluetooth example")
     func bluetoothAstSnapshot() throws {
         let source = """
-        @imports
-          import CoreBluetooth
-          import Dependencies
-
         machine Bluetooth
+        @compose BLE
         @factory makeBlender()
         @states
           init Disconnected
@@ -31,7 +28,8 @@ struct InlineSnapshotTests {
         assertMachine(ast) {
             """
             machine Bluetooth
-            imports: CoreBluetooth, Dependencies
+            imports: 
+            compose: BLE
             @factory makeBlender()
             @states
               init Disconnected
@@ -364,11 +362,8 @@ struct InlineSnapshotTests {
     @Test("Parser round-trip print snapshot")
     func parserRoundTripPrintSnapshot() throws {
         let source = """
-        @imports
-         import Foundation
-           import Dependencies
-
         machine  Bluetooth
+        @compose BLE
         @factory   makeObserver( url : URL , debounceMs : Int )
         @states
           init    Idle
@@ -384,11 +379,8 @@ struct InlineSnapshotTests {
         let roundTrip = parser.print(ast: ast)
         assertSwiftEmission(roundTrip) {
             """
-            @imports
-              import Foundation
-              import Dependencies
-
             machine Bluetooth
+            @compose BLE
             @factory makeObserver(url: URL, debounceMs: Int)
             @states
               init Idle

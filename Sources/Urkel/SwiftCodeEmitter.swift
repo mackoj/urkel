@@ -18,6 +18,7 @@ public struct SwiftCodeEmitter {
             emitClientRuntimeBuilder(for: ast, names: names),
             emitExtensions(for: ast, names: names),
             emitCombinedStateWrapper(for: ast, names: names),
+            emitOrchestrator(for: ast, names: names),
             emitClient(for: ast, names: names)
         ]
         .filter { !$0.isEmpty }
@@ -447,6 +448,117 @@ public struct SwiftCodeEmitter {
         """
     }
 
+    private func emitOrchestrator(for ast: MachineAST, names: Names) -> String {
+        guard !ast.composedMachines.isEmpty else { return "" }
+
+        let parentStateProperty = "\(lowerCamelName(from: names.machineTypeName))State"
+        let parentStateType = names.stateWrapperTypeName
+        let composedMetadata = ast.composedMachines.map { machineName in
+            ComposedMachineMetadata(
+                machineName: machineName,
+                stateTypeName: "\(normalizedTypeName(machineName))State",
+                statePropertyName: "\(lowerCamelAcronymAwareName(from: machineName))State",
+                factoryPropertyName: "make\(normalizedTypeName(machineName))State",
+                shouldSpawnVariableName: "shouldSpawn\(normalizedTypeName(machineName))"
+            )
+        }
+
+        let storageProperties = ([
+            "    private var \(parentStateProperty): \(parentStateType)"
+        ] + composedMetadata.map { "    private var \($0.statePropertyName): \($0.stateTypeName)?" }
+            + composedMetadata.map { "    private let \($0.factoryPropertyName): @Sendable () -> \($0.stateTypeName)" })
+            .joined(separator: "\n")
+
+        let initParams = ([
+            "initialState: \(parentStateType)"
+        ] + composedMetadata.map { "\($0.factoryPropertyName): @escaping @Sendable () -> \($0.stateTypeName)" })
+            .joined(separator: ",\n        ")
+
+        let initAssignments = ([
+            "        self.\(parentStateProperty) = initialState"
+        ] + composedMetadata.map {
+            """
+                    self.\($0.statePropertyName) = nil
+                    self.\($0.factoryPropertyName) = \($0.factoryPropertyName)
+            """
+        }).joined(separator: "\n")
+
+        let transitionSignatures = orderedTransitionSignatures(in: ast)
+        let methods = transitionSignatures.compactMap { signature -> String? in
+            guard let exemplar = transitions(for: signature, in: ast).first else { return nil }
+
+            let params = exemplar.parameters
+            let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
+            let callArgs = params.map(\.name).joined(separator: ", ")
+
+            let eventTransitions = transitions(for: signature, in: ast)
+            let forks = composedMetadata.compactMap { machine -> ForkMetadata? in
+                let fromStates = Set(eventTransitions.compactMap { transition -> String? in
+                    transition.spawnedMachine == machine.machineName ? transition.from : nil
+                })
+                return fromStates.isEmpty ? nil : ForkMetadata(machine: machine, fromStates: fromStates)
+            }
+
+            if forks.isEmpty {
+                return """
+                    public func \(signature.event)(\(signatureParams)) async throws {
+                        self.\(parentStateProperty) = try await self.\(parentStateProperty).\(signature.event)(\(callArgs))
+                    }
+                """
+            }
+
+            let switchCases = ast.states.map { state in
+                let assignments = forks.map { fork in
+                    "            \(fork.machine.shouldSpawnVariableName) = \(fork.fromStates.contains(state.name) ? "true" : "false")"
+                }.joined(separator: "\n")
+                return """
+                        case .\(caseName(for: state.name)):
+                \(assignments)
+                """
+            }.joined(separator: "\n")
+
+            let boolDeclarations = forks
+                .map { "        let \($0.machine.shouldSpawnVariableName): Bool" }
+                .joined(separator: "\n")
+
+            let spawnAssignments = forks.map { fork in
+                """
+                        if \(fork.machine.shouldSpawnVariableName) {
+                            self.\(fork.machine.statePropertyName) = self.\(fork.machine.factoryPropertyName)()
+                        }
+                """
+            }.joined(separator: "\n")
+
+            return """
+                public func \(signature.event)(\(signatureParams)) async throws {
+            \(boolDeclarations)
+                    switch self.\(parentStateProperty) {
+            \(switchCases)
+                    }
+                    self.\(parentStateProperty) = try await self.\(parentStateProperty).\(signature.event)(\(callArgs))
+            \(spawnAssignments)
+                }
+            """
+        }.joined(separator: "\n\n")
+
+        return """
+        // MARK: - \(names.machineTypeName) Orchestrator
+
+        /// Actor wrapper that coordinates the parent machine with composed machine state lifecycles.
+        public actor \(names.orchestratorTypeName) {
+        \(storageProperties)
+
+            public init(
+                \(initParams)
+            ) {
+        \(initAssignments)
+            }
+
+        \(methods.isEmpty ? "" : methods)
+        }
+        """
+    }
+
     private func emitClient(for ast: MachineAST, names: Names) -> String {
         let factoryName = ast.factory?.name ?? "makeObserver"
         let initialStateType = ast.states
@@ -599,6 +711,15 @@ public struct SwiftCodeEmitter {
         return String(first).lowercased() + normalized.dropFirst()
     }
 
+    private func lowerCamelAcronymAwareName(from raw: String) -> String {
+        let normalized = normalizedTypeName(raw)
+        guard !normalized.isEmpty else { return normalized }
+        if normalized == normalized.uppercased() {
+            return normalized.lowercased()
+        }
+        return lowerCamelName(from: normalized)
+    }
+
     private func splitCompoundToken(_ token: String) -> [String] {
         guard !token.isEmpty else { return [] }
         let lowercase = token.lowercased()
@@ -644,6 +765,7 @@ public struct SwiftCodeEmitter {
         let observerTypeName: String
         let clientTypeName: String
         let stateWrapperTypeName: String
+        let orchestratorTypeName: String
         let dependencyKeyName: String
 
         init(from machineName: String) {
@@ -653,8 +775,22 @@ public struct SwiftCodeEmitter {
             self.observerTypeName = "\(machineType)Observer"
             self.clientTypeName = "\(machineType)Client"
             self.stateWrapperTypeName = "\(machineType)State"
+            self.orchestratorTypeName = "\(machineType)Orchestrator"
             self.dependencyKeyName = SwiftCodeEmitter().lowerCamelName(from: machineType)
         }
+    }
+
+    private struct ComposedMachineMetadata {
+        let machineName: String
+        let stateTypeName: String
+        let statePropertyName: String
+        let factoryPropertyName: String
+        let shouldSpawnVariableName: String
+    }
+
+    private struct ForkMetadata {
+        let machine: ComposedMachineMetadata
+        let fromStates: Set<String>
     }
 
     private struct TransitionParameterSignature: Hashable {

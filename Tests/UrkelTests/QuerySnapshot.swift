@@ -6,6 +6,7 @@ extension Snapshotting where Value == MachineAST {
     static var urkelSummary: Snapshotting<Value, String> {
         SimplySnapshotting.lines.pullback { ast in
             let imports = ast.imports.joined(separator: ", ")
+            let composed = ast.composedMachines.joined(separator: ", ")
             let stateRows = ast.states.map { state -> String in
                 let kind: String
                 switch state.kind {
@@ -21,7 +22,8 @@ extension Snapshotting where Value == MachineAST {
                     .map { "\($0.name): \($0.type)" }
                     .joined(separator: ", ")
                 let eventDecl = payload.isEmpty ? transition.event : "\(transition.event)(\(payload))"
-                return "  \(transition.from) -> \(eventDecl) -> \(transition.to)"
+                let fork = transition.spawnedMachine.map { " => \($0).init" } ?? ""
+                return "  \(transition.from) -> \(eventDecl) -> \(transition.to)\(fork)"
             }.joined(separator: "\n")
 
             let factoryDecl: String
@@ -35,6 +37,7 @@ extension Snapshotting where Value == MachineAST {
             return """
             machine \(ast.machineName)\(ast.contextType.map { "<\($0)>" } ?? "")
             imports: \(imports)
+            compose: \(composed)
             \(factoryDecl)
             @states
             \(stateRows)

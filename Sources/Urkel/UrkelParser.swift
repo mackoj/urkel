@@ -33,21 +33,35 @@ public struct UrkelParser {
             .map(String.init)
 
         var index = 0
-        var imports: [String] = []
         var machineName = machineNameFallback ?? "Machine"
         var contextType: String?
         var factory: MachineAST.Factory?
+        var composedMachines: [String] = []
         var states: [MachineAST.StateNode] = []
         var transitions: [MachineAST.TransitionNode] = []
+        var pendingDocComments: [MachineAST.DocComment] = []
         let sourceLineCount = max(lines.count, 1)
 
         func trimmed(_ value: String) -> String {
             value.trimmingCharacters(in: .whitespaces)
         }
 
-        func isTrivia(_ value: String) -> Bool {
+        func isDeprecatedImportsSyntax(_ value: String) -> Bool {
             let t = trimmed(value)
-            return t.isEmpty || t.hasPrefix("#")
+            return t == "@imports" || t.hasPrefix("import ")
+        }
+
+        func throwDeprecatedImportsSyntax(line: Int) throws -> Never {
+            throw UrkelParseError(
+                line: line,
+                column: 1,
+                message: "`@imports` is no longer supported. Configure imports in urkel-config.json using imports.swift or imports.<language>."
+            )
+        }
+
+        func consumePendingDocComments() -> [MachineAST.DocComment] {
+            defer { pendingDocComments.removeAll() }
+            return pendingDocComments
         }
 
         let identifierParser = UrkelIdentifierParser()
@@ -172,6 +186,15 @@ public struct UrkelParser {
                     }
                 }
 
+                if parenDepth == 0, i + 1 < chars.count, chars[i] == "=", chars[i + 1] == ">" {
+                    result.append(current.trimmingCharacters(in: .whitespaces))
+                    columns.append(tokenStartColumn)
+                    current.removeAll(keepingCapacity: true)
+                    i += 2
+                    tokenStartColumn = i + 1
+                    continue
+                }
+
                 if parenDepth == 0, i + 1 < chars.count, chars[i] == "-", chars[i + 1] == ">" {
                     result.append(current.trimmingCharacters(in: .whitespaces))
                     columns.append(tokenStartColumn)
@@ -214,35 +237,34 @@ public struct UrkelParser {
             return .init(start: .init(line: line, column: start), end: .init(line: line, column: end))
         }
 
-        func skipTrivia() {
-            while index < lines.count, isTrivia(lines[index]) {
-                index += 1
-            }
-        }
-
-        skipTrivia()
-
-        if index < lines.count, trimmed(lines[index]) == "@imports" {
-            let importLineParser = UrkelImportLineParser()
-            index += 1
+        func drainDocComments() {
             while index < lines.count {
-                if isTrivia(lines[index]) {
+                let rawLine = lines[index]
+                let trimmedLine = trimmed(rawLine)
+
+                if trimmedLine.isEmpty {
+                    pendingDocComments.removeAll()
                     index += 1
                     continue
                 }
-                let line = trimmed(lines[index])
-                if let importedType = try? importLineParser.parse(line[...]) {
-                    if !importedType.isEmpty {
-                        imports.append(importedType)
-                    }
+
+                if trimmedLine.hasPrefix("#") {
+                    let commentBody = String(trimmedLine.dropFirst()).trimmingCharacters(in: .whitespaces)
+                    let commentRange = sourceRange(line: index + 1, rawLine: rawLine, token: "#")
+                    pendingDocComments.append(.init(text: commentBody, range: commentRange))
                     index += 1
                     continue
                 }
+
                 break
             }
         }
 
-        skipTrivia()
+        drainDocComments()
+        if index < lines.count, isDeprecatedImportsSyntax(lines[index]) {
+            try throwDeprecatedImportsSyntax(line: index + 1)
+        }
+        pendingDocComments.removeAll()
 
         if index < lines.count {
             let machineLineParser = UrkelMachineLineParser()
@@ -262,10 +284,41 @@ public struct UrkelParser {
                 }
 
                 index += 1
+                pendingDocComments.removeAll()
             }
         }
 
-        skipTrivia()
+        drainDocComments()
+        if index < lines.count, isDeprecatedImportsSyntax(lines[index]) {
+            try throwDeprecatedImportsSyntax(line: index + 1)
+        }
+
+        while index < lines.count {
+            let composeLineParser = UrkelComposeLineParser()
+            let line = trimmed(lines[index])
+            guard line.hasPrefix("@compose ") else { break }
+
+            let composedMachine: String
+            do {
+                composedMachine = try composeLineParser.parse(line[...])
+            } catch {
+                throw UrkelParseError(line: index + 1, column: 1, message: "Invalid @compose declaration")
+            }
+
+            guard isIdentifier(composedMachine) else {
+                throw UrkelParseError(line: index + 1, column: 1, message: "Invalid composed machine identifier '\(composedMachine)'")
+            }
+
+            if !composedMachines.contains(composedMachine) {
+                composedMachines.append(composedMachine)
+            }
+            index += 1
+            pendingDocComments.removeAll()
+            drainDocComments()
+            if index < lines.count, isDeprecatedImportsSyntax(lines[index]) {
+                try throwDeprecatedImportsSyntax(line: index + 1)
+            }
+        }
 
         if index < lines.count {
             let factoryLineParser = UrkelFactoryLineParser()
@@ -288,10 +341,15 @@ public struct UrkelParser {
                 let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: line)
                 factory = MachineAST.Factory(name: name, parameters: parsedParameters, range: rangeValue)
                 index += 1
+                pendingDocComments.removeAll()
             }
         }
 
-        skipTrivia()
+        drainDocComments()
+        if index < lines.count, isDeprecatedImportsSyntax(lines[index]) {
+            try throwDeprecatedImportsSyntax(line: index + 1)
+        }
+        pendingDocComments.removeAll()
 
         guard index < lines.count, trimmed(lines[index]) == "@states" else {
             throw UrkelParseError(line: index + 1, column: 1, message: "Expected @states block")
@@ -299,16 +357,20 @@ public struct UrkelParser {
         index += 1
 
         while index < lines.count {
+            drainDocComments()
+            guard index < lines.count else { break }
+
             let stateLineParser = UrkelStateLineParser()
-            if isTrivia(lines[index]) {
-                index += 1
-                continue
-            }
             let line = trimmed(lines[index])
             if line == "@transitions" {
+                pendingDocComments.removeAll()
                 break
             }
+            if isDeprecatedImportsSyntax(line) {
+                try throwDeprecatedImportsSyntax(line: index + 1)
+            }
 
+            let stateDocComments = consumePendingDocComments()
             let parsedState: UrkelStateLineParser.Output
             do {
                 parsedState = try stateLineParser.parse(line[...])
@@ -330,7 +392,7 @@ public struct UrkelParser {
             }
 
             let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: stateName)
-            states.append(.init(name: stateName, kind: kind, range: rangeValue))
+            states.append(.init(name: stateName, kind: kind, range: rangeValue, docComments: stateDocComments))
             index += 1
         }
 
@@ -340,16 +402,19 @@ public struct UrkelParser {
         index += 1
 
         while index < lines.count {
-            if isTrivia(lines[index]) {
-                index += 1
-                continue
+            drainDocComments()
+            guard index < lines.count else { break }
+
+            if isDeprecatedImportsSyntax(lines[index]) {
+                try throwDeprecatedImportsSyntax(line: index + 1)
             }
 
+            let transitionDocComments = consumePendingDocComments()
             let rawLine = lines[index]
             let line = trimmed(rawLine)
             let parts = try splitTransitionArrows(line, line: index + 1)
-            guard parts.count == 3 else {
-                throw UrkelParseError(line: index + 1, column: 1, message: "Transition must follow: State -> event(params?) -> State")
+            guard parts.count == 3 || parts.count == 4 else {
+                throw UrkelParseError(line: index + 1, column: 1, message: "Transition must follow: State -> event(params?) -> State [=> Machine.init]")
             }
 
             let leadingWhitespaceOffset = rawLine.distance(from: rawLine.startIndex, to: rawLine.firstIndex(where: { !$0.isWhitespace }) ?? rawLine.endIndex)
@@ -360,6 +425,21 @@ public struct UrkelParser {
             let from = parts[0].text
             let eventDecl = parts[1].text
             let to = parts[2].text
+
+            let spawnedMachine: String?
+            if parts.count == 4 {
+                let forkDecl = parts[3].text
+                guard forkDecl.hasSuffix(".init") else {
+                    throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Fork target must end with .init")
+                }
+                let rawMachine = String(forkDecl.dropLast(".init".count)).trimmingCharacters(in: .whitespaces)
+                guard isIdentifier(rawMachine) else {
+                    throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Invalid composed machine identifier '\(rawMachine)'")
+                }
+                spawnedMachine = rawMachine
+            } else {
+                spawnedMachine = nil
+            }
 
             guard isIdentifier(from) else {
                 throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[0].startColumn), message: "Invalid source state '\(from)'")
@@ -388,7 +468,17 @@ public struct UrkelParser {
             }
 
             let rangeValue = sourceRange(line: index + 1, rawLine: lines[index], token: eventDecl)
-            transitions.append(.init(from: from, event: eventName, parameters: eventParameters, to: to, range: rangeValue))
+            transitions.append(
+                .init(
+                    from: from,
+                    event: eventName,
+                    parameters: eventParameters,
+                    to: to,
+                    spawnedMachine: spawnedMachine,
+                    range: rangeValue,
+                    docComments: transitionDocComments
+                )
+            )
             index += 1
         }
 
@@ -402,10 +492,11 @@ public struct UrkelParser {
         )
 
         return MachineAST(
-            imports: imports,
+            imports: [],
             machineName: machineName,
             contextType: contextType,
             factory: factory,
+            composedMachines: composedMachines,
             states: states,
             transitions: transitions,
             range: astRange
@@ -425,16 +516,14 @@ public struct UrkelParser {
     public func print(ast: MachineAST) -> String {
         var lines: [String] = []
 
-        if !ast.imports.isEmpty {
-            lines.append("@imports")
-            lines.append(contentsOf: ast.imports.map { "  import \($0)" })
-            lines.append("")
-        }
-
         if let contextType = ast.contextType {
             lines.append("machine \(ast.machineName)<\(contextType)>")
         } else {
             lines.append("machine \(ast.machineName)")
+        }
+
+        if !ast.composedMachines.isEmpty {
+            lines.append(contentsOf: ast.composedMachines.map { "@compose \($0)" })
         }
 
         if let factory = ast.factory {
@@ -461,7 +550,8 @@ public struct UrkelParser {
                 .map { "\($0.name): \($0.type)" }
                 .joined(separator: ", ")
             let eventDecl = params.isEmpty ? transition.event : "\(transition.event)(\(params))"
-            return "  \(transition.from) -> \(eventDecl) -> \(transition.to)"
+            let forkSuffix = transition.spawnedMachine.map { " => \($0).init" } ?? ""
+            return "  \(transition.from) -> \(eventDecl) -> \(transition.to)\(forkSuffix)"
         })
 
         return lines.joined(separator: "\n")
@@ -479,14 +569,15 @@ private struct UrkelIdentifierParser: Parser {
     }
 }
 
-private struct UrkelImportLineParser: Parser {
+private struct UrkelComposeLineParser: Parser {
     func parse(_ input: inout Substring) throws -> String {
         let parser = Parse(input: Substring.self) {
-            "import"
+            "@compose"
             Skip { Prefix(1...) { $0.isWhitespace } }
-            Rest()
+            UrkelIdentifierParser()
+            End()
         }
-        return String(try parser.parse(&input))
+        return try parser.parse(&input)
     }
 }
 

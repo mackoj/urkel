@@ -24,10 +24,8 @@ Urkel syntax is simple, readable, and relies on a **Bring Your Own Types (BYOT)*
 
 ```text
 # FolderWatch.urkel
-@imports
-  import Foundation
-  import Dependencies
-
+machine FolderWatch<FolderWatchContext>
+@compose Indexer
 @factory makeObserver(directory: URL, debounceMs: Int)
 
 @states
@@ -37,7 +35,7 @@ Urkel syntax is simple, readable, and relies on a **Bring Your Own Types (BYOT)*
 
 @transitions
   # [Current]   -> [Trigger(Payload)]   -> [Next]
-  Idle         -> start                  -> Running
+  Idle         -> start                  -> Running => Indexer.init
   Running      -> stop                   -> Stopped
 ```
 
@@ -146,6 +144,7 @@ If you want to change where generated files go or export to another language/tem
 
 ```json
 {
+  "swiftImports": ["Foundation", "Dependencies"],
   "outputFile": "ConfiguredFolderWatch.swift",
   "template": "Templates/machine.mustache",
   "outputExtension": "kt",
@@ -158,6 +157,8 @@ Supported keys:
 * `outputFile`: output path relative to the current generator root. In build-tool mode that root is the plugin work directory; in command-plugin mode it is the package directory.
 * `template`: path to a custom Mustache template, resolved relative to the config file.
 * `language`: bundled language template name, currently `kotlin`.
+* `swiftImports`: optional import list used by the native Swift emitter.
+* `templateImports`: optional import list used by template/language emitters.
 * `outputExtension`: overrides the generated file extension.
 * `sourceExtensions`: source file extensions the plugin should process, defaulting to `["urkel"]`.
 

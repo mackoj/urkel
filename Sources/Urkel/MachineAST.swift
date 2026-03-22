@@ -32,6 +32,16 @@ public struct MachineAST: Equatable, Sendable {
         }
     }
 
+    public struct DocComment: Equatable, Sendable {
+        public let text: String
+        public let range: SourceRange?
+
+        public init(text: String, range: SourceRange? = nil) {
+            self.text = text
+            self.range = range
+        }
+    }
+
     public struct Factory: Equatable, Sendable {
         public let name: String
         public let parameters: [Parameter]
@@ -66,11 +76,18 @@ public struct MachineAST: Equatable, Sendable {
         public let name: String
         public let kind: Kind
         public let range: SourceRange?
+        public let docComments: [DocComment]
 
-        public init(name: String, kind: Kind, range: SourceRange? = nil) {
+        public init(
+            name: String,
+            kind: Kind,
+            range: SourceRange? = nil,
+            docComments: [DocComment] = []
+        ) {
             self.name = name
             self.kind = kind
             self.range = range
+            self.docComments = docComments
         }
     }
 
@@ -79,14 +96,26 @@ public struct MachineAST: Equatable, Sendable {
         public let event: String
         public let parameters: [Parameter]
         public let to: String
+        public let spawnedMachine: String?
         public let range: SourceRange?
+        public let docComments: [DocComment]
 
-        public init(from: String, event: String, parameters: [Parameter], to: String, range: SourceRange? = nil) {
+        public init(
+            from: String,
+            event: String,
+            parameters: [Parameter],
+            to: String,
+            spawnedMachine: String? = nil,
+            range: SourceRange? = nil,
+            docComments: [DocComment] = []
+        ) {
             self.from = from
             self.event = event
             self.parameters = parameters
             self.to = to
+            self.spawnedMachine = spawnedMachine
             self.range = range
+            self.docComments = docComments
         }
     }
 
@@ -94,6 +123,7 @@ public struct MachineAST: Equatable, Sendable {
     public let machineName: String
     public let contextType: String?
     public let factory: Factory?
+    public let composedMachines: [String]
     public let states: [StateNode]
     public let transitions: [TransitionNode]
     public let emitterOptions: EmitterOptions?
@@ -104,6 +134,7 @@ public struct MachineAST: Equatable, Sendable {
         machineName: String,
         contextType: String?,
         factory: Factory?,
+        composedMachines: [String] = [],
         states: [StateNode],
         transitions: [TransitionNode],
         emitterOptions: EmitterOptions? = nil,
@@ -113,6 +144,7 @@ public struct MachineAST: Equatable, Sendable {
         self.machineName = machineName
         self.contextType = contextType
         self.factory = factory
+        self.composedMachines = composedMachines
         self.states = states
         self.transitions = transitions
         self.emitterOptions = emitterOptions

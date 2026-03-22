@@ -249,6 +249,8 @@ private extension UrkelLanguageServer {
             }
         case .unresolvedStateReference(let stateName):
             return unresolvedReferenceDiagnostics(stateName: stateName, ast: ast, source: source)
+        case .unresolvedComposedMachine(let machineName):
+            return unresolvedComposedMachineDiagnostics(machineName: machineName, ast: ast, source: source)
         }
     }
 
@@ -308,6 +310,27 @@ private extension UrkelLanguageServer {
             : matches
     }
 
+    func unresolvedComposedMachineDiagnostics(machineName: String, ast: MachineAST, source: String) -> [Diagnostic] {
+        var matches: [Diagnostic] = []
+
+        for transition in ast.transitions where transition.spawnedMachine == machineName {
+            if let range = referenceRange(in: source, token: machineName, line: transition.range?.start.line) {
+                matches.append(
+                    Diagnostic(
+                        range: range,
+                        severity: .error,
+                        source: "urkel",
+                        message: "Unresolved composed machine: \(machineName)"
+                    )
+                )
+            }
+        }
+
+        return matches.isEmpty
+            ? [Diagnostic(range: .zero, severity: .error, source: "urkel", message: "Unresolved composed machine: \(machineName)")]
+            : matches
+    }
+
     func parseValidated(_ source: String) throws -> MachineAST {
         let ast = try UrkelParser().parse(source: source)
         try UrkelValidator.validate(ast)
@@ -326,7 +349,7 @@ private extension UrkelLanguageServer {
 
         if trimmed.isEmpty || line.trimmingCharacters(in: .whitespaces).hasPrefix("@") || prefix.hasPrefix("@") {
             items.append(contentsOf: [
-                CompletionItem(label: "@imports", kind: .keyword, detail: "Declare imports"),
+                CompletionItem(label: "@compose", kind: .keyword, detail: "Declare a composed machine"),
                 CompletionItem(label: "machine", kind: .keyword, detail: "Declare a machine"),
                 CompletionItem(label: "@factory", kind: .keyword, detail: "Declare a factory"),
                 CompletionItem(label: "@states", kind: .keyword, detail: "Declare states"),
@@ -470,8 +493,8 @@ private extension UrkelLanguageServer {
                 continue
             }
 
-            if trimmed.hasPrefix("@imports") {
-                if let range = wordRange(in: rawLine, word: "@imports") {
+            if trimmed.hasPrefix("@compose") {
+                if let range = wordRange(in: rawLine, word: "@compose") {
                     addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .keyword)
                 }
                 continue
@@ -647,7 +670,7 @@ private extension UrkelLanguageServer {
     }
 
     enum Section {
-        case imports
+        case compose
         case machine
         case factory
         case states
@@ -658,7 +681,7 @@ private extension UrkelLanguageServer {
         var current: Section?
         for (index, line) in lines.enumerated() where index <= lineIndex {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("@imports") { current = .imports }
+            if trimmed.hasPrefix("@compose") { current = .compose }
             else if trimmed.hasPrefix("machine ") { current = .machine }
             else if trimmed.hasPrefix("@factory ") { current = .factory }
             else if trimmed == "@states" { current = .states }

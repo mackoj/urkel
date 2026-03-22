@@ -7,11 +7,8 @@ struct UrkelParserTests {
     func parseValidMachine() throws {
         let source = """
         # comment
-        @imports
-          import Foundation
-          import Dependencies
-
         machine Bluetooth
+        @compose BLE
         @factory makeObserver(url: URL)
 
         @states
@@ -27,7 +24,8 @@ struct UrkelParserTests {
 
         let ast = try UrkelParser().parse(source: source)
         #expect(ast.machineName == "Bluetooth")
-        #expect(ast.imports == ["Foundation", "Dependencies"])
+        #expect(ast.imports.isEmpty)
+        #expect(ast.composedMachines == ["BLE"])
         #expect(ast.transitions.count == 2)
         #expect(ast.factory?.parameters.first?.name == "url")
     }
@@ -117,11 +115,8 @@ struct UrkelParserTests {
     @Test("Prints canonical urkel formatting")
     func printCanonicalFormatting() throws {
         let messy = """
-        @imports
-         import Foundation
-           import Dependencies
-
         machine  Bluetooth
+        @compose BLE
         @factory   makeObserver( url : URL , debounceMs : Int )
         @states
           init    Idle
@@ -137,11 +132,8 @@ struct UrkelParserTests {
         let output = parser.print(ast: ast)
 
         #expect(output == """
-        @imports
-          import Foundation
-          import Dependencies
-
         machine Bluetooth
+        @compose BLE
         @factory makeObserver(url: URL, debounceMs: Int)
         @states
           init Idle
@@ -151,5 +143,45 @@ struct UrkelParserTests {
           Idle -> start -> Running
           Running -> stop(reason: String) -> Stopped
         """)
+    }
+
+    @Test("Parses fork transition and captures spawned machine")
+    func parsesForkTransition() throws {
+        let source = """
+        machine Scale
+        @compose BLE
+        @states
+          init WakingUp
+          state Tare
+        @transitions
+          WakingUp -> hardwareReady -> Tare => BLE.init
+        """
+
+        let ast = try UrkelParser().parse(source: source)
+        #expect(ast.composedMachines == ["BLE"])
+        #expect(ast.transitions.count == 1)
+        #expect(ast.transitions[0].spawnedMachine == "BLE")
+    }
+
+    @Test("Rejects deprecated @imports syntax with actionable message")
+    func rejectsDeprecatedImportsBlock() {
+        let source = """
+        @imports
+          import Foundation
+        @states
+          init Idle
+        @transitions
+          Idle -> start -> Idle
+        """
+
+        do {
+            _ = try UrkelParser().parse(source: source)
+            Issue.record("Expected parse error")
+        } catch let error as UrkelParseError {
+            #expect(error.message.contains("`@imports` is no longer supported"))
+            #expect(error.message.contains("urkel-config.json"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
     }
 }

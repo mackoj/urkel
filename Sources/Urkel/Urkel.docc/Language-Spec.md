@@ -4,10 +4,11 @@ This article describes the `.urkel` format in practical terms.
 
 ## Core sections
 
-- `@imports` declares import hints in the DSL (still supported).
+- `machine` declares the machine name and optional context type (`machine Name<Context>`).
+- `@compose` optionally declares composed machines that may be forked in transitions.
 - `@factory` names the initializer/factory method for the generated client.
 - `@states` defines the typestate markers.
-- `@transitions` defines the legal state transitions.
+- `@transitions` defines legal transitions, with optional forks using `=> ComposedMachine.init`.
 
 For cross-emitter generation, prefer emitter-specific configuration in `urkel-config.json`:
 
@@ -23,11 +24,8 @@ This keeps `.urkel` source emitter-agnostic while letting each emitter control i
 ## Example
 
 ```text
-@imports
-  import Foundation
-  import Dependencies
-
 machine FolderWatch<FolderWatchContext>
+@compose Indexer
 @factory makeObserver(directory: URL, debounceMs: Int)
 
 @states
@@ -36,7 +34,7 @@ machine FolderWatch<FolderWatchContext>
   final Stopped
 
 @transitions
-  Idle -> start -> Running
+  Idle -> start -> Running => Indexer.init
   Running -> stop -> Stopped
 ```
 
@@ -46,7 +44,7 @@ Urkel follows a Bring Your Own Types approach. Your payloads, context types, and
 
 ## Validation rules
 
-The parser and validator reject malformed transitions, invalid state references, and machines that do not define a valid initial state.
+The parser and validator reject malformed transitions, invalid state references, unresolved composed-machine forks, and machines that do not define a valid initial state.
 
 ## Formal grammar
 
@@ -55,45 +53,48 @@ The canonical EBNF lives at repository root in `grammar.ebnf`.
 Current grammar:
 
 ```ebnf
-UrkelFile        ::= { Whitespace | Comment | Newline } 
-                     [ ImportsBlock ] 
-                     MachineDecl 
-                     [ FactoryDecl ] 
-                     StatesBlock 
+UrkelFile        ::= { TriviaLine }
+                     [ MachineDecl { TriviaLine } ]
+                     { ComposeDecl { TriviaLine } }
+                     [ FactoryDecl { TriviaLine } ]
+                     StatesBlock { TriviaLine }
                      TransitionsBlock
+                     { TriviaLine }
 
-ImportsBlock     ::= "@imports" Newline { ImportStmt }
-ImportStmt       ::= { Whitespace } "import" Whitespace SwiftType Newline
-
-MachineDecl      ::= { Whitespace } "machine" Whitespace Identifier [ "<" Identifier ">" ] Newline
-
+MachineDecl      ::= { Whitespace } "machine" Whitespace Identifier [ ContextDecl ] Newline
+ContextDecl      ::= "<" { Whitespace } Identifier { Whitespace } ">"
+ComposeDecl      ::= { Whitespace } "@compose" Whitespace Identifier Newline
 FactoryDecl      ::= { Whitespace } "@factory" Whitespace Identifier "(" [ ParameterList ] ")" Newline
 
-StatesBlock      ::= { Whitespace } "@states" Newline { StateStmt }
-TransitionsBlock ::= { Whitespace } "@transitions" Newline { TransitionStmt }
+StatesBlock      ::= { Whitespace } "@states" Newline { TriviaLine | StateStmt }
+TransitionsBlock ::= { Whitespace } "@transitions" Newline { TriviaLine | TransitionStmt }
 
 StateStmt        ::= { Whitespace } StateKind Whitespace Identifier { Whitespace } Newline
 StateKind        ::= "init" | "state" | "final"
 
-TransitionStmt   ::= { Whitespace } Identifier 
-                     Whitespace? "->" Whitespace? 
-                     EventDecl 
-                     Whitespace? "->" Whitespace? 
-                     Identifier { Whitespace } Newline
+TransitionStmt   ::= { Whitespace } Identifier
+                     { Whitespace } "->" { Whitespace }
+                     EventDecl
+                     { Whitespace } "->" { Whitespace }
+                     Identifier
+                     [ { Whitespace } "=>" { Whitespace } Identifier ".init" ]
+                     { Whitespace } Newline
 
-EventDecl        ::= Identifier [ "(" ParameterList ")" ]
+EventDecl        ::= Identifier [ "(" [ ParameterList ] ")" ]
+ParameterList    ::= Parameter { { Whitespace } "," { Whitespace } Parameter }
+Parameter        ::= Identifier { Whitespace } ":" { Whitespace } SwiftType
 
-ParameterList    ::= Parameter { "," Whitespace? Parameter }
-Parameter        ::= Identifier ":" Whitespace? SwiftType
+TriviaLine       ::= BlankLine | CommentLine
+BlankLine        ::= { Whitespace } Newline
+CommentLine      ::= { Whitespace } Comment Newline
 
 Identifier       ::= Letter { Letter | Digit | "_" }
 SwiftType        ::= Any valid Swift type string (e.g., "URL", "Int", "[String: Any]?")
-
+Comment          ::= "#" { Any character except Newline }
 Letter           ::= "A".."Z" | "a".."z"
 Digit            ::= "0".."9"
 Whitespace       ::= " " | "\t"
 Newline          ::= "\n" | "\r\n"
-Comment          ::= "#" { Any character except Newline } Newline
 ```
 
 For roadmap and evolution tracking tied to grammar changes, see:

@@ -104,6 +104,34 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("public static let liveValue = Self("))
     }
 
+    @Test("Emitter generates orchestrator actor for composed machines")
+    func emitsOrchestratorForComposition() {
+        let ast = MachineAST(
+            imports: ["Foundation", "Dependencies"],
+            machineName: "Scale",
+            contextType: "ScaleContext",
+            factory: .init(name: "makeScaleObserver", parameters: []),
+            composedMachines: ["BLE"],
+            states: [
+                .init(name: "WakingUp", kind: .initial),
+                .init(name: "Tare", kind: .normal),
+                .init(name: "Done", kind: .terminal),
+            ],
+            transitions: [
+                .init(from: "WakingUp", event: "hardwareReady", parameters: [], to: "Tare", spawnedMachine: "BLE"),
+                .init(from: "Tare", event: "finish", parameters: [], to: "Done")
+            ]
+        )
+
+        let output = SwiftCodeEmitter().emit(ast: ast)
+        #expect(output.contains("public actor ScaleOrchestrator"))
+        #expect(output.contains("private var scaleState: ScaleState"))
+        #expect(output.contains("private var bleState: BLEState?"))
+        #expect(output.contains("private let makeBLEState: @Sendable () -> BLEState"))
+        #expect(output.contains("public func hardwareReady() async throws"))
+        #expect(output.contains("self.bleState = self.makeBLEState()"))
+    }
+
     @Test("Emitter normalizes lowercase machine names to PascalCase symbols")
     func normalizesLowercaseMachineName() {
         let ast = MachineAST(
