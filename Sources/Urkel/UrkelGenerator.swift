@@ -188,7 +188,11 @@ public struct UrkelGenerator {
             )
         } else {
             // Native Swift path uses the dedicated Swift code emitter.
-            body = SwiftCodeEmitter().emit(ast: ast, swiftImportsOverride: resolvedConfiguration.swiftImports)
+            body = SwiftCodeEmitter().emit(
+                ast: ast,
+                swiftImportsOverride: resolvedConfiguration.swiftImports,
+                nonescapable: resolvedConfiguration.nonescapable
+            )
             generatedURL = Self.generatedURL(
                 for: fallbackName,
                 outputExtension: "swift",

@@ -45,7 +45,7 @@ private actor PayloadRecorder {
 struct BluetoohScaleTests {
     @Test("Scale flow measures metrics and powers down")
     func scaleFlow() async throws {
-        var state = ScaleState(ScaleClient.noop.makeScale())
+        var state = ScaleState(ScaleClient.noop.makeScale { BLEState(BLEClient.noop.makeBLE()) })
 
         state = try await state.footTap()
         state = try await state.hardwareReady()
@@ -72,7 +72,7 @@ struct BluetoohScaleTests {
 
     @Test("Scale flow supports bare-feet fallback")
     func scaleFallbackFlow() async throws {
-        var state = ScaleState(ScaleClient.noop.makeScale())
+        var state = ScaleState(ScaleClient.noop.makeScale { BLEState(BLEClient.noop.makeBLE()) })
 
         state = try await state.footTap()
         state = try await state.hardwareReady()
@@ -113,22 +113,20 @@ struct BluetoohScaleTests {
         #expect(state.withPoweredDown { _ in true } == true)
     }
 
-    @Test("Scale orchestrator spawns BLE machine on hardwareReady fork")
-    func orchestratorSpawnsBLE() async throws {
+    @Test("BLE machine embeds in Scale observer after hardwareReady fork")
+    func bleEmbeddedAfterFork() async throws {
         let counter = SpawnCounter()
-        let orchestrator = ScaleOrchestrator(
-            initialState: ScaleState(ScaleClient.noop.makeScale()),
-            makeBLEState: {
-                counter.increment()
-                return BLEState(BLEClient.noop.makeBLE())
-            }
-        )
+        var state = ScaleState(ScaleClient.noop.makeScale {
+            counter.increment()
+            return BLEState(BLEClient.noop.makeBLE())
+        })
 
-        try await orchestrator.footTap()
-        try await orchestrator.hardwareReady()
-        try await orchestrator.hardwareReady()
+        state = try await state.footTap()
+        state = try await state.hardwareReady()  // BLE spawned here (once)
+        state = try await state.zeroAchieved()   // BLE carried forward
 
         #expect(counter.snapshot() == 1)
+        #expect(state.withWeighing { obs in obs._bleState != nil } == true)
     }
 
     @Test("Runtime handlers receive payloads")
@@ -160,7 +158,7 @@ struct BluetoohScaleTests {
             metrics: nil
         )
 
-        var scaleState = ScaleState(scaleClient.makeScale())
+        var scaleState = ScaleState(scaleClient.makeScale { BLEState(bleClient.makeBLE()) })
         scaleState = try await scaleState.footTap()
         scaleState = try await scaleState.hardwareReady()
         scaleState = try await scaleState.zeroAchieved()

@@ -47,6 +47,7 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
     public let templateImports: [String]?
     public let sourceExtensions: [String]?
     public let importsByLanguage: [String: [String]]
+    public let nonescapable: Bool
 
     public init(
         configurationURL: URL?,
@@ -58,7 +59,8 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
         swiftImports: [String]?,
         templateImports: [String]?,
         sourceExtensions: [String]?,
-        importsByLanguage: [String: [String]]
+        importsByLanguage: [String: [String]],
+        nonescapable: Bool = false
     ) {
         self.configurationURL = configurationURL
         self.outputDirectory = outputDirectory
@@ -70,6 +72,7 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
         self.templateImports = templateImports
         self.sourceExtensions = sourceExtensions
         self.importsByLanguage = importsByLanguage
+        self.nonescapable = nonescapable
     }
 }
 
@@ -154,7 +157,8 @@ public enum UrkelConfigurationResolver {
             swiftImports: resolvedSwiftImports,
             templateImports: resolvedTemplateImports,
             sourceExtensions: normalizedSourceExtensions,
-            importsByLanguage: importsByLanguage
+            importsByLanguage: importsByLanguage,
+            nonescapable: rawConfiguration.nonescapable ?? false
         )
     }
 
@@ -216,6 +220,7 @@ private extension UrkelConfigurationResolver {
         var outputExtension: String? = nil
         var language: String? = nil
         var imports: [String: [String]]? = nil
+        var nonescapable: Bool? = nil
     }
 
     static let legacyImportKeys: Set<String> = ["swiftImports", "templateImports"]

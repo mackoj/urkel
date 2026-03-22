@@ -323,10 +323,10 @@ public struct BluetoohScaleSystem: Sendable {
         .runtime(bleHandlers: .noop, scaleHandlers: .noop)
     }
 
-    public func makeOrchestrator() -> ScaleOrchestrator {
-        ScaleOrchestrator(
-            initialState: ScaleState(self.scaleClient.makeScale()),
-            makeBLEState: { BLEState(self.bleClient.makeBLE()) }
-        )
+    /// Creates the initial `ScaleState` with BLE embedded, ready for value-type state driving.
+    public func makeScaleState() -> ScaleState {
+        ScaleState(self.scaleClient.makeScale { [bleClient] in
+            BLEState(bleClient.makeBLE())
+        })
     }
 }

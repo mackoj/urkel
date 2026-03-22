@@ -12,7 +12,7 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("import Foundation"))
         #expect(output.contains("public enum FolderWatchMachine {"))
         #expect(output.contains("public enum Idle {}"))
-        #expect(output.contains("struct FolderWatchRuntimeContext: Sendable"))
+        #expect(!output.contains("struct FolderWatchRuntimeContext: Sendable"))
         #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable"))
         #expect(output.contains("actor FolderWatchRuntimeStream<Element: Sendable>"))
         #expect(output.contains("struct FolderWatchClientRuntime"))
@@ -104,8 +104,8 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("public static let liveValue = Self("))
     }
 
-    @Test("Emitter generates orchestrator actor for composed machines")
-    func emitsOrchestratorForComposition() {
+    @Test("Emitter embeds sub-observer slot and factory for composed machines")
+    func emitsSubObserverEmbeddingForComposition() {
         let ast = MachineAST(
             imports: ["Foundation", "Dependencies"],
             machineName: "Scale",
@@ -124,12 +124,98 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emit(ast: ast)
-        #expect(output.contains("public actor ScaleOrchestrator"))
-        #expect(output.contains("private var scaleState: ScaleState"))
-        #expect(output.contains("private var bleState: BLEState?"))
-        #expect(output.contains("private let makeBLEState: @Sendable () -> BLEState"))
-        #expect(output.contains("public func hardwareReady() async throws"))
-        #expect(output.contains("self.bleState = self.makeBLEState()"))
+
+        // Sub-observer slot and factory are embedded in the observer
+        #expect(output.contains("var _bleState: BLEState?"))
+        #expect(output.contains("let _makeBLE: @Sendable () -> BLEState"))
+
+        // No orchestrator actor generated
+        #expect(!output.contains("public actor ScaleOrchestrator"))
+
+        // Fork transition spawns BLE using factory
+        #expect(output.contains("_bleState: self._makeBLE()"))
+
+        // Non-fork transitions carry composed state forward
+        #expect(output.contains("_bleState: self._bleState"))
+
+        // Client factory accepts BLE factory parameter
+        #expect(output.contains("@Sendable (@escaping @Sendable () -> BLEState) -> ScaleObserver<ScaleMachine.WakingUp>"))
+
+        // fromRuntime closure accepts makeBLE parameter
+        #expect(output.contains("makeScaleObserver: { makeBLE in"))
+
+        // fromRuntime passes _makeBLE to observer (bleState uses default .none)
+        #expect(!output.contains("_bleState: nil"))
+        #expect(output.contains("_makeBLE: makeBLE"))
+
+        // Placeholder closures ignore composed factory param
+        #expect(output.contains("makeScaleObserver: {"))
+    }
+
+    @Test("Emitter generates ~Escapable conformance when nonescapable is true")
+    func emitsNonescapableConformance() {
+        let ast = makeFolderWatchAST()
+        let output = SwiftCodeEmitter().emit(ast: ast, nonescapable: true)
+        #expect(output.contains("public struct FolderWatchObserver<State>: ~Copyable, ~Escapable"))
+    }
+
+    @Test("Emitter generates BLE forwarding methods when composed AST is provided")
+    func emitsComposedForwardingMethods() {
+        let bleAST = MachineAST(
+            imports: ["Foundation"],
+            machineName: "BLE",
+            contextType: "BLEContext",
+            factory: .init(name: "makeBLE", parameters: []),
+            states: [
+                .init(name: "Off", kind: .initial),
+                .init(name: "Scanning", kind: .normal),
+                .init(name: "Connected", kind: .terminal),
+            ],
+            transitions: [
+                .init(from: "Off", event: "powerOn", parameters: [], to: "Scanning"),
+                .init(from: "Scanning", event: "deviceFound", parameters: [.init(name: "device", type: "String")], to: "Connected")
+            ]
+        )
+        let scaleAST = MachineAST(
+            imports: ["Foundation"],
+            machineName: "Scale",
+            contextType: "ScaleContext",
+            factory: .init(name: "makeScale", parameters: []),
+            composedMachines: ["BLE"],
+            states: [
+                .init(name: "WakingUp", kind: .initial),
+                .init(name: "Tare", kind: .normal),
+                .init(name: "Done", kind: .terminal),
+            ],
+            transitions: [
+                .init(from: "WakingUp", event: "hardwareReady", parameters: [], to: "Tare", spawnedMachine: "BLE"),
+                .init(from: "Tare", event: "finish", parameters: [], to: "Done")
+            ]
+        )
+
+        let output = SwiftCodeEmitter().emit(ast: scaleAST, composedASTs: ["BLE": bleAST])
+
+        // BLE forwarding extension on ScaleState
+        #expect(output.contains("extension ScaleState {"))
+        // blePowerOn with no params
+        #expect(output.contains("public consuming func blePowerOn() async throws -> Self"))
+        // bleDeviceFound with params
+        #expect(output.contains("public consuming func bleDeviceFound(device: String) async throws -> Self"))
+        // Post-fork states carry and forward BLE
+        #expect(output.contains("case var .tare(obs):"))
+        // Pre-fork states pass through unchanged
+        #expect(output.contains("case let .wakingUp(obs):"))
+        // No forwarding generated without composed AST
+        let outputWithoutAST = SwiftCodeEmitter().emit(ast: scaleAST, composedASTs: [:])
+        #expect(!outputWithoutAST.contains("func blePowerOn"))
+    }
+
+    @Test("Emitter withXxx methods use switch with default for clean borrowing")
+    func emitsWithMethodsUsingSwitch() {
+        let output = SwiftCodeEmitter().emit(ast: makeFolderWatchAST())
+        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchObserver<FolderWatchMachine.Running>) throws -> R) rethrows -> R?"))
+        #expect(output.contains("default:"))
+        #expect(output.contains("return nil"))
     }
 
     @Test("Emitter normalizes lowercase machine names to PascalCase symbols")
@@ -188,7 +274,7 @@ struct SwiftCodeEmitterTests {
         let output = SwiftCodeEmitter().emit(ast: ast)
         #expect(output.contains("public enum NoContextMachine {"))
         #expect(output.contains("public struct RuntimeContext: Sendable {"))
-        #expect(output.contains("struct NoContextRuntimeContext: Sendable"))
+        #expect(!output.contains("struct NoContextRuntimeContext: Sendable"))
         #expect(output.contains("private var internalContext: NoContextMachine.RuntimeContext"))
     }
 
