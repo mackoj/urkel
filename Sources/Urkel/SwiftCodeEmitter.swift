@@ -44,7 +44,11 @@ public struct SwiftCodeEmitter {
 
     private func emitStates(for ast: MachineAST, names: Names) -> String {
         let stateLines = ast.states
-            .map { "    public enum \($0.name) {}" }
+            .map { state in
+                let declaration = "    public enum \(state.name) {}"
+                let docs = emitDocComments(state.docComments, indentation: "    ")
+                return docs.isEmpty ? declaration : "\(docs)\n\(declaration)"
+            }
             .joined(separator: "\n")
         let runtimeContext = ast.contextType == nil
             ? """
@@ -312,6 +316,11 @@ public struct SwiftCodeEmitter {
                 let destinationType = stateTypeName(for: transition.to, names: names)
                 let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
                 let callArgs = params.map { $0.name }.joined(separator: ", ")
+                let methodDocs = if transition.docComments.isEmpty {
+                    "    /// Handles the `\(transition.event)` transition from \(fromState) to \(transition.to)."
+                } else {
+                    emitDocComments(transition.docComments, indentation: "    ")
+                }
                 let observerPassThrough = orderedTransitionSignatures(in: ast).compactMap { signature -> String? in
                     guard self.transitions(for: signature, in: ast).first != nil else { return nil }
                     let closureName = transitionPropertyName(for: signature)
@@ -319,7 +328,7 @@ public struct SwiftCodeEmitter {
                 }.joined(separator: ",\n")
 
                 return """
-                    /// Handles the `\(transition.event)` transition from \(fromState) to \(transition.to).
+                \(methodDocs)
                     public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.observerTypeName)<\(destinationType)> {
                         let nextContext = try await self.\(transitionPropertyName(for: transition))(self.internalContext\(callArgs.isEmpty ? "" : ", \(callArgs)"))
                         return \(names.observerTypeName)<\(destinationType)>(
@@ -718,6 +727,12 @@ public struct SwiftCodeEmitter {
             return normalized.lowercased()
         }
         return lowerCamelName(from: normalized)
+    }
+
+    private func emitDocComments(_ comments: [MachineAST.DocComment], indentation: String) -> String {
+        comments
+            .map { "\(indentation)/// \($0.text)" }
+            .joined(separator: "\n")
     }
 
     private func splitCompoundToken(_ token: String) -> [String] {

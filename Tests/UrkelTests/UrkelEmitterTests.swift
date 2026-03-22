@@ -192,6 +192,34 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("private var internalContext: NoContextMachine.RuntimeContext"))
     }
 
+    @Test("Emitter passes state and transition comments through as Swift doc comments")
+    func emitsDocCommentsFromParserNodes() {
+        let ast = MachineAST(
+            imports: ["Foundation", "Dependencies"],
+            machineName: "Commented",
+            contextType: "String",
+            factory: .init(name: "makeObserver", parameters: []),
+            states: [
+                .init(name: "Idle", kind: .initial, docComments: [.init(text: "Initial idle state")]),
+                .init(name: "Running", kind: .normal)
+            ],
+            transitions: [
+                .init(
+                    from: "Idle",
+                    event: "start",
+                    parameters: [],
+                    to: "Running",
+                    docComments: [.init(text: "Starts the runtime observer")]
+                )
+            ]
+        )
+
+        let output = SwiftCodeEmitter().emit(ast: ast)
+        #expect(output.contains("/// Initial idle state\n    public enum Idle {}"))
+        #expect(output.contains("/// Starts the runtime observer"))
+        #expect(!output.contains("/// Handles the `start` transition from Idle to Running."))
+    }
+
     @Test("Generated Swift compiles in an integration package")
     func generatedSwiftCompiles() throws {
         let fm = FileManager.default

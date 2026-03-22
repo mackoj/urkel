@@ -184,4 +184,31 @@ struct UrkelParserTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
+
+    @Test("Attaches preceding comments to state and transition nodes")
+    func commentAttachment() throws {
+        let source = """
+        machine Commented
+        @states
+          # First state docs
+          # line two
+          init Idle
+          state Running
+        @transitions
+          # Starts running
+          Idle -> start -> Running
+        """
+
+        let ast = try UrkelParser().parse(source: source)
+        let idle = try #require(ast.states.first(where: { $0.name == "Idle" }))
+        #expect(idle.docComments.count == 2)
+        #expect(idle.docComments[0].text == "First state docs")
+        #expect(idle.docComments[1].text == "line two")
+        #expect(idle.docComments[0].range?.start.line == 3)
+
+        let transition = try #require(ast.transitions.first)
+        #expect(transition.docComments.count == 1)
+        #expect(transition.docComments[0].text == "Starts running")
+        #expect(transition.docComments[0].range?.start.line == 8)
+    }
 }

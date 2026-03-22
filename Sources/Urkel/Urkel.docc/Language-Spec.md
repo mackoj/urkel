@@ -42,6 +42,17 @@ machine FolderWatch<FolderWatchContext>
 
 Urkel follows a Bring Your Own Types approach. Your payloads, context types, and transition parameters can be normal Swift types such as `URL`, `Int`, or your own structs and actors.
 
+## Comments and documentation pass-through
+
+Lines beginning with `#` are treated as DSL comments. When placed directly above a state or transition, they are preserved in the AST and emitted as Swift doc comments (`///`) above the corresponding generated declaration.
+
+Example:
+
+```text
+# Starts the BLE radio
+Idle -> start -> Scanning
+```
+
 ## Validation rules
 
 The parser and validator reject malformed transitions, invalid state references, unresolved composed-machine forks, and machines that do not define a valid initial state.
