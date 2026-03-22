@@ -16,65 +16,6 @@ public enum BLEMachine {
     public enum PoweredDown {}
 }
 
-// MARK: - BLE Runtime Context Bridge
-
-/// Internal state-aware context wrapper used by generated runtime helpers.
-struct BLERuntimeContext: Sendable {
-    enum Storage: Sendable {
-        case off(BLEContext)
-        case wakingRadio(BLEContext)
-        case scanning(BLEContext)
-        case connecting(BLEContext)
-        case connected(BLEContext)
-        case reconnecting(BLEContext)
-        case syncing(BLEContext)
-        case error(BLEContext)
-        case poweredDown(BLEContext)
-    }
-
-    let storage: Storage
-
-    init(storage: Storage) {
-        self.storage = storage
-    }
-
-static func off(_ value: BLEContext) -> Self {
-    .init(storage: .off(value))
-}
-
-static func wakingRadio(_ value: BLEContext) -> Self {
-    .init(storage: .wakingRadio(value))
-}
-
-static func scanning(_ value: BLEContext) -> Self {
-    .init(storage: .scanning(value))
-}
-
-static func connecting(_ value: BLEContext) -> Self {
-    .init(storage: .connecting(value))
-}
-
-static func connected(_ value: BLEContext) -> Self {
-    .init(storage: .connected(value))
-}
-
-static func reconnecting(_ value: BLEContext) -> Self {
-    .init(storage: .reconnecting(value))
-}
-
-static func syncing(_ value: BLEContext) -> Self {
-    .init(storage: .syncing(value))
-}
-
-static func error(_ value: BLEContext) -> Self {
-    .init(storage: .error(value))
-}
-
-static func poweredDown(_ value: BLEContext) -> Self {
-    .init(storage: .poweredDown(value))
-}
-}
-
 // MARK: - BLE Observer
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
@@ -95,7 +36,6 @@ public struct BLEObserver<State>: ~Copyable {
     private let _peripheralDisconnected: @Sendable (BLEContext) async throws -> BLEContext
     private let _resetRadio: @Sendable (BLEContext) async throws -> BLEContext
     private let _powerDown: @Sendable (BLEContext) async throws -> BLEContext
-
     public init(
         internalContext: BLEContext,
         _powerOn: @escaping @Sendable (BLEContext) async throws -> BLEContext,
@@ -695,22 +635,7 @@ extension BLEState {
         switch self {
         case let .off(observer):
             return try body(observer)
-
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -719,22 +644,7 @@ extension BLEState {
         switch self {
         case let .wakingRadio(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -743,22 +653,7 @@ extension BLEState {
         switch self {
         case let .scanning(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -767,22 +662,7 @@ extension BLEState {
         switch self {
         case let .connecting(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -791,22 +671,7 @@ extension BLEState {
         switch self {
         case let .connected(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -815,22 +680,7 @@ extension BLEState {
         switch self {
         case let .reconnecting(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -839,22 +689,7 @@ extension BLEState {
         switch self {
         case let .syncing(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .error:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -863,22 +698,7 @@ extension BLEState {
         switch self {
         case let .error(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .poweredDown:
+        default:
             return nil
         }
     }
@@ -887,22 +707,7 @@ extension BLEState {
         switch self {
         case let .poweredDown(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingRadio:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connected:
-            return nil
-        case .reconnecting:
-            return nil
-        case .syncing:
-            return nil
-        case .error:
+        default:
             return nil
         }
     }

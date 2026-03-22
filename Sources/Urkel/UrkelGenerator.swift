@@ -63,7 +63,8 @@ public struct UrkelGenerator {
         swiftImports: [String]? = nil,
         templateImports: [String]? = nil,
         additionalConfigSearchDirectories: [URL] = [],
-        verboseConfiguration: Bool = false
+        verboseConfiguration: Bool = false,
+        composedASTs: [String: MachineAST] = [:]
     ) throws -> URL {
         let inputURL = URL(fileURLWithPath: inputPath)
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
@@ -138,6 +139,31 @@ public struct UrkelGenerator {
 
         try UrkelValidator.validate(ast)
 
+        // When the AST declares @compose and no composedASTs were provided,
+        // auto-resolve by parsing sibling .urkel files in the same directory.
+        let resolvedComposedASTs: [String: MachineAST]
+        if !ast.composedMachines.isEmpty && composedASTs.isEmpty {
+            var siblings: [String: MachineAST] = [:]
+            let directory = inputURL.deletingLastPathComponent()
+            if let contents = try? FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: nil
+            ) {
+                let siblingParser = UrkelParser()
+                for sibling in contents where sibling.pathExtension == "urkel" && sibling.path != inputURL.path {
+                    if let source = try? String(contentsOf: sibling, encoding: .utf8),
+                       let siblingAST = try? siblingParser.parse(
+                           source: source,
+                           machineNameFallback: sibling.deletingPathExtension().lastPathComponent
+                       ) {
+                        siblings[siblingAST.machineName] = siblingAST
+                    }
+                }
+            }
+            resolvedComposedASTs = siblings
+        } else {
+            resolvedComposedASTs = composedASTs
+        }
+
         let outputRootURL = URL(fileURLWithPath: outputPath, isDirectory: true)
         let outputURL = Self.resolvedOutputDirectoryURL(
             from: outputRootURL,
@@ -190,6 +216,7 @@ public struct UrkelGenerator {
             // Native Swift path uses the dedicated Swift code emitter.
             body = SwiftCodeEmitter().emit(
                 ast: ast,
+                composedASTs: resolvedComposedASTs,
                 swiftImportsOverride: resolvedConfiguration.swiftImports,
                 nonescapable: resolvedConfiguration.nonescapable
             )
@@ -233,8 +260,23 @@ public struct UrkelGenerator {
             return []
         }
 
-        var outputs: [URL] = []
+        // First pass: parse every .urkel file in the directory so that composed
+        // machines can be resolved when generating each individual file.
+        var urkelFiles: [URL] = []
+        var allASTs: [String: MachineAST] = [:]
+        let parser = UrkelParser()
         for case let file as URL in enumerator where file.pathExtension == "urkel" {
+            urkelFiles.append(file)
+            if let source = try? String(contentsOf: file, encoding: .utf8),
+               let ast = try? parser.parse(source: source, machineNameFallback: file.deletingPathExtension().lastPathComponent) {
+                allASTs[ast.machineName] = ast
+            }
+        }
+
+        // Second pass: generate each file, passing the full AST dict so that
+        // machines that use @compose receive their sub-machine forwarding methods.
+        var outputs: [URL] = []
+        for file in urkelFiles {
             let generated = try generate(
                 inputPath: file.path,
                 outputPath: outputPath,
@@ -245,7 +287,8 @@ public struct UrkelGenerator {
                 swiftImports: swiftImports,
                 templateImports: templateImports,
                 additionalConfigSearchDirectories: additionalConfigSearchDirectories,
-                verboseConfiguration: verboseConfiguration
+                verboseConfiguration: verboseConfiguration,
+                composedASTs: allASTs
             )
             outputs.append(generated)
         }

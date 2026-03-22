@@ -162,6 +162,45 @@ public struct SwiftCodeEmitter {
             composedProps.isEmpty ? nil : "\n\(composedProps)"
         ].compactMap { $0 }.joined()
 
+        let advanceHelpers: String
+        if composedMeta.isEmpty {
+            advanceHelpers = ""
+        } else {
+            advanceHelpers = "\n\n" + composedMeta.map { meta in
+                let closureExtractions = signatures.compactMap { sig -> String? in
+                    guard transitions(for: sig, in: ast).first != nil else { return nil }
+                    let p = transitionPropertyName(for: sig)
+                    return "        let \(p) = self.\(p)"
+                }.joined(separator: "\n")
+                let initArgs = (
+                    ["            internalContext: internalContext"] +
+                    signatures.compactMap { sig -> String? in
+                        guard transitions(for: sig, in: ast).first != nil else { return nil }
+                        let p = transitionPropertyName(for: sig)
+                        return "            \(p): \(p)"
+                    } +
+                    ["            \(meta.statePropertyName): next",
+                     "            \(meta.makePropertyName): \(meta.makePropertyName)"]
+                ).joined(separator: ",\n")
+                return """
+                    /// Advances the embedded \(meta.machineName) state machine using `body`.
+                    internal consuming func _advancing\(normalizedTypeName(meta.machineName))State(
+                        via body: (consuming \(meta.stateTypeName)) async throws -> \(meta.stateTypeName)?
+                    ) async rethrows -> Self {
+                        let internalContext = self.internalContext
+                \(closureExtractions)
+                        let \(meta.makePropertyName) = self.\(meta.makePropertyName)
+                        let ble = self.\(meta.statePropertyName)
+                        let next: \(meta.stateTypeName)?
+                        if var sub = ble { next = try await body(consume sub) } else { next = .none }
+                        return Self(
+                \(initArgs)
+                        )
+                    }
+                """
+            }.joined(separator: "\n\n")
+        }
+
         return """
         // MARK: - \(names.machineTypeName) Observer
 
@@ -179,7 +218,7 @@ public struct SwiftCodeEmitter {
             /// Access the internal context while preserving borrowing semantics.
             public borrowing func withInternalContext<R>(_ body: (borrowing \(contextType)) throws -> R) rethrows -> R {
                 try body(self.internalContext)
-            }
+            }\(advanceHelpers)
         }
         """
     }
@@ -535,18 +574,14 @@ public struct SwiftCodeEmitter {
 
                 let switchCases = ast.states.map { state -> String in
                     let stateCase = caseName(for: state.name)
+                    let advanceMethod = "_advancing\(normalizedTypeName(composedMachineName))State"
                     if carryingStates.contains(state.name) {
+                        let callExpr = callArgs.isEmpty
+                            ? "try await ble.\(signature.event)()"
+                            : "try await ble.\(signature.event)(\(callArgs))"
                         return """
-                            case var .\(stateCase)(obs):
-                                var ble = consume obs.\(meta.statePropertyName)
-                                obs.\(meta.statePropertyName) = .none
-                                switch consume ble {
-                                case .some(var b):
-                                    obs.\(meta.statePropertyName) = try await b.\(signature.event)(\(callArgs))
-                                case .none:
-                                    break
-                                }
-                                return .\(stateCase)(obs)
+                            case let .\(stateCase)(obs):
+                                return .\(stateCase)(try await obs.\(advanceMethod) { ble in \(callExpr) })
                         """
                     } else {
                         return """

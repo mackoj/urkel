@@ -201,8 +201,9 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("public consuming func blePowerOn() async throws -> Self"))
         // bleDeviceFound with params
         #expect(output.contains("public consuming func bleDeviceFound(device: String) async throws -> Self"))
-        // Post-fork states carry and forward BLE
-        #expect(output.contains("case var .tare(obs):"))
+        // Post-fork states use the advance helper
+        #expect(output.contains("case let .tare(obs):"))
+        #expect(output.contains("obs._advancingBLEState"))
         // Pre-fork states pass through unchanged
         #expect(output.contains("case let .wakingUp(obs):"))
         // No forwarding generated without composed AST

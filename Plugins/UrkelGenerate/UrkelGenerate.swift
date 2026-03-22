@@ -44,7 +44,7 @@ struct UrkelGenerate: CommandPlugin {
                     "generate",
                     sourceURL.path,
                     "--output",
-                    outputDirectoryURL.path
+                    packageDirectoryURL.path
                 ]
 
                 if let templatePath = configuration.resolvedTemplatePath {

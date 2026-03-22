@@ -33,7 +33,6 @@ public struct ScaleObserver<State>: ~Copyable {
     private let _hardwareFault: @Sendable (ScaleContext) async throws -> ScaleContext
     var _bleState: BLEState?
     let _makeBLE: @Sendable () -> BLEState
-
     public init(
         internalContext: ScaleContext,
         _footTap: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
@@ -68,6 +67,42 @@ public struct ScaleObserver<State>: ~Copyable {
     /// Access the internal context while preserving borrowing semantics.
     public borrowing func withInternalContext<R>(_ body: (borrowing ScaleContext) throws -> R) rethrows -> R {
         try body(self.internalContext)
+    }
+
+    /// Advances the embedded BLE state machine using `body`.
+    internal consuming func _advancingBLEState(
+        via body: (consuming BLEState) async throws -> BLEState?
+    ) async rethrows -> Self {
+        let internalContext = self.internalContext
+        let _footTap = self._footTap
+        let _hardwareReady = self._hardwareReady
+        let _zeroAchieved = self._zeroAchieved
+        let _weightLockedWeightDouble = self._weightLockedWeightDouble
+        let _userSteppedOffEarly = self._userSteppedOffEarly
+        let _startBIA = self._startBIA
+        let _biaCompleteMetricsBodyMetrics = self._biaCompleteMetricsBodyMetrics
+        let _bareFeetRequiredError = self._bareFeetRequiredError
+        let _syncDataPayloadScalePayload = self._syncDataPayloadScalePayload
+        let _hardwareFault = self._hardwareFault
+        let _makeBLE = self._makeBLE
+        let ble = self._bleState
+        let next: BLEState?
+        if var sub = ble { next = try await body(consume sub) } else { next = .none }
+        return Self(
+            internalContext: internalContext,
+            _footTap: _footTap,
+            _hardwareReady: _hardwareReady,
+            _zeroAchieved: _zeroAchieved,
+            _weightLockedWeightDouble: _weightLockedWeightDouble,
+            _userSteppedOffEarly: _userSteppedOffEarly,
+            _startBIA: _startBIA,
+            _biaCompleteMetricsBodyMetrics: _biaCompleteMetricsBodyMetrics,
+            _bareFeetRequiredError: _bareFeetRequiredError,
+            _syncDataPayloadScalePayload: _syncDataPayloadScalePayload,
+            _hardwareFault: _hardwareFault,
+            _bleState: next,
+            _makeBLE: _makeBLE
+        )
     }
 }
 
@@ -453,20 +488,7 @@ extension ScaleState {
         switch self {
         case let .off(observer):
             return try body(observer)
-
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -475,20 +497,7 @@ extension ScaleState {
         switch self {
         case let .wakingUp(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -497,20 +506,7 @@ extension ScaleState {
         switch self {
         case let .tare(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -519,20 +515,7 @@ extension ScaleState {
         switch self {
         case let .weighing(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -541,20 +524,7 @@ extension ScaleState {
         switch self {
         case let .stabilized(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -563,20 +533,7 @@ extension ScaleState {
         switch self {
         case let .measuringImpedance(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .syncing:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -585,20 +542,7 @@ extension ScaleState {
         switch self {
         case let .syncing(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .powerDown:
+        default:
             return nil
         }
     }
@@ -607,20 +551,7 @@ extension ScaleState {
         switch self {
         case let .powerDown(observer):
             return try body(observer)
-
-        case .off:
-            return nil
-        case .wakingUp:
-            return nil
-        case .tare:
-            return nil
-        case .weighing:
-            return nil
-        case .stabilized:
-            return nil
-        case .measuringImpedance:
-            return nil
-        case .syncing:
+        default:
             return nil
         }
     }
@@ -857,6 +788,316 @@ extension ScaleState {
     }
 }
 
+extension ScaleState {
+    /// Forwards the `powerOn` event to the embedded BLE machine.
+    public consuming func blePowerOn() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.powerOn() })
+        }
+    }
+
+    /// Forwards the `radioReady` event to the embedded BLE machine.
+    public consuming func bleRadioReady() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.radioReady() })
+        }
+    }
+
+    /// Forwards the `deviceDiscovered` event to the embedded BLE machine.
+    public consuming func bleDeviceDiscovered(device: BLEDevice) async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.deviceDiscovered(device: device) })
+        }
+    }
+
+    /// Forwards the `scanTimeout` event to the embedded BLE machine.
+    public consuming func bleScanTimeout() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.scanTimeout() })
+        }
+    }
+
+    /// Forwards the `connectionEstablished` event to the embedded BLE machine.
+    public consuming func bleConnectionEstablished() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.connectionEstablished() })
+        }
+    }
+
+    /// Forwards the `connectionFailed` event to the embedded BLE machine.
+    public consuming func bleConnectionFailed(reason: String) async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.connectionFailed(reason: reason) })
+        }
+    }
+
+    /// Forwards the `retry` event to the embedded BLE machine.
+    public consuming func bleRetry() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.retry() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.retry() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.retry() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.retry() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.retry() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.retry() })
+        }
+    }
+
+    /// Forwards the `retriesExhausted` event to the embedded BLE machine.
+    public consuming func bleRetriesExhausted() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.retriesExhausted() })
+        }
+    }
+
+    /// Forwards the `startSync` event to the embedded BLE machine.
+    public consuming func bleStartSync(payload: ScalePayload) async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.startSync(payload: payload) })
+        }
+    }
+
+    /// Forwards the `syncSucceeded` event to the embedded BLE machine.
+    public consuming func bleSyncSucceeded() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.syncSucceeded() })
+        }
+    }
+
+    /// Forwards the `syncFailed` event to the embedded BLE machine.
+    public consuming func bleSyncFailed(reason: String) async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.syncFailed(reason: reason) })
+        }
+    }
+
+    /// Forwards the `peripheralDisconnected` event to the embedded BLE machine.
+    public consuming func blePeripheralDisconnected() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.peripheralDisconnected() })
+        }
+    }
+
+    /// Forwards the `resetRadio` event to the embedded BLE machine.
+    public consuming func bleResetRadio() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.resetRadio() })
+        }
+    }
+
+    /// Forwards the `powerDown` event to the embedded BLE machine.
+    public consuming func blePowerDown() async throws -> Self {
+        switch consume self {
+    case let .off(obs):
+        return .off(obs)
+    case let .wakingUp(obs):
+        return .wakingUp(obs)
+    case let .tare(obs):
+        return .tare(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+    case let .weighing(obs):
+        return .weighing(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+    case let .stabilized(obs):
+        return .stabilized(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+    case let .measuringImpedance(obs):
+        return .measuringImpedance(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+    case let .syncing(obs):
+        return .syncing(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+    case let .powerDown(obs):
+        return .powerDown(try await obs._advancingBLEState { ble in try await ble.powerDown() })
+        }
+    }
+}
+
 // MARK: - Scale Client
 
 /// Dependency client entry point for constructing Scale observers.
@@ -870,20 +1111,20 @@ public struct ScaleClient: Sendable {
 
 extension ScaleClient: DependencyKey {
     public static let testValue = Self(
-        makeScale: { _ in
-                    fatalError("Configure ScaleClient.testValue in tests.")
+        makeScale: {
+                    _ in fatalError("Configure ScaleClient.testValue in tests.")
                 }
     )
 
     public static let previewValue = Self(
-        makeScale: { _ in
-                    fatalError("Configure ScaleClient.previewValue in previews.")
+        makeScale: {
+                    _ in fatalError("Configure ScaleClient.previewValue in previews.")
                 }
     )
 
     public static let liveValue = Self(
-        makeScale: { _ in
-                    fatalError("Configure ScaleClient.liveValue in your app target.")
+        makeScale: {
+                    _ in fatalError("Configure ScaleClient.liveValue in your app target.")
                 }
     )
 }
