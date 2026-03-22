@@ -15,7 +15,6 @@ machine BluetoohBlender
   final TurnedOff
 
 @transitions
-  # [Current]   -> [Trigger(Payload)]                -> [Next]
   Disconnected -> startScan                         -> Scanning
   Scanning     -> stopScan                          -> Disconnected
   Scanning     -> deviceFound(device: CBPeripheral) -> Connecting
