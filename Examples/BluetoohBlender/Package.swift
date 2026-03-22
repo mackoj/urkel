@@ -21,6 +21,9 @@ let package = Package(
             name: "BluetoohBlender",
             dependencies: [
                 .product(name: "Dependencies", package: "swift-dependencies")
+            ],
+            plugins: [
+                .plugin(name: "UrkelPlugin", package: "Urkel")
             ]
         ),
         .testTarget(
