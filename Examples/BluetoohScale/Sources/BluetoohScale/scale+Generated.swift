@@ -1122,11 +1122,9 @@ extension ScaleClient: DependencyKey {
                 }
     )
 
-    public static let liveValue = Self(
-        makeScale: {
-                    _ in fatalError("Configure ScaleClient.liveValue in your app target.")
-                }
-    )
+    /// The live production implementation.
+    /// Add `public static func makeLive() -> Self` in a `+Live` extension to implement it.
+    public static var liveValue: Self { .makeLive() }
 }
 
 extension DependencyValues {

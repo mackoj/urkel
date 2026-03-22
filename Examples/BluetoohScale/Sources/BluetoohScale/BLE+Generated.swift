@@ -1090,11 +1090,9 @@ extension BLEClient: DependencyKey {
                 }
     )
 
-    public static let liveValue = Self(
-        makeBLE: {
-                    fatalError("Configure BLEClient.liveValue in your app target.")
-                }
-    )
+    /// The live production implementation.
+    /// Add `public static func makeLive() -> Self` in a `+Live` extension to implement it.
+    public static var liveValue: Self { .makeLive() }
 }
 
 extension DependencyValues {

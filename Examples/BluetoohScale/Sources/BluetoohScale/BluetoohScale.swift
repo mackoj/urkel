@@ -1,6 +1,6 @@
 import Foundation
 
-public enum ScaleVendor: String, Sendable, CaseIterable {
+public enum ScaleVendor: String, Sendable, CaseIterable, Encodable {
     case withings
     case garmin
 }
@@ -15,7 +15,7 @@ public struct BLEDevice: Sendable, Equatable {
     }
 }
 
-public struct BodyMetrics: Sendable, Equatable {
+public struct BodyMetrics: Sendable, Equatable, Encodable {
     public var bodyFatPercentage: Double
     public var bodyWaterPercentage: Double
     public var muscleMassKg: Double
@@ -31,7 +31,7 @@ public struct BodyMetrics: Sendable, Equatable {
     }
 }
 
-public struct ScalePayload: Sendable, Equatable {
+public struct ScalePayload: Sendable, Equatable, Encodable {
     public var vendor: ScaleVendor
     public var weightKg: Double
     public var metrics: BodyMetrics?
@@ -328,5 +328,108 @@ public struct BluetoohScaleSystem: Sendable {
         ScaleState(self.scaleClient.makeScale { [bleClient] in
             BLEState(bleClient.makeBLE())
         })
+    }
+}
+
+// MARK: - Scale Coordinator
+
+/// Drives the composed Scale + BLE state machine through a complete measurement session.
+///
+/// The coordinator owns a `BLEBridge` that is shared with `BLEClient.makeLive(bridge:)`.
+/// This lets the coordinator both drive BLE state transitions (via `ScaleState` forwarding
+/// methods) and await low-level BLE events (like peripheral discovery) directly.
+///
+/// Usage:
+/// ```swift
+/// let coordinator = ScaleCoordinator()
+/// let payload = try await coordinator.run()
+/// ```
+public actor ScaleCoordinator {
+    private let bridge: BLEBridge
+    private let bleClient: BLEClient
+    private let scaleClient: ScaleClient
+
+    /// - Parameters:
+    ///   - bridge: A shared `BLEBridge` instance. The default creates a new one.
+    ///   - scaleClient: Injected for testing; defaults to `ScaleClient.liveValue`.
+    public init(bridge: BLEBridge = BLEBridge(), scaleClient: ScaleClient = .liveValue) {
+        self.bridge = bridge
+        self.bleClient = BLEClient.makeLive(bridge: bridge)
+        self.scaleClient = scaleClient
+    }
+
+    /// Runs one complete measurement session: wake → weigh → BIA → BLE sync → power down.
+    /// Returns the synced payload, or `nil` if the user stepped off early.
+    /// Each call to `run()` creates a fresh state machine and runs a full session.
+    @discardableResult
+    public func run() async throws -> ScalePayload? {
+        // Create a fresh state machine for this session.
+        // Using a local variable avoids stored-field ownership issues with ~Copyable types.
+        let system = BluetoohScaleSystem(bleClient: bleClient, scaleClient: scaleClient)
+        var state = system.makeScaleState()
+
+        // 1. Wake the scale hardware from deep sleep.
+        state = try await state.footTap()
+
+        // 2. Hardware is initialised; this also spawns the BLE machine at `Off`.
+        state = try await state.hardwareReady()
+
+        // 3. Power on the BLE radio — suspends until CBCentralManager reports `.poweredOn`.
+        state = try await state.blePowerOn()
+
+        // 4. Start scanning — the radioReady transition calls bridge.startScanning().
+        state = try await state.bleRadioReady()
+
+        // 5. Await the first discovered peripheral, then drive the BLE machine into Connecting.
+        let device = try await bridge.waitForDevice()
+        state = try await state.bleDeviceDiscovered(device: device) // connects + awaits characteristics
+        state = try await state.bleConnectionEstablished()
+
+        // 6. Tare the load cells.
+        state = try await state.zeroAchieved()
+
+        // 7. Receive a stable weight reading from the hardware.
+        let weight = try await receiveWeight()
+        state = try await state.weightLocked(weight: weight)
+
+        // 8. Start BIA; fall back gracefully if the user is wearing socks.
+        state = try await state.startBIA()
+        var metrics: BodyMetrics? = nil
+        // Get the BIA result BEFORE consuming state, so the catch path doesn't double-consume.
+        do { metrics = try await receiveBIA() } catch {}
+        if let m = metrics {
+            state = try await state.biaComplete(metrics: m)
+        } else {
+            state = try await state.bareFeetRequiredError()
+        }
+
+        // 9. Build the sync payload and drive Scale → PowerDown.
+        let payload = ScalePayload(
+            vendor: .withings,
+            weightKg: weight,
+            metrics: metrics,
+            measuredAt: Date()
+        )
+        state = try await state.syncData(payload: payload)
+
+        // 10. Write the payload over BLE (Connected → Syncing → Connected), then power down.
+        state = try await state.bleStartSync(payload: payload)
+        state = try await state.bleSyncSucceeded()
+        state = try await state.blePowerDown()
+        _ = consume state
+
+        return payload
+    }
+
+    // MARK: - Hardware I/O Hooks
+
+    /// Returns the locked weight in kg from the scale hardware.
+    /// Replace with a real hardware stream in production.
+    public func receiveWeight() async throws -> Double { 0.0 }
+
+    /// Returns BIA metrics from the scale hardware.
+    /// Throw any error to take the `bareFeetRequiredError` fallback path.
+    public func receiveBIA() async throws -> BodyMetrics {
+        throw BLEError.noWriteCharacteristic
     }
 }

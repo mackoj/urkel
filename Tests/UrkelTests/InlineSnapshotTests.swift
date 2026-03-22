@@ -302,11 +302,9 @@ struct InlineSnapshotTests {
                             }
                 )
 
-                public static let liveValue = Self(
-                    makeObserver: {
-                                _, _ in fatalError("Configure FolderWatchClient.liveValue in your app target.")
-                            }
-                )
+                /// The live production implementation.
+                /// Add `public static func makeLive() -> Self` in a `+Live` extension to implement it.
+                public static var liveValue: Self { .makeLive() }
             }
 
             extension DependencyValues {

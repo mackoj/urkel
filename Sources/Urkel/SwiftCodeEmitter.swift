@@ -685,9 +685,9 @@ public struct SwiftCodeEmitter {
                 \(factoryName): \(placeholderFactoryClosure(parameterCount: placeholderCount, message: "Configure \(names.clientTypeName).previewValue in previews."))
             )
 
-            public static let liveValue = Self(
-                \(factoryName): \(placeholderFactoryClosure(parameterCount: placeholderCount, message: "Configure \(names.clientTypeName).liveValue in your app target."))
-            )
+            /// The live production implementation.
+            /// Add `public static func makeLive() -> Self` in a `+Live` extension to implement it.
+            public static var liveValue: Self { .makeLive() }
         }
 
         extension DependencyValues {

@@ -101,7 +101,7 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("// MARK: - FolderWatch Client"))
         #expect(output.contains("public static let testValue = Self("))
         #expect(output.contains("public static let previewValue = Self("))
-        #expect(output.contains("public static let liveValue = Self("))
+        #expect(output.contains("public static var liveValue: Self { .makeLive() }"))
     }
 
     @Test("Emitter embeds sub-observer slot and factory for composed machines")
