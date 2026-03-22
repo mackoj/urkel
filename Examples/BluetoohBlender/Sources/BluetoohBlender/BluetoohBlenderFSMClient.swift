@@ -21,75 +21,6 @@ public enum BluetoohBlenderMachine {
     }
 }
 
-// MARK: - BluetoohBlender Runtime Context Bridge
-
-/// Internal state-aware context wrapper used by generated runtime helpers.
-struct BluetoohBlenderRuntimeContext: Sendable {
-    enum Storage: Sendable {
-        case disconnected(BluetoohBlenderMachine.RuntimeContext)
-        case scanning(BluetoohBlenderMachine.RuntimeContext)
-        case connecting(BluetoohBlenderMachine.RuntimeContext)
-        case connectedWithBowl(BluetoohBlenderMachine.RuntimeContext)
-        case connectedWithoutBowl(BluetoohBlenderMachine.RuntimeContext)
-        case blendSlow(BluetoohBlenderMachine.RuntimeContext)
-        case blendMedium(BluetoohBlenderMachine.RuntimeContext)
-        case blendHigh(BluetoohBlenderMachine.RuntimeContext)
-        case paused(BluetoohBlenderMachine.RuntimeContext)
-        case error(BluetoohBlenderMachine.RuntimeContext)
-        case turnedOff(BluetoohBlenderMachine.RuntimeContext)
-    }
-
-    let storage: Storage
-
-    init(storage: Storage) {
-        self.storage = storage
-    }
-
-static func disconnected(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .disconnected(value))
-}
-
-static func scanning(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .scanning(value))
-}
-
-static func connecting(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .connecting(value))
-}
-
-static func connectedWithBowl(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .connectedWithBowl(value))
-}
-
-static func connectedWithoutBowl(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .connectedWithoutBowl(value))
-}
-
-static func blendSlow(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .blendSlow(value))
-}
-
-static func blendMedium(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .blendMedium(value))
-}
-
-static func blendHigh(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .blendHigh(value))
-}
-
-static func paused(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .paused(value))
-}
-
-static func error(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .error(value))
-}
-
-static func turnedOff(_ value: BluetoohBlenderMachine.RuntimeContext) -> Self {
-    .init(storage: .turnedOff(value))
-}
-}
-
 // MARK: - BluetoohBlender Observer
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
@@ -118,7 +49,6 @@ public struct BluetoohBlenderObserver<State>: ~Copyable {
     private let _switchOff: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     private let _addBowl: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
     private let _disconnect: @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext
-
     public init(
         internalContext: BluetoohBlenderMachine.RuntimeContext,
         _startScan: @escaping @Sendable (BluetoohBlenderMachine.RuntimeContext) async throws -> BluetoohBlenderMachine.RuntimeContext,
@@ -1422,26 +1352,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .disconnected(observer):
             return try body(observer)
-
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1450,26 +1361,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .scanning(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1478,26 +1370,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .connecting(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1506,26 +1379,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .connectedWithBowl(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1534,26 +1388,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .connectedWithoutBowl(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1562,26 +1397,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .blendSlow(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1590,26 +1406,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .blendMedium(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1618,26 +1415,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .blendHigh(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .paused:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1646,26 +1424,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .paused(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .error:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1674,26 +1433,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .error(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .turnedOff:
+        default:
             return nil
         }
     }
@@ -1702,26 +1442,7 @@ extension BluetoohBlenderState {
         switch self {
         case let .turnedOff(observer):
             return try body(observer)
-
-        case .disconnected:
-            return nil
-        case .scanning:
-            return nil
-        case .connecting:
-            return nil
-        case .connectedWithBowl:
-            return nil
-        case .connectedWithoutBowl:
-            return nil
-        case .blendSlow:
-            return nil
-        case .blendMedium:
-            return nil
-        case .blendHigh:
-            return nil
-        case .paused:
-            return nil
-        case .error:
+        default:
             return nil
         }
     }
