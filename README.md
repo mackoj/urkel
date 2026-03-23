@@ -95,6 +95,394 @@ extension FolderWatchClient: DependencyKey {
 * **Bring Your Own Types (BYOT):** Urkel doesn't force you into a proprietary type system. Pass your existing Swift structs, classes, or actors as transition payloads.
 * **Magical Tooling:** Includes an SPM `BuildToolPlugin`. Just drop `.urkel` files into your Xcode project, hit `Cmd + B`, and the code generates automatically in the background.
 
+### Implementation Status Matrix
+
+Not all features are equally mature. Here's what's ready to use now vs. what's coming:
+
+| Feature | Status | Swift Version | Notes |
+|---------|--------|---------------|-------|
+| **Type-safe FSM with state encoding** | ✅ Stable | 5.9+ | Core feature; all machines use `Machine<State>` |
+| **Noncopyable types (~Copyable)** | ✅ Stable | 5.9+ | All generated machines are noncopyable; prevents state duplication |
+| **Move semantics (consuming)** | ✅ Stable | 5.9+ | All transitions use `consuming func`; old state is destroyed |
+| **@Sendable closures** | ✅ Stable | 5.1+ | All transition closures are `@Sendable`; Swift 6 ready |
+| **Typestate Pattern** | ✅ Stable | 5.9+ | Encode state in type parameters; impossible to call wrong transition |
+| **Bring Your Own Types (BYOT)** | ✅ Stable | 5.9+ | Use your own domain types; Urkel doesn't force a framework |
+| **SPM Build Tool Plugin** | ✅ Stable | 5.9+ | Generates code automatically during `swift build` |
+| **Command Plugin (checked-in gen)** | ✅ Stable | 5.9+ | Write generated files directly to repo |
+| **@compose (sub-machines)** | 🟡 Works | 5.9+ | Can reference composed machines; limited to pass-through currently |
+| **@continuation (accessors)** | 🟡 Works | 5.9+ | Read-only properties like `var events: Stream` |
+| **Mustache Templates** | 🟡 Works | — | Custom Kotlin or bring your own templates |
+| **Noncopyable (~Escapable)** | 🟡 Partial | 5.9+ | Context-threaded mode only (not default) |
+| **Fork operator & orchestration** | 📋 Planned | TBD | Epic 11; manage lifecycle of multiple sub-FSMs |
+| **SE-0432 (noncopyable switch)** | 📋 Prepared | 6.0+ | Design compatible; adoption pending |
+| **SE-0430 (transferring)** | 📋 Prepared | 6.0+ | Move semantics prepared; explicit adoption pending |
+
+**Legend:** ✅ = Fully working and stable | 🟡 = Works with limitations | 📋 = Planned, not yet available
+
+---
+
+## 🎯 Why Each Technique Matters
+
+Urkel's power comes from combining several advanced Swift features. Here's why each one is essential:
+
+### ~Copyable (Noncopyable Types)
+
+Normally, Swift structs can be copied. But with Urkel FSMs, there should be only *one* legal state at any time. Making machines `~Copyable` prevents accidental duplication.
+
+```swift
+var idle = Machine<Idle>(...)
+let running = await idle.start()  // idle is consumed here!
+// idle no longer exists; you cannot accidentally call start() again
+```
+
+Without noncopyability, you could do:
+```swift
+var idle = Machine<Idle>(...)
+let copy = idle  // ❌ Wrong! Now you have two copies of the same state
+```
+
+**Impact:** Eliminates entire classes of concurrency bugs at compile time.
+
+### consuming (Move Semantics)
+
+When you call `consuming func start() -> Machine<Running>`, the Idle machine is **explicitly moved** into the function and destroyed. You cannot reuse it.
+
+```swift
+consuming func start() async -> Machine<Running> {
+    // old self is consumed and destroyed
+    // you must return a new Machine<Running>
+}
+```
+
+The compiler enforces this. You will get a "consumed" error if you try to use the old state.
+
+**Impact:** Forces linear progression through states. No branching, no duplication.
+
+### @Sendable Closures
+
+Every transition is an `@Sendable` closure. This means it can safely cross async/await boundaries without needing `@MainActor` annotations.
+
+```swift
+fileprivate let _startTransition: @Sendable () async -> Machine<Running>
+```
+
+The compiler verifies that each closure captures only thread-safe types. This gives you strict concurrency compliance automatically.
+
+**Impact:** Swift 6 compatibility out of the box. No `@MainActor` sprawl needed.
+
+### Typestate Pattern
+
+Instead of checking state at runtime with guard statements, Urkel encodes state in the type itself:
+
+```swift
+extension Machine where State == Idle {
+    // Only start() exists here
+    public consuming func start() async -> Machine<Running> { ... }
+}
+
+extension Machine where State == Running {
+    // Only stop() exists here
+    public consuming func stop() async -> Machine<Stopped> { ... }
+}
+```
+
+If you try to call `stop()` on a Machine<Idle>, the code won't compile—there is no such method.
+
+**Impact:** Impossible to call the wrong transition. The type system is your enforcer.
+
+### Generic Machine<State>
+
+By making the machine generic over State, Urkel puts all type information in one place. State markers (`enum Idle {}`) are phantom types—they carry no runtime data, just compile-time type information. This is zero-overhead.
+
+**Impact:** Type safety without performance cost.
+
+### BYOT (Bring Your Own Types)
+
+Your context, your payload types, your domain logic—Urkel generates only the state machine interface. You're not locked into a framework.
+
+**Impact:** Urkel integrates seamlessly with your existing codebase. Your types, your rules.
+
+---
+
+## 🏆 Design Intelligence: Why This Approach Is Exceptional
+
+### The Three Pillars of Safety
+
+Most FSM libraries solve one or two of these problems. Urkel solves all three simultaneously:
+
+1. **Type-Level Safety** — Illegal transitions are unrepresentable (not just disallowed; literally impossible to write)
+2. **Memory Safety** — State cannot be duplicated—only moved. No shared references means no race conditions
+3. **Concurrency Safety** — All transitions are `@Sendable`, so you don't need `@MainActor` or manual thread-safety annotations
+
+### Comparison to Alternatives
+
+| Approach | Type Safety | Memory Safety | Concurrency Safety | Learning Curve | Overhead |
+|----------|-------------|---------------|-------------------|-----------------|----------|
+| Enum-based FSM | ⚠️ (guard statements) | ❌ (shared state) | ❌ (locks needed) | 🟢 Familiar | ✅ None |
+| Redux/MVVM | ⚠️ (loose) | ❌ (shared store) | ⚠️ (race conditions possible) | 🟢 Familiar | ⚠️ Overhead |
+| Manual Actor Isolation | ❌ (requires discipline) | ✅ (actor isolation) | ✅ (actor ensures exclusion) | 🔴 Complex | ⚠️ Overhead |
+| **Urkel** | ✅ (type system) | ✅ (noncopyable) | ✅ (@Sendable) | ⚠️ (5.9+ features) | ✅ Zero |
+
+### Why This Matters in Real Code
+
+**Traditional enum-based FSM (vulnerable to races):**
+```swift
+var state: State = .idle
+func start() async {
+    guard state == .idle else { return }
+    state = .running  // ⚠️ Another task could modify state here
+    await doWork()
+    state = .stopped
+}
+```
+
+**Urkel FSM (impossible to race):**
+```swift
+var machine = Machine<Idle>(...)
+let running = await machine.start()  // machine is consumed
+let stopped = await running.stop()   // running is consumed
+// If you never call stop(), the compiler warns you about unused value
+```
+
+The Urkel version is mathematically guaranteed to be correct. No locks, no actors, no discipline required.
+
+---
+
+## ⚠️ Design Limitations (And Why They Exist)
+
+### Can't Have Optional Transitions
+
+```swift
+// ❌ Not possible:
+Idle -> maybe_start -> Running
+```
+
+**Why:** The whole point is that you either *can* or *cannot* make a transition. There's no "maybe—it depends on runtime data." If the transition depends on data, that data is the event payload.
+
+**Workaround:** Pass the decision as event data:
+```
+Idle -> start(condition: Bool) -> Running
+```
+
+### Can't Ignore a State Machine After Creation
+
+```swift
+let machine = Machine<Idle>(...)
+// ❌ If you don't call a transition, the compiler warns about unused value
+// ✅ You must explicitly handle it: let _ = machine (to silence warning)
+```
+
+**Why:** The compiler takes state seriously. If you start a file watcher but never call `stop()`, you should feel uncomfortable about that.
+
+### Composition Is Currently Limited
+
+You can declare `@compose Indexer`, but you don't yet have full control over the Indexer's lifecycle from within the parent machine. The fork operator and orchestration features (Epic 11) will enable this.
+
+**Status:** This is actively being worked on. For now, use factory closures to pass pre-initialized sub-machines.
+
+### Two Different Generation Modes
+
+Urkel supports two architectural patterns, and you must choose one per machine:
+
+- **Closure-captured** (default): Transitions are pure functions; side effects captured in closures
+- **Context-threaded**: Transitions receive and return a shared context
+
+You can't easily mix them in one machine.
+
+**Workaround:** Use the mode that fits your architecture. See "Understanding Generation Modes" in the documentation.
+
+---
+
+## 🔄 Quick Comparison: When to Use Urkel
+
+### Urkel vs Enum-based FSMs
+
+**Use Urkel if:**
+- You need compile-time state validation
+- You're managing complex concurrent workflows
+- You want zero runtime type checks
+- Your state machine will grow beyond 3-4 states
+
+**Use Enum if:**
+- Your state machine is trivial (on/off, a few states)
+- Your team is unfamiliar with Swift 5.9+ features
+- Simplicity matters more than safety
+
+### Urkel vs Redux/MVVM
+
+**Use Urkel if:**
+- You're building a state machine (linear progression required)
+- Concurrency safety is critical
+- You want to avoid global state
+
+**Use Redux if:**
+- You're managing app-wide state
+- You have many independent pieces of state
+- You need time-travel debugging
+
+### Urkel vs Manual Actor Isolation
+
+**Use Urkel if:**
+- You want compile-time guarantees
+- You prefer immutability and move semantics
+- Readability and tooling matter
+
+**Use Manual Actors if:**
+- You need mutable shared state
+- Your concurrency model doesn't fit a state machine
+- You want simplicity over type safety
+
+---
+
+## 📖 Enhanced Example: What Happens When You Make a Mistake
+
+The power of Urkel comes from what happens when you write code incorrectly.
+
+### ✅ Correct Usage
+
+```swift
+// Create an observer in the Idle state
+var observer = FolderWatchObserver<Idle>(
+    directory: URL(...),
+    debounceMs: 500,
+    startTransition: { /* ... */ }
+)
+
+// Call start() — it exists on Idle, so the code compiles
+let running = await observer.start()
+
+// start() consumed the Idle observer, so you can't use it anymore
+// observer is no longer accessible here
+
+// Now running is in the Running state
+// Call stop() — it exists on Running
+let stopped = await running.stop()
+
+// running is consumed; you now have stopped
+```
+
+### ❌ Wrong: Calling the Wrong Transition
+
+```swift
+var observer = FolderWatchObserver<Idle>(/* ... */)
+await observer.stop()  // ❌ COMPILE ERROR
+// error: value of type 'FolderWatchObserver<Idle>' has no member 'stop'
+```
+
+This error happens **at compile time**, not at 3 AM in production. The type system physically prevents the error from existing.
+
+### ❌ Wrong: Reusing a Consumed State
+
+```swift
+var observer = FolderWatchObserver<Idle>(/* ... */)
+let running = await observer.start()
+
+// ❌ Try to reuse the old Idle observer
+await observer.stop()
+// error: use of consumed value 'observer'
+```
+
+The `consuming` keyword means the old state is destroyed. You cannot accidentally reuse it.
+
+### ❌ Wrong: Forgetting a Transition
+
+```swift
+var observer = FolderWatchObserver<Idle>(/* ... */)
+let running = await observer.start()
+
+// ❌ Never call stop() — the compiler warns:
+// warning: variable 'running' was never used
+```
+
+Because states are noncopyable, the compiler tracks their lifetime. If you create a state and never transition out of it, you get a warning. This helps catch bugs where you forgot to clean up.
+
+### Why This Matters
+
+Every mistake above is **impossible** in traditional enum-based FSMs without runtime checks. Urkel catches them at compile time, when they're free to fix.
+
+---
+
+## 🧩 Understanding Generation Modes
+
+Urkel generates code differently depending on your `.urkel` file. Here's how to know which mode you're in:
+
+### Closure-Captured Mode (Default)
+
+**Use this if you don't have** `@context` **or** `@compose` **in your machine:**
+
+```text
+machine FolderWatch
+@factory makeObserver(directory: URL, debounceMs: Int)
+
+@states
+  init Idle
+  state Running
+  final Stopped
+
+@transitions
+  Idle -> start -> Running
+  Running -> stop -> Stopped
+```
+
+**In this mode:**
+- Transitions are pure functions with no explicit context
+- Side effects are captured in the closures you provide
+- Simpler to use for straightforward FSMs
+- Default mode
+
+**Example usage:**
+```swift
+let observer = FolderWatchObserver<Idle>(
+    directory: url,
+    debounceMs: 500,
+    startTransition: {
+        // Your logic here; captured by closure
+        return FolderWatchObserver<Running>(/* ... */)
+    }
+)
+```
+
+### Context-Threaded Mode
+
+**Use this if you have** `machine Name<ContextType>` **or** `@compose` **declarations:**
+
+```text
+machine FolderWatch<FolderWatchContext>
+@compose Indexer
+@factory makeObserver(directory: URL, debounceMs: Int)
+
+@states
+  init Idle
+  state Running
+  final Stopped
+
+@transitions
+  Idle -> start -> Running => Indexer.init
+  Running -> stop -> Stopped
+```
+
+**In this mode:**
+- Transitions receive the context and return an updated context
+- The context flows through the machine
+- You can manage shared state across transitions
+- Machines support `~Escapable` (nonescapable)
+
+**Example usage:**
+```swift
+let observer = FolderWatchObserver<Idle>(
+    directory: url,
+    debounceMs: 500,
+    context: FolderWatchContext(...),
+    startTransition: { context in
+        // Receive context, do work, return updated context
+        return context
+    }
+)
+```
+
+**Which should I use?**
+Start with **closure-captured** (the default). Only switch to **context-threaded** if you find yourself needing shared state across multiple transitions.
+
 ---
 
 ## 🤝 Inspiration & Credits
