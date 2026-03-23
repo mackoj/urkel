@@ -493,7 +493,7 @@ public struct SwiftCodeEmitter {
 
         let sections = ast.composedMachines.compactMap { composedMachineName -> String? in
             guard let composedAST = composedASTs[composedMachineName] else { return nil }
-            let meta = composedMachineMetadata(for: composedMachineName)
+            let _ = composedMachineMetadata(for: composedMachineName)
             let carryingStates = composedCarryingStates(composedMachineName: composedMachineName, in: ast)
             let prefix = lowerCamelAcronymAwareName(from: composedMachineName)
 
@@ -733,7 +733,7 @@ public struct SwiftCodeEmitter {
             .joined()
     }
 
-    private func normalizedTypeName(_ raw: String) -> String {
+    internal func normalizedTypeName(_ raw: String) -> String {
         let cleaned = raw
             .replacingOccurrences(of: "[^A-Za-z0-9]+", with: " ", options: .regularExpression)
             .split(separator: " ")
@@ -749,7 +749,7 @@ public struct SwiftCodeEmitter {
             .joined()
     }
 
-    private func lowerCamelName(from raw: String) -> String {
+    internal func lowerCamelName(from raw: String) -> String {
         let normalized = normalizedTypeName(raw)
         guard let first = normalized.first else { return normalized }
         return String(first).lowercased() + normalized.dropFirst()

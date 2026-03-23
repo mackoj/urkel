@@ -3,7 +3,6 @@ import Foundation
 public enum UrkelGeneratorError: Error, LocalizedError {
     case fileNotFound(String)
     case notAFile(String)
-    case outputFileOnlySupportsSingleInput(String)
     case unsupportedLanguage(String)
     case languageTemplateMissing(String)
     case invalidConfiguration(URL, details: String)
@@ -14,8 +13,6 @@ public enum UrkelGeneratorError: Error, LocalizedError {
             return "Error: File not found at path: \(path)"
         case .notAFile(let path):
             return "Error: Path is not a readable file: \(path)"
-        case .outputFileOnlySupportsSingleInput(let path):
-            return "Error: The output file option only supports single-file input: \(path)"
         case .unsupportedLanguage(let language):
             return "Unsupported language: \(language)"
         case .languageTemplateMissing(let language):
@@ -56,7 +53,6 @@ public struct UrkelGenerator {
     public func generate(
         inputPath: String,
         outputPath: String,
-        outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil,
@@ -65,7 +61,7 @@ public struct UrkelGenerator {
         additionalConfigSearchDirectories: [URL] = [],
         verboseConfiguration: Bool = false,
         composedASTs: [String: MachineAST] = [:]
-    ) throws -> URL {
+    ) throws -> [URL] {
         let inputURL = URL(fileURLWithPath: inputPath)
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
             throw UrkelGeneratorError.fileNotFound(inputURL.path)
@@ -84,7 +80,6 @@ public struct UrkelGenerator {
             resolvedConfiguration = try UrkelConfigurationResolver.resolveGenerationConfiguration(
                 for: inputURL,
                 overrides: UrkelGenerationOverrides(
-                    outputFilePath: outputFilePath,
                     templatePath: templatePath,
                     outputExtension: outputExtension,
                     language: language,
@@ -167,7 +162,7 @@ public struct UrkelGenerator {
         let outputRootURL = URL(fileURLWithPath: outputPath, isDirectory: true)
         let outputURL = Self.resolvedOutputDirectoryURL(
             from: outputRootURL,
-            configuredOutputDirectory: resolvedConfiguration.outputDirectory
+            configuredOutputFolder: resolvedConfiguration.outputFolder
         )
         try FileManager.default.createDirectory(at: outputURL, withIntermediateDirectories: true)
 
@@ -179,70 +174,50 @@ public struct UrkelGenerator {
             ))
         }
 
-        let body: String
-        let generatedURL: URL
-
         if let templatePath = resolvedConfiguration.templatePath {
             let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
-            // Template-based path (used for Kotlin and custom non-Swift outputs).
-            body = try TemplateCodeEmitter().render(
+            let body = try TemplateCodeEmitter().render(
                 ast: ast,
                 templateString: templateString,
                 templateImportsOverride: resolvedConfiguration.templateImports
             )
             let fileExtension = resolvedConfiguration.outputExtension ?? inferExtension(fromTemplatePath: templatePath)
-            generatedURL = Self.generatedURL(
-                for: fallbackName,
-                outputExtension: fileExtension,
-                outputFilePath: resolvedConfiguration.outputFilePath,
-                relativeTo: outputURL
-            )
+            let generatedURL = Self.generatedURL(for: fallbackName, outputExtension: fileExtension, relativeTo: outputURL)
+            try body.write(to: generatedURL, atomically: true, encoding: .utf8)
+            return [generatedURL]
         } else if let language = resolvedConfiguration.language {
             let templateString = try loadBundledTemplate(language: language)
-            // Bundled language templates also route through the template emitter.
-            body = try TemplateCodeEmitter().render(
+            let body = try TemplateCodeEmitter().render(
                 ast: ast,
                 templateString: templateString,
                 templateImportsOverride: resolvedConfiguration.templateImports
             )
             let fileExtension = resolvedConfiguration.outputExtension ?? defaultExtension(forLanguage: language)
-            generatedURL = Self.generatedURL(
-                for: fallbackName,
-                outputExtension: fileExtension,
-                outputFilePath: resolvedConfiguration.outputFilePath,
-                relativeTo: outputURL
-            )
+            let generatedURL = Self.generatedURL(for: fallbackName, outputExtension: fileExtension, relativeTo: outputURL)
+            try body.write(to: generatedURL, atomically: true, encoding: .utf8)
+            return [generatedURL]
         } else {
-            // Native Swift path uses the dedicated Swift code emitter.
-            body = SwiftCodeEmitter().emit(
+            // Native Swift path: emit 3 focused files.
+            let emittedFiles = SwiftCodeEmitter().emit(
                 ast: ast,
                 composedASTs: resolvedComposedASTs,
                 swiftImportsOverride: resolvedConfiguration.swiftImports,
                 nonescapable: resolvedConfiguration.nonescapable
             )
-            generatedURL = Self.generatedURL(
-                for: fallbackName,
-                outputExtension: "swift",
-                outputFilePath: resolvedConfiguration.outputFilePath,
-                relativeTo: outputURL
-            )
+            let machineName = SwiftCodeEmitter().normalizedTypeName(ast.machineName)
+            let stateMachineURL = outputURL.appendingPathComponent("\(machineName)StateMachine.swift")
+            let clientURL = outputURL.appendingPathComponent("\(machineName)Client.swift")
+            let dependencyURL = outputURL.appendingPathComponent("\(machineName)Client+Dependency.swift")
+            try emittedFiles.stateMachine.write(to: stateMachineURL, atomically: true, encoding: .utf8)
+            try emittedFiles.client.write(to: clientURL, atomically: true, encoding: .utf8)
+            try emittedFiles.dependency.write(to: dependencyURL, atomically: true, encoding: .utf8)
+            return [stateMachineURL, clientURL, dependencyURL]
         }
-
-        if resolvedConfiguration.outputFilePath != nil {
-            try FileManager.default.createDirectory(
-                at: generatedURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-        }
-
-        try body.write(to: generatedURL, atomically: true, encoding: .utf8)
-        return generatedURL
     }
 
     public func generateDirectory(
         inputDirectoryPath: String,
         outputPath: String,
-        outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil,
@@ -251,10 +226,6 @@ public struct UrkelGenerator {
         additionalConfigSearchDirectories: [URL] = [],
         verboseConfiguration: Bool = false
     ) throws -> [URL] {
-        if let outputFilePath {
-            throw UrkelGeneratorError.outputFileOnlySupportsSingleInput(outputFilePath)
-        }
-
         let root = URL(fileURLWithPath: inputDirectoryPath, isDirectory: true)
         guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
             return []
@@ -280,7 +251,6 @@ public struct UrkelGenerator {
             let generated = try generate(
                 inputPath: file.path,
                 outputPath: outputPath,
-                outputFilePath: nil,
                 templatePath: templatePath,
                 outputExtension: outputExtension,
                 language: language,
@@ -290,7 +260,7 @@ public struct UrkelGenerator {
                 verboseConfiguration: verboseConfiguration,
                 composedASTs: allASTs
             )
-            outputs.append(generated)
+            outputs.append(contentsOf: generated)
         }
         return outputs
     }
@@ -318,34 +288,21 @@ public struct UrkelGenerator {
     private static func generatedURL(
         for fallbackName: String,
         outputExtension: String,
-        outputFilePath: String?,
         relativeTo outputURL: URL
     ) -> URL {
-        if let outputFilePath {
-            return resolvedOutputFileURL(outputFilePath, relativeTo: outputURL)
-        }
-
         let outputName = fallbackName + (outputExtension == "swift" ? "+Generated.swift" : ".\(outputExtension)")
         return outputURL.appendingPathComponent(outputName)
     }
 
-    private static func resolvedOutputFileURL(_ outputFilePath: String, relativeTo outputURL: URL) -> URL {
-        if NSString(string: outputFilePath).isAbsolutePath {
-            return URL(fileURLWithPath: outputFilePath).standardizedFileURL
-        }
-
-        return URL(fileURLWithPath: outputFilePath, relativeTo: outputURL).standardizedFileURL
-    }
-
     private static func resolvedOutputDirectoryURL(
         from rootOutputURL: URL,
-        configuredOutputDirectory: String?
+        configuredOutputFolder: String?
     ) -> URL {
-        guard let configuredOutputDirectory, !configuredOutputDirectory.isEmpty else {
+        guard let configuredOutputFolder, !configuredOutputFolder.isEmpty else {
             return rootOutputURL
         }
 
-        return URL(fileURLWithPath: configuredOutputDirectory, relativeTo: rootOutputURL).standardizedFileURL
+        return URL(fileURLWithPath: configuredOutputFolder, relativeTo: rootOutputURL).standardizedFileURL
     }
 
     private func loadBundledTemplate(language: String) throws -> String {

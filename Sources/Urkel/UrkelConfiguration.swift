@@ -12,7 +12,6 @@ public enum UrkelConfigurationError: Error, LocalizedError {
 }
 
 public struct UrkelGenerationOverrides: Sendable {
-    public var outputFilePath: String?
     public var templatePath: String?
     public var outputExtension: String?
     public var language: String?
@@ -20,14 +19,12 @@ public struct UrkelGenerationOverrides: Sendable {
     public var templateImports: [String]?
 
     public init(
-        outputFilePath: String? = nil,
         templatePath: String? = nil,
         outputExtension: String? = nil,
         language: String? = nil,
         swiftImports: [String]? = nil,
         templateImports: [String]? = nil
     ) {
-        self.outputFilePath = outputFilePath
         self.templatePath = templatePath
         self.outputExtension = outputExtension
         self.language = language
@@ -38,8 +35,7 @@ public struct UrkelGenerationOverrides: Sendable {
 
 public struct UrkelResolvedConfiguration: Equatable, Sendable {
     public let configurationURL: URL?
-    public let outputDirectory: String?
-    public let outputFilePath: String?
+    public let outputFolder: String?
     public let templatePath: String?
     public let outputExtension: String?
     public let language: String?
@@ -51,8 +47,7 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
 
     public init(
         configurationURL: URL?,
-        outputDirectory: String?,
-        outputFilePath: String?,
+        outputFolder: String?,
         templatePath: String?,
         outputExtension: String?,
         language: String?,
@@ -63,8 +58,7 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
         nonescapable: Bool = false
     ) {
         self.configurationURL = configurationURL
-        self.outputDirectory = outputDirectory
-        self.outputFilePath = outputFilePath
+        self.outputFolder = outputFolder
         self.templatePath = templatePath
         self.outputExtension = outputExtension
         self.language = language
@@ -79,8 +73,7 @@ public struct UrkelResolvedConfiguration: Equatable, Sendable {
 public extension UrkelResolvedConfiguration {
     static let `default` = UrkelResolvedConfiguration(
         configurationURL: nil,
-        outputDirectory: nil,
-        outputFilePath: nil,
+        outputFolder: nil,
         templatePath: nil,
         outputExtension: nil,
         language: nil,
@@ -149,8 +142,7 @@ public enum UrkelConfigurationResolver {
 
         return UrkelResolvedConfiguration(
             configurationURL: configurationURL,
-            outputDirectory: rawConfiguration.outputDirectory,
-            outputFilePath: overrides.outputFilePath ?? rawConfiguration.outputFile,
+            outputFolder: rawConfiguration.outputFolder ?? rawConfiguration.outputDirectory,
             templatePath: resolvedTemplatePath,
             outputExtension: overrides.outputExtension ?? rawConfiguration.outputExtension,
             language: resolvedLanguage,
@@ -193,15 +185,13 @@ public enum UrkelConfigurationResolver {
         let templateValue = resolved.templatePath ?? "<none>"
         let languageValue = resolved.language ?? "<none>"
         let extensionValue = resolved.outputExtension ?? "<default>"
-        let outputFileValue = resolved.outputFilePath ?? "<default>"
         let swiftImports = resolved.swiftImports?.joined(separator: ", ") ?? "<default>"
         let templateImports = resolved.templateImports?.joined(separator: ", ") ?? "<default>"
 
         return """
         [urkel] effective config for \(inputFileURL.lastPathComponent):
           config: \(configLocation)
-          outputDirectory: \(outputDirectoryURL.path)
-          outputFile: \(outputFileValue)
+          outputFolder: \(outputDirectoryURL.path)
           template: \(templateValue)
           language: \(languageValue)
           outputExtension: \(extensionValue)
@@ -214,8 +204,9 @@ public enum UrkelConfigurationResolver {
 private extension UrkelConfigurationResolver {
     struct RawConfiguration: Decodable {
         var sourceExtensions: [String]? = nil
+        var outputFolder: String? = nil
+        /// Deprecated: use `outputFolder` instead.
         var outputDirectory: String? = nil
-        var outputFile: String? = nil
         var template: String? = nil
         var outputExtension: String? = nil
         var language: String? = nil

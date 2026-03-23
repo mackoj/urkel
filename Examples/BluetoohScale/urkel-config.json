@@ -1,5 +1,5 @@
 {
-  "outputDirectory": "Sources/BluetoohScale",
+  "outputFolder": "Sources/BluetoohScale",
   "imports": {
     "swift": ["Foundation", "Dependencies"]
   }

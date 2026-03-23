@@ -56,10 +56,6 @@ struct UrkelPlugin: BuildToolPlugin {
       if let language = configuration.language {
         arguments += ["--lang", language]
       }
-      
-      if let outputFile = configuration.outputFile {
-        arguments += ["--output-file", outputFile]
-      }
 
       for item in configuration.swiftImports {
         arguments += ["--swift-import", item]
@@ -137,8 +133,9 @@ struct UrkelPlugin: BuildToolPlugin {
 
   private struct RawConfiguration: Decodable {
     var sourceExtensions: [String]? = nil
+    var outputFolder: String? = nil
+    /// Deprecated: use `outputFolder` instead.
     var outputDirectory: String? = nil
-    var outputFile: String? = nil
     var template: String? = nil
     var outputExtension: String? = nil
     var language: String? = nil
@@ -160,7 +157,7 @@ struct UrkelPlugin: BuildToolPlugin {
     }
     
     var outputFile: String? {
-      raw.outputFile
+      nil
     }
 
     var swiftImports: [String] {
@@ -209,21 +206,30 @@ struct UrkelPlugin: BuildToolPlugin {
     func generatedOutputURL(for sourceURL: URL, outputDirectoryURL: URL) -> URL {
       let resolvedOutputDirectoryURL = self.resolvedOutputDirectoryURL(from: outputDirectoryURL)
 
-      if let outputFile = raw.outputFile, !outputFile.isEmpty {
-        return URL(fileURLWithPath: outputFile, relativeTo: resolvedOutputDirectoryURL).standardizedFileURL
-      }
-      
       let baseName = sourceURL.deletingPathExtension().lastPathComponent
       let outputExtension = resolvedOutputExtension(for: sourceURL)
-      
+
       let outputName: String
       if raw.template != nil || raw.language != nil {
         outputName = "\(baseName).\(outputExtension)"
       } else {
-        outputName = "\(baseName)+Generated.\(outputExtension)"
+        // For native Swift, use the first of the 3 generated files as the representative URL.
+        let machineName = pascalCased(baseName)
+        outputName = "\(machineName)StateMachine.swift"
       }
-      
+
       return resolvedOutputDirectoryURL.appendingPathComponent(outputName)
+    }
+
+    private func pascalCased(_ raw: String) -> String {
+      let cleaned = raw
+        .replacingOccurrences(of: "[^A-Za-z0-9]+", with: " ", options: .regularExpression)
+        .split(separator: " ")
+      guard !cleaned.isEmpty else { return raw }
+      return cleaned.map { segment -> String in
+        guard let first = segment.first else { return "" }
+        return String(first).uppercased() + segment.dropFirst()
+      }.joined()
     }
     
     private func resolvedOutputExtension(for sourceURL: URL) -> String {
@@ -265,11 +271,11 @@ struct UrkelPlugin: BuildToolPlugin {
     }
 
     private func resolvedOutputDirectoryURL(from rootOutputURL: URL) -> URL {
-      guard let outputDirectory = raw.outputDirectory, !outputDirectory.isEmpty else {
+      guard let outputFolder = raw.outputFolder ?? raw.outputDirectory, !outputFolder.isEmpty else {
         return rootOutputURL
       }
 
-      return URL(fileURLWithPath: outputDirectory, relativeTo: rootOutputURL).standardizedFileURL
+      return URL(fileURLWithPath: outputFolder, relativeTo: rootOutputURL).standardizedFileURL
     }
 
     private func normalized(_ values: [String]?) -> [String] {

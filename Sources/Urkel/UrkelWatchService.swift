@@ -67,7 +67,13 @@ public struct UrkelWatchService {
                     let ext = outputExtension ?? defaultExtension(forLanguage: language)
                     candidates = [outputRoot.appendingPathComponent("\(baseName).\(ext)")]
                 } else {
-                    candidates = [outputRoot.appendingPathComponent("\(baseName)+Generated.swift")]
+                    // Native Swift: 3 files named after the normalized machine type name.
+                    let machineName = SwiftCodeEmitter().normalizedTypeName(baseName)
+                    candidates = [
+                        outputRoot.appendingPathComponent("\(machineName)StateMachine.swift"),
+                        outputRoot.appendingPathComponent("\(machineName)Client.swift"),
+                        outputRoot.appendingPathComponent("\(machineName)Client+Dependency.swift")
+                    ]
                 }
 
                 for candidate in candidates where FileManager.default.fileExists(atPath: candidate.path) {

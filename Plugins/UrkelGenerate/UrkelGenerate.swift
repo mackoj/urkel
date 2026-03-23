@@ -59,10 +59,6 @@ struct UrkelGenerate: CommandPlugin {
                     processArguments += ["--lang", language]
                 }
 
-                if let outputFile = configuration.outputFile {
-                    processArguments += ["--output-file", outputFile]
-                }
-
                 for item in configuration.swiftImports {
                     processArguments += ["--swift-import", item]
                 }
@@ -148,8 +144,9 @@ struct UrkelGenerate: CommandPlugin {
 
     private struct RawConfiguration: Decodable {
         var sourceExtensions: [String]? = nil
+        var outputFolder: String? = nil
+        /// Deprecated: use `outputFolder` instead.
         var outputDirectory: String? = nil
-        var outputFile: String? = nil
         var template: String? = nil
         var outputExtension: String? = nil
         var language: String? = nil
@@ -171,7 +168,7 @@ struct UrkelGenerate: CommandPlugin {
         }
 
         var outputFile: String? {
-            raw.outputFile
+            nil
         }
 
         var swiftImports: [String] {
@@ -214,21 +211,17 @@ struct UrkelGenerate: CommandPlugin {
         }
 
         func outputDirectoryURL(in packageDirectoryURL: URL) -> URL {
-            guard let outputDirectory = raw.outputDirectory, !outputDirectory.isEmpty else {
+            guard let outputFolder = raw.outputFolder ?? raw.outputDirectory, !outputFolder.isEmpty else {
                 return packageDirectoryURL
             }
 
             return URL(
-                fileURLWithPath: outputDirectory,
+                fileURLWithPath: outputFolder,
                 relativeTo: packageDirectoryURL
             ).standardizedFileURL
         }
 
         func generatedOutputURL(for sourceURL: URL, outputDirectoryURL: URL) -> URL {
-            if let outputFile = raw.outputFile, !outputFile.isEmpty {
-                return URL(fileURLWithPath: outputFile, relativeTo: outputDirectoryURL).standardizedFileURL
-            }
-
             let baseName = sourceURL.deletingPathExtension().lastPathComponent
             let outputExtension = resolvedOutputExtension(for: sourceURL)
 
@@ -236,10 +229,23 @@ struct UrkelGenerate: CommandPlugin {
             if raw.template != nil || raw.language != nil {
                 outputName = "\(baseName).\(outputExtension)"
             } else {
-                outputName = "\(baseName)+Generated.\(outputExtension)"
+                // For native Swift, use the first of the 3 generated files as the representative URL.
+                let machineName = pascalCased(baseName)
+                outputName = "\(machineName)StateMachine.swift"
             }
 
             return outputDirectoryURL.appendingPathComponent(outputName)
+        }
+
+        private func pascalCased(_ raw: String) -> String {
+            let cleaned = raw
+                .replacingOccurrences(of: "[^A-Za-z0-9]+", with: " ", options: .regularExpression)
+                .split(separator: " ")
+            guard !cleaned.isEmpty else { return raw }
+            return cleaned.map { segment -> String in
+                guard let first = segment.first else { return "" }
+                return String(first).uppercased() + segment.dropFirst()
+            }.joined()
         }
 
         private func resolvedOutputExtension(for sourceURL: URL) -> String {

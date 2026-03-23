@@ -6,7 +6,7 @@ import Foundation
 
 // MARK: - Runtime Observer Construction
 
-extension FolderWatchObserver where State == FolderWatchMachine.Running {
+extension FolderWatchStateMachine where Phase == FolderWatchStateMachine.State.Running {
   /// The stream of directory events emitted while the observer is running.
   public var events: AsyncThrowingStream<DirectoryEvent, Error> {
     get async {
@@ -24,7 +24,7 @@ extension FolderWatchObserver where State == FolderWatchMachine.Running {
   }
 }
 
-extension FolderWatchObserver {
+extension FolderWatchStateMachine {
   /// The directory currently associated with this observer.
   public var directory: URL {
     self.withInternalContext { context in

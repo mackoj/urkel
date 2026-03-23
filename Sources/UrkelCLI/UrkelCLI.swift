@@ -19,9 +19,6 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .shortAndLong, help: "Output directory")
         var output: String
 
-        @Option(name: .customLong("output-file"), help: "Output file path relative to the output directory")
-        var outputFile: String?
-
         @Option(name: .shortAndLong, help: "Path to a custom .mustache template for foreign language generation")
         var template: String?
 
@@ -54,10 +51,6 @@ struct UrkelCLI: AsyncParsableCommand {
             let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
 
             if isDirectory.boolValue {
-                if outputFile != nil {
-                    throw ValidationError("The output file option only works when generating a single .urkel file.")
-                }
-
                 let generated = try generator.generateDirectory(
                     inputDirectoryPath: input,
                     outputPath: output,
@@ -76,7 +69,6 @@ struct UrkelCLI: AsyncParsableCommand {
                 let generated = try generator.generate(
                     inputPath: input,
                     outputPath: output,
-                    outputFilePath: outputFile,
                     templatePath: template,
                     outputExtension: ext,
                     language: lang,
@@ -85,7 +77,9 @@ struct UrkelCLI: AsyncParsableCommand {
                     additionalConfigSearchDirectories: [cwdURL],
                     verboseConfiguration: printEffectiveConfig
                 )
-                print("Generated: \(generated.path)")
+                for file in generated {
+                    print("Generated: \(file.path)")
+                }
             }
         }
     }
