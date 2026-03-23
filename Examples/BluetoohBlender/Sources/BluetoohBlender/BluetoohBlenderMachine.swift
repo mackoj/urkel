@@ -14,8 +14,8 @@ public enum BluetoohBlenderStateBlendHigh {}
 public enum BluetoohBlenderStatePaused {}
 public enum BluetoohBlenderStateError {}
 public enum BluetoohBlenderStateTurnedOff {}
-public struct BluetoohBlenderStateRuntimeContext: Sendable {
-    public init() {}
+internal struct BluetoohBlenderStateRuntimeContext: Sendable {
+    init() {}
 }
 
 // MARK: - BluetoohBlender State Machine
@@ -24,29 +24,29 @@ public struct BluetoohBlenderStateRuntimeContext: Sendable {
 public struct BluetoohBlenderMachine<State>: ~Copyable {
     private var internalContext: BluetoohBlenderStateRuntimeContext
 
-    private let _startScan: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _stopScan: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _deviceFoundCBPeripheral: @Sendable (BluetoohBlenderStateRuntimeContext, CBPeripheral) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _timeout: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _cancelConnect: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _connectSuccess: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _connectFailError: @Sendable (BluetoohBlenderStateRuntimeContext, Error) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _startBlendSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _startBlendMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _startBlendHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _changeSpeedMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _changeSpeedHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _changeSpeedSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _pauseBlend: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _resumeBlendSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _resumeBlendMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _resumeBlendHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _stopBlend: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _removeBowl: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _switchOff: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _addBowl: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    private let _disconnect: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
-    public init(
+    fileprivate let _startScan: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _stopScan: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _deviceFoundCBPeripheral: @Sendable (BluetoohBlenderStateRuntimeContext, CBPeripheral) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _timeout: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _cancelConnect: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _connectSuccess: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _connectFailError: @Sendable (BluetoohBlenderStateRuntimeContext, Error) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _startBlendSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _startBlendMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _startBlendHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _changeSpeedMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _changeSpeedHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _changeSpeedSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _pauseBlend: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _resumeBlendSlow: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _resumeBlendMedium: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _resumeBlendHigh: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _stopBlend: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _removeBowl: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _switchOff: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _addBowl: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    fileprivate let _disconnect: @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext
+    internal init(
         internalContext: BluetoohBlenderStateRuntimeContext,
         _startScan: @escaping @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext,
         _stopScan: @escaping @Sendable (BluetoohBlenderStateRuntimeContext) async throws -> BluetoohBlenderStateRuntimeContext,
@@ -98,7 +98,7 @@ public struct BluetoohBlenderMachine<State>: ~Copyable {
     }
 
     /// Access the internal context while preserving borrowing semantics.
-    public borrowing func withInternalContext<R>(_ body: (borrowing BluetoohBlenderStateRuntimeContext) throws -> R) rethrows -> R {
+    internal borrowing func withInternalContext<R>(_ body: (borrowing BluetoohBlenderStateRuntimeContext) throws -> R) rethrows -> R {
         try body(self.internalContext)
     }
 }

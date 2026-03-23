@@ -18,19 +18,19 @@ public enum ScaleStatePowerDown {}
 public struct ScaleMachine<State>: ~Copyable {
     private var internalContext: ScaleContext
 
-    private let _footTap: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _hardwareReady: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _zeroAchieved: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _weightLockedDouble: @Sendable (ScaleContext, Double) async throws -> ScaleContext
-    private let _userSteppedOffEarly: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _startBIA: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _biaCompleteBodyMetrics: @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext
-    private let _bareFeetRequiredError: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _syncDataScalePayload: @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext
-    private let _hardwareFault: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _footTap: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _hardwareReady: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _zeroAchieved: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _weightLockedDouble: @Sendable (ScaleContext, Double) async throws -> ScaleContext
+    fileprivate let _userSteppedOffEarly: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _startBIA: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _biaCompleteBodyMetrics: @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext
+    fileprivate let _bareFeetRequiredError: @Sendable (ScaleContext) async throws -> ScaleContext
+    fileprivate let _syncDataScalePayload: @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext
+    fileprivate let _hardwareFault: @Sendable (ScaleContext) async throws -> ScaleContext
     var _bleState: BLEState?
     let _makeBLE: @Sendable () -> BLEState
-    public init(
+    internal init(
         internalContext: ScaleContext,
         _footTap: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
         _hardwareReady: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
@@ -62,7 +62,7 @@ public struct ScaleMachine<State>: ~Copyable {
     }
 
     /// Access the internal context while preserving borrowing semantics.
-    public borrowing func withInternalContext<R>(_ body: (borrowing ScaleContext) throws -> R) rethrows -> R {
+    internal borrowing func withInternalContext<R>(_ body: (borrowing ScaleContext) throws -> R) rethrows -> R {
         try body(self.internalContext)
     }
 

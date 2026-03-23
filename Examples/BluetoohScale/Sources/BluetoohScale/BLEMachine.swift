@@ -19,21 +19,21 @@ public enum BLEStatePoweredDown {}
 public struct BLEMachine<State>: ~Copyable {
     private var internalContext: BLEContext
 
-    private let _powerOn: @Sendable (BLEContext) async throws -> BLEContext
-    private let _radioReady: @Sendable (BLEContext) async throws -> BLEContext
-    private let _deviceDiscoveredBLEDevice: @Sendable (BLEContext, BLEDevice) async throws -> BLEContext
-    private let _scanTimeout: @Sendable (BLEContext) async throws -> BLEContext
-    private let _connectionEstablished: @Sendable (BLEContext) async throws -> BLEContext
-    private let _connectionFailedString: @Sendable (BLEContext, String) async throws -> BLEContext
-    private let _retry: @Sendable (BLEContext) async throws -> BLEContext
-    private let _retriesExhausted: @Sendable (BLEContext) async throws -> BLEContext
-    private let _startSyncScalePayload: @Sendable (BLEContext, ScalePayload) async throws -> BLEContext
-    private let _syncSucceeded: @Sendable (BLEContext) async throws -> BLEContext
-    private let _syncFailedString: @Sendable (BLEContext, String) async throws -> BLEContext
-    private let _peripheralDisconnected: @Sendable (BLEContext) async throws -> BLEContext
-    private let _resetRadio: @Sendable (BLEContext) async throws -> BLEContext
-    private let _powerDown: @Sendable (BLEContext) async throws -> BLEContext
-    public init(
+    fileprivate let _powerOn: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _radioReady: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _deviceDiscoveredBLEDevice: @Sendable (BLEContext, BLEDevice) async throws -> BLEContext
+    fileprivate let _scanTimeout: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _connectionEstablished: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _connectionFailedString: @Sendable (BLEContext, String) async throws -> BLEContext
+    fileprivate let _retry: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _retriesExhausted: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _startSyncScalePayload: @Sendable (BLEContext, ScalePayload) async throws -> BLEContext
+    fileprivate let _syncSucceeded: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _syncFailedString: @Sendable (BLEContext, String) async throws -> BLEContext
+    fileprivate let _peripheralDisconnected: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _resetRadio: @Sendable (BLEContext) async throws -> BLEContext
+    fileprivate let _powerDown: @Sendable (BLEContext) async throws -> BLEContext
+    internal init(
         internalContext: BLEContext,
         _powerOn: @escaping @Sendable (BLEContext) async throws -> BLEContext,
         _radioReady: @escaping @Sendable (BLEContext) async throws -> BLEContext,
@@ -69,7 +69,7 @@ public struct BLEMachine<State>: ~Copyable {
     }
 
     /// Access the internal context while preserving borrowing semantics.
-    public borrowing func withInternalContext<R>(_ body: (borrowing BLEContext) throws -> R) rethrows -> R {
+    internal borrowing func withInternalContext<R>(_ body: (borrowing BLEContext) throws -> R) rethrows -> R {
         try body(self.internalContext)
     }
 }

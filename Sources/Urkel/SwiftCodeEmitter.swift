@@ -103,7 +103,7 @@ public struct SwiftCodeEmitter {
         let closureProps = signatures.compactMap { signature -> String? in
             guard let exemplar = transitions(for: signature, in: ast).first else { return nil }
             let closureInput = ([contextType] + exemplar.parameters.map(\.type)).joined(separator: ", ")
-            return "    private let \(transitionPropertyName(for: signature)): @Sendable (\(closureInput)) async throws -> \(contextType)"
+            return "    fileprivate let \(transitionPropertyName(for: signature)): @Sendable (\(closureInput)) async throws -> \(contextType)"
         }.joined(separator: "\n")
 
         let composedProps = composedMeta.map { meta in
@@ -197,7 +197,7 @@ public struct SwiftCodeEmitter {
         }.joined(separator: "\n")
 
         let runtimeContextDecl = ast.contextType == nil
-            ? "\npublic struct \(names.stateWrapperTypeName)RuntimeContext: Sendable {\n    public init() {}\n}"
+            ? "\ninternal struct \(names.stateWrapperTypeName)RuntimeContext: Sendable {\n    init() {}\n}"
             : ""
 
         return """
@@ -211,7 +211,7 @@ public struct SwiftCodeEmitter {
         public struct \(names.machineStructTypeName)<State>: \(conformances) {
             private var internalContext: \(contextType)
         \(propsSection)
-            public init(
+            internal init(
                 internalContext: \(contextType)\(allInitParams.isEmpty ? "" : ",\n\(allInitParams)")
             ) {
                 self.internalContext = internalContext
@@ -219,7 +219,7 @@ public struct SwiftCodeEmitter {
             }
 
             /// Access the internal context while preserving borrowing semantics.
-            public borrowing func withInternalContext<R>(_ body: (borrowing \(contextType)) throws -> R) rethrows -> R {
+            internal borrowing func withInternalContext<R>(_ body: (borrowing \(contextType)) throws -> R) rethrows -> R {
                 try body(self.internalContext)
             }\(advanceHelpers)
         }
@@ -999,7 +999,7 @@ public struct SwiftCodeEmitter {
 
             stateInits.append("""
             \(stateKindComment)
-                public init(
+                internal init(
             \(initParamList)
                 ) where State == \(stateType) {
             \(assignmentBlock)

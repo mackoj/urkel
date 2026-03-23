@@ -69,9 +69,9 @@ struct InlineSnapshotTests {
             public struct FolderWatchMachine<State>: ~Copyable {
                 private var internalContext: FolderContext
 
-                private let _start: @Sendable (FolderContext) async throws -> FolderContext
-                private let _stop: @Sendable (FolderContext) async throws -> FolderContext
-                public init(
+                fileprivate let _start: @Sendable (FolderContext) async throws -> FolderContext
+                fileprivate let _stop: @Sendable (FolderContext) async throws -> FolderContext
+                internal init(
                     internalContext: FolderContext,
                     _start: @escaping @Sendable (FolderContext) async throws -> FolderContext,
                     _stop: @escaping @Sendable (FolderContext) async throws -> FolderContext
@@ -83,7 +83,7 @@ struct InlineSnapshotTests {
                 }
 
                 /// Access the internal context while preserving borrowing semantics.
-                public borrowing func withInternalContext<R>(_ body: (borrowing FolderContext) throws -> R) rethrows -> R {
+                internal borrowing func withInternalContext<R>(_ body: (borrowing FolderContext) throws -> R) rethrows -> R {
                     try body(self.internalContext)
                 }
             }

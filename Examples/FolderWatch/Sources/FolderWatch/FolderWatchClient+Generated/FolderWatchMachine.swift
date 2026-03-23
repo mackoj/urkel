@@ -20,7 +20,7 @@ public struct FolderWatchMachine<State>: ~Copyable {
     fileprivate let _eventsAccessor: (@Sendable () -> AsyncThrowingStream<DirectoryEvent, Error>)?
 
     // MARK: Idle State Init
-    public init(
+    internal init(
         directory: URL,
         debounceMs: Int,
         startTransition: @escaping @Sendable () async -> FolderWatchMachine<FolderWatchStateRunning>
@@ -34,7 +34,7 @@ public struct FolderWatchMachine<State>: ~Copyable {
     }
 
     // MARK: Running State Init
-    public init(
+    internal init(
         directory: URL,
         debounceMs: Int,
         errorErrorTransition: @escaping @Sendable (Error) async -> FolderWatchMachine<FolderWatchStateRunning>,
@@ -50,7 +50,7 @@ public struct FolderWatchMachine<State>: ~Copyable {
     }
 
     // MARK: Stopped State Init
-    public init(
+    internal init(
         directory: URL,
         debounceMs: Int
     ) where State == FolderWatchStateStopped {
