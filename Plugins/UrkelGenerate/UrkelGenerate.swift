@@ -10,6 +10,7 @@ struct UrkelGenerate: CommandPlugin {
         ".urkelconfig.json",
         ".urkelconfig"
     ]
+    private static let legacyImportKeys: Set<String> = ["swiftImports", "templateImports"]
 
     func performCommand(context: PluginContext, arguments: [String]) async throws {
         _ = arguments
@@ -43,7 +44,7 @@ struct UrkelGenerate: CommandPlugin {
                     "generate",
                     sourceURL.path,
                     "--output",
-                    outputDirectoryURL.path
+                    packageDirectoryURL.path
                 ]
 
                 if let templatePath = configuration.resolvedTemplatePath {
@@ -56,10 +57,6 @@ struct UrkelGenerate: CommandPlugin {
 
                 if let language = configuration.language {
                     processArguments += ["--lang", language]
-                }
-
-                if let outputFile = configuration.outputFile {
-                    processArguments += ["--output-file", outputFile]
                 }
 
                 for item in configuration.swiftImports {
@@ -110,9 +107,12 @@ struct UrkelGenerate: CommandPlugin {
 
         do {
             let data = try Data(contentsOf: configurationURL)
+            try Self.validateConfigurationData(data)
             let decoded = try JSONDecoder().decode(RawConfiguration.self, from: data)
             return ResolvedConfiguration(configurationURL: configurationURL, raw: decoded)
         } catch {
+            let details = Self.humanReadableError(error)
+            Diagnostics.error("Invalid Urkel command plugin configuration at \(configurationURL.path): \(details)")
             throw PluginError.invalidConfiguration(configurationURL, underlyingError: error)
         }
     }
@@ -144,13 +144,13 @@ struct UrkelGenerate: CommandPlugin {
 
     private struct RawConfiguration: Decodable {
         var sourceExtensions: [String]? = nil
+        var outputFolder: String? = nil
+        /// Deprecated: use `outputFolder` instead.
         var outputDirectory: String? = nil
-        var outputFile: String? = nil
         var template: String? = nil
         var outputExtension: String? = nil
         var language: String? = nil
-        var swiftImports: [String]? = nil
-        var templateImports: [String]? = nil
+        var imports: [String: [String]]? = nil
     }
 
     private struct ResolvedConfiguration {
@@ -168,15 +168,23 @@ struct UrkelGenerate: CommandPlugin {
         }
 
         var outputFile: String? {
-            raw.outputFile
+            nil
         }
 
         var swiftImports: [String] {
-            normalized(raw.swiftImports)
+            let imports = normalized(raw.imports?["swift"])
+            return imports
         }
 
         var templateImports: [String] {
-            normalized(raw.templateImports)
+            if let language = raw.language?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+                let imports = normalized(raw.imports?[language])
+                if !imports.isEmpty {
+                    return imports
+                }
+            }
+            let templateImports = normalized(raw.imports?["template"])
+            return templateImports
         }
 
         var resolvedTemplatePath: String? {
@@ -193,8 +201,9 @@ struct UrkelGenerate: CommandPlugin {
 
         func shouldGenerate(for sourceURL: URL) -> Bool {
             let sourceExtension = sourceURL.pathExtension.lowercased()
+            let sourceExtensions = normalized(raw.sourceExtensions)
 
-            guard let sourceExtensions = raw.sourceExtensions, !sourceExtensions.isEmpty else {
+            guard !sourceExtensions.isEmpty else {
                 return sourceExtension == "urkel"
             }
 
@@ -202,21 +211,17 @@ struct UrkelGenerate: CommandPlugin {
         }
 
         func outputDirectoryURL(in packageDirectoryURL: URL) -> URL {
-            guard let outputDirectory = raw.outputDirectory, !outputDirectory.isEmpty else {
+            guard let outputFolder = raw.outputFolder ?? raw.outputDirectory, !outputFolder.isEmpty else {
                 return packageDirectoryURL
             }
 
             return URL(
-                fileURLWithPath: outputDirectory,
+                fileURLWithPath: outputFolder,
                 relativeTo: packageDirectoryURL
             ).standardizedFileURL
         }
 
         func generatedOutputURL(for sourceURL: URL, outputDirectoryURL: URL) -> URL {
-            if let outputFile = raw.outputFile, !outputFile.isEmpty {
-                return URL(fileURLWithPath: outputFile, relativeTo: outputDirectoryURL).standardizedFileURL
-            }
-
             let baseName = sourceURL.deletingPathExtension().lastPathComponent
             let outputExtension = resolvedOutputExtension(for: sourceURL)
 
@@ -224,10 +229,23 @@ struct UrkelGenerate: CommandPlugin {
             if raw.template != nil || raw.language != nil {
                 outputName = "\(baseName).\(outputExtension)"
             } else {
-                outputName = "\(baseName)+Generated.\(outputExtension)"
+                // For native Swift, use the first of the 3 generated files as the representative URL.
+                let machineName = pascalCased(baseName)
+                outputName = "\(machineName)Machine.swift"
             }
 
             return outputDirectoryURL.appendingPathComponent(outputName)
+        }
+
+        private func pascalCased(_ raw: String) -> String {
+            let cleaned = raw
+                .replacingOccurrences(of: "[^A-Za-z0-9]+", with: " ", options: .regularExpression)
+                .split(separator: " ")
+            guard !cleaned.isEmpty else { return raw }
+            return cleaned.map { segment -> String in
+                guard let first = segment.first else { return "" }
+                return String(first).uppercased() + segment.dropFirst()
+            }.joined()
         }
 
         private func resolvedOutputExtension(for sourceURL: URL) -> String {
@@ -297,6 +315,46 @@ struct UrkelGenerate: CommandPlugin {
                 case .failed(let sourcePath, let status):
                     return "UrkelCLI failed while generating \(sourcePath) with exit status \(status)"
             }
+        }
+    }
+
+    private static func humanReadableError(_ error: Error) -> String {
+        if let localized = (error as? LocalizedError)?.errorDescription, !localized.isEmpty {
+            return localized
+        }
+        return String(describing: error)
+    }
+
+    private static func validateConfigurationData(_ data: Data) throws {
+        let rawObject = try JSONSerialization.jsonObject(with: data)
+        guard let object = rawObject as? [String: Any] else {
+            throw InvalidConfigurationShapeError()
+        }
+
+        let matchedLegacyKeys = legacyImportKeys
+            .filter { object[$0] != nil }
+            .sorted()
+        guard !matchedLegacyKeys.isEmpty else {
+            return
+        }
+
+        throw LegacyImportKeysError(keys: matchedLegacyKeys)
+    }
+
+    private struct LegacyImportKeysError: LocalizedError {
+        let keys: [String]
+
+        var errorDescription: String? {
+            let joinedKeys = keys.map { "'\($0)'" }.joined(separator: ", ")
+            return """
+            Legacy config key(s) \(joinedKeys) are no longer supported. Use the "imports" map instead, for example: "imports": { "swift": ["Foundation"], "kotlin": ["kotlin.collections"] }.
+            """
+        }
+    }
+
+    private struct InvalidConfigurationShapeError: LocalizedError {
+        var errorDescription: String? {
+            "Configuration root must be a JSON object."
         }
     }
 }

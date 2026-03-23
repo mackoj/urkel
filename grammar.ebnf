@@ -1,44 +1,51 @@
 /* 1. ROOT DOCUMENT STRUCTURE */
-UrkelFile        ::= { Whitespace | Comment | Newline } 
-                     [ ImportsBlock ] 
-                     MachineDecl 
-                     [ FactoryDecl ] 
-                     StatesBlock 
+UrkelFile        ::= { TriviaLine }
+                     [ MachineDecl { TriviaLine } ]
+                     { ComposeDecl { TriviaLine } }
+                     [ FactoryDecl { TriviaLine } ]
+                     StatesBlock { TriviaLine }
                      TransitionsBlock
+                     { TriviaLine }
 
 /* 2. TOP-LEVEL DECLARATIONS & BLOCKS */
-ImportsBlock     ::= "@imports" Newline { ImportStmt }
-ImportStmt       ::= { Whitespace } "import" Whitespace SwiftType Newline
+MachineDecl      ::= { Whitespace } "machine" Whitespace Identifier [ ContextDecl ] Newline
+ContextDecl      ::= "<" { Whitespace } Identifier { Whitespace } ">"
 
-MachineDecl      ::= { Whitespace } "machine" Whitespace Identifier [ "<" Identifier ">" ] Newline
+ComposeDecl      ::= { Whitespace } "@compose" Whitespace Identifier Newline
 
 FactoryDecl      ::= { Whitespace } "@factory" Whitespace Identifier "(" [ ParameterList ] ")" Newline
 
-StatesBlock      ::= { Whitespace } "@states" Newline { StateStmt }
-TransitionsBlock ::= { Whitespace } "@transitions" Newline { TransitionStmt }
+StatesBlock      ::= { Whitespace } "@states" Newline { TriviaLine | StateStmt }
+TransitionsBlock ::= { Whitespace } "@transitions" Newline { TriviaLine | TransitionStmt }
 
 /* 3. STATES & TRANSITIONS */
 StateStmt        ::= { Whitespace } StateKind Whitespace Identifier { Whitespace } Newline
 StateKind        ::= "init" | "state" | "final"
 
-TransitionStmt   ::= { Whitespace } Identifier 
-                     Whitespace? "->" Whitespace? 
-                     EventDecl 
-                     Whitespace? "->" Whitespace? 
-                     Identifier { Whitespace } Newline
+TransitionStmt   ::= { Whitespace } Identifier
+                     { Whitespace } "->" { Whitespace }
+                     EventDecl
+                     { Whitespace } "->" { Whitespace }
+                     Identifier
+                     [ { Whitespace } "=>" { Whitespace } Identifier ".init" ]
+                     { Whitespace } Newline
 
-EventDecl        ::= Identifier [ "(" ParameterList ")" ]
+EventDecl        ::= Identifier [ "(" [ ParameterList ] ")" ]
 
 /* 4. PARAMETERS & TYPES */
-ParameterList    ::= Parameter { "," Whitespace? Parameter }
-Parameter        ::= Identifier ":" Whitespace? SwiftType
+ParameterList    ::= Parameter { { Whitespace } "," { Whitespace } Parameter }
+Parameter        ::= Identifier { Whitespace } ":" { Whitespace } SwiftType
 
-/* 5. LEXICAL TOKENS (TERMINALS) */
+/* 5. TRIVIA AND LEXICAL TOKENS */
+TriviaLine       ::= BlankLine | CommentLine
+BlankLine        ::= { Whitespace } Newline
+CommentLine      ::= { Whitespace } Comment Newline
+
 Identifier       ::= Letter { Letter | Digit | "_" }
 SwiftType        ::= Any valid Swift type string (e.g., "URL", "Int", "[String: Any]?")
 
+Comment          ::= "#" { Any character except Newline }
 Letter           ::= "A".."Z" | "a".."z"
 Digit            ::= "0".."9"
 Whitespace       ::= " " | "\t"
 Newline          ::= "\n" | "\r\n"
-Comment          ::= "#" { Any character except Newline } Newline

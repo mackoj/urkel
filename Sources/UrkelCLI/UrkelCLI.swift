@@ -19,9 +19,6 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .shortAndLong, help: "Output directory")
         var output: String
 
-        @Option(name: .customLong("output-file"), help: "Output file path relative to the output directory")
-        var outputFile: String?
-
         @Option(name: .shortAndLong, help: "Path to a custom .mustache template for foreign language generation")
         var template: String?
 
@@ -37,6 +34,9 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
         var templateImports: [String] = []
 
+        @Flag(name: .customLong("print-effective-config"), help: "Print effective Urkel config for each generated file")
+        var printEffectiveConfig = false
+
         mutating func run() async throws {
             var isDirectory = ObjCBool(false)
             guard FileManager.default.fileExists(atPath: input, isDirectory: &isDirectory) else {
@@ -48,11 +48,9 @@ struct UrkelCLI: AsyncParsableCommand {
             let normalizedTemplateImports = normalizedImportList(templateImports)
             let swiftImportsOption = normalizedSwiftImports.isEmpty ? nil : normalizedSwiftImports
             let templateImportsOption = normalizedTemplateImports.isEmpty ? nil : normalizedTemplateImports
-            if isDirectory.boolValue {
-                if outputFile != nil {
-                    throw ValidationError("The output file option only works when generating a single .urkel file.")
-                }
+            let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
 
+            if isDirectory.boolValue {
                 let generated = try generator.generateDirectory(
                     inputDirectoryPath: input,
                     outputPath: output,
@@ -60,7 +58,9 @@ struct UrkelCLI: AsyncParsableCommand {
                     outputExtension: ext,
                     language: lang,
                     swiftImports: swiftImportsOption,
-                    templateImports: templateImportsOption
+                    templateImports: templateImportsOption,
+                    additionalConfigSearchDirectories: [cwdURL],
+                    verboseConfiguration: printEffectiveConfig
                 )
                 for file in generated {
                     print("Generated: \(file.path)")
@@ -69,14 +69,17 @@ struct UrkelCLI: AsyncParsableCommand {
                 let generated = try generator.generate(
                     inputPath: input,
                     outputPath: output,
-                    outputFilePath: outputFile,
                     templatePath: template,
                     outputExtension: ext,
                     language: lang,
                     swiftImports: swiftImportsOption,
-                    templateImports: templateImportsOption
+                    templateImports: templateImportsOption,
+                    additionalConfigSearchDirectories: [cwdURL],
+                    verboseConfiguration: printEffectiveConfig
                 )
-                print("Generated: \(generated.path)")
+                for file in generated {
+                    print("Generated: \(file.path)")
+                }
             }
         }
     }
@@ -105,7 +108,11 @@ struct UrkelCLI: AsyncParsableCommand {
         @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
         var templateImports: [String] = []
 
+        @Flag(name: .customLong("print-effective-config"), help: "Print effective Urkel config for each generated file")
+        var printEffectiveConfig = false
+
         mutating func run() async throws {
+            let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
             try await UrkelWatchService().run(
                 inputDirectory: input,
                 outputDirectory: output,
@@ -113,7 +120,9 @@ struct UrkelCLI: AsyncParsableCommand {
                 outputExtension: ext,
                 language: lang,
                 swiftImports: normalizedImportList(swiftImports),
-                templateImports: normalizedImportList(templateImports)
+                templateImports: normalizedImportList(templateImports),
+                additionalConfigSearchDirectories: [cwdURL],
+                verboseConfiguration: printEffectiveConfig
             )
         }
     }

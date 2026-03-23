@@ -1,8 +1,4 @@
-@imports
-  import Foundation
-  import Dependencies
-
-machine folderwatch<FolderWatchContext>
+machine folderwatch
 @factory makeObserver(directory: URL, debounceMs: Int)
 
 @states
@@ -12,4 +8,9 @@ machine folderwatch<FolderWatchContext>
 
 @transitions
   Idle -> start -> Running
+  Running -> events
+  Running -> error(error:Error) -> Running
   Running -> stop -> Stopped
+
+@continuation
+  events -> AsyncThrowingStream<DirectoryEvent, Error>

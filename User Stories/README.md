@@ -25,6 +25,7 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [ ][US-4.3 client](us-4-3-client.md)
 - [ ][US-4.4 runtime scaffolding](us-4-4-runtime-scaffolding.md)
 - [ ][US-4.5 namespaced typed context](us-4-5-namespaced-typed-context.md)
+- [ ][US-4.6 doc comment pass-through](us-4-6-comment-passthrough.md)
 
 ## Epic 5 — File Watching, SPM, and Checked-in Generation
 
@@ -66,7 +67,12 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 
 - [ ][US-10.1 zero-arg factory closure emission](us-10-1-factory-zero-arg-closure-emission.md)
 - [ ][US-10.2 full Swift context types in machine declaration](us-10-2-parser-full-swift-context-types.md)
-- [ ][US-10.3 richer semantic validation rules](us-10-3-validator-richer-semantic-rules.md)
-- [ ][US-10.4 CLI/plugin/watch configuration parity](us-10-4-plugin-watch-config-parity.md)
-- [ ][US-10.5 template model expansion and Kotlin parity](us-10-5-template-model-and-kotlin-parity.md)
-- [ ][US-10.6 LSP performance and partial-AST resilience](us-10-6-lsp-performance-and-partial-ast.md)
+- [x][US-10.3 richer semantic validation rules](us-10-3-validator-richer-semantic-rules.md)
+- [x][US-10.4 CLI/plugin/watch configuration parity](us-10-4-plugin-watch-config-parity.md)
+- [x][US-10.5 template model expansion and Kotlin parity](us-10-5-template-model-and-kotlin-parity.md)
+- [x][US-10.6 LSP performance and partial-AST resilience](us-10-6-lsp-performance-and-partial-ast.md)
+
+## Epic 11 — Composition and Forking
+
+- [ ][US-11.1 fork operator and composition AST](us-11-1-fork.md)
+- [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md)

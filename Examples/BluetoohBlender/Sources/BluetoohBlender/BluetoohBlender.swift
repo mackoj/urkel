@@ -112,7 +112,7 @@ extension BluetoohBlenderRuntimeHandlers {
 extension BluetoohBlenderClient {
     /// Builds a client by adapting domain callbacks to generated transition hooks.
     public static func runtime(
-        initialContext: @escaping @Sendable () -> BluetoohBlenderMachine.RuntimeContext = { .init() },
+        initialContext: @escaping @Sendable () -> BluetoohBlenderStateRuntimeContext = { .init() },
         handlers: BluetoohBlenderRuntimeHandlers
     ) -> Self {
         .fromRuntime(
@@ -126,7 +126,7 @@ extension BluetoohBlenderClient {
                     try await handlers.stopScan()
                     return context
                 },
-                deviceFoundDeviceCBPeripheralTransition: { context, device in
+                deviceFoundCBPeripheralTransition: { context, device in
                     try await handlers.deviceFound(device)
                     return context
                 },
@@ -142,7 +142,7 @@ extension BluetoohBlenderClient {
                     try await handlers.connectSuccess()
                     return context
                 },
-                connectFailErrorErrorTransition: { context, error in
+                connectFailErrorTransition: { context, error in
                     try await handlers.connectFail(error)
                     return context
                 },

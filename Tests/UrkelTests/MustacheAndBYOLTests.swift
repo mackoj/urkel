@@ -52,8 +52,8 @@ struct TemplateEmitterAndBYOLTests {
             outputExtension: "ts"
         )
 
-        #expect(generated.lastPathComponent == "Bluetooth.ts")
-        let body = try String(contentsOf: generated, encoding: .utf8)
+        #expect(generated.first?.lastPathComponent == "Bluetooth.ts")
+        let body = try String(contentsOf: generated[0], encoding: .utf8)
         #expect(body.contains("Bluetooth"))
     }
 
@@ -80,11 +80,11 @@ struct TemplateEmitterAndBYOLTests {
             language: "kotlin"
         )
 
-        #expect(generated.lastPathComponent == "Machine.kt")
-        let body = try String(contentsOf: generated, encoding: .utf8)
+        #expect(generated.first?.lastPathComponent == "Machine.kt")
+        let body = try String(contentsOf: generated[0], encoding: .utf8)
         #expect(body.contains("sealed interface SampleState"))
         #expect(body.contains("data object Idle"))
-        #expect(body.contains("SampleTransitions"))
+        #expect(body.contains("val sampleTransitions"))
     }
 
     @Test("Generator supports emitter-specific import overrides")
@@ -116,7 +116,7 @@ struct TemplateEmitterAndBYOLTests {
             outputPath: outputDir.path,
             swiftImports: ["Foundation", "MySDK"]
         )
-        let swiftBody = try String(contentsOf: swiftGenerated, encoding: .utf8)
+        let swiftBody = try String(contentsOf: swiftGenerated[0], encoding: .utf8)
         #expect(swiftBody.contains("import MySDK"))
 
         let templateGenerated = try UrkelGenerator().generate(
@@ -126,8 +126,23 @@ struct TemplateEmitterAndBYOLTests {
             outputExtension: "kt",
             templateImports: ["kotlin.collections", "kotlin.io"]
         )
-        let templateBody = try String(contentsOf: templateGenerated, encoding: .utf8)
+        let templateBody = try String(contentsOf: templateGenerated[0], encoding: .utf8)
         #expect(templateBody.contains("import kotlin.collections"))
         #expect(templateBody.contains("import kotlin.io"))
+    }
+
+    @Test("Template context includes grouped transitions and naming metadata")
+    func templateContextExpansion() {
+        let ast = makeFolderWatchAST(machineName: "folder_watch")
+        let context = ast.templateContext
+
+        let machineTypeName = context["machineTypeName"] as? String
+        #expect(machineTypeName == "FolderWatch")
+
+        let groupedTransitions = context["groupedTransitions"] as? [[String: Any]]
+        #expect(groupedTransitions?.isEmpty == false)
+
+        let states = context["states"] as? [[String: Any]]
+        #expect(states?.contains(where: { ($0["typeName"] as? String) == "Idle" }) == true)
     }
 }

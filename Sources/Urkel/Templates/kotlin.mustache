@@ -4,20 +4,26 @@ import {{.}}
 
 package generated
 
-sealed interface {{machineName}}State {
+sealed interface {{machineTypeName}}State {
 {{#states}}
-    data object {{name}} : {{machineName}}State
+    data object {{typeName}} : {{machineTypeName}}State
 {{/states}}
 }
 
-data class {{machineName}}Transition(
-    val from: {{machineName}}State,
+data class {{machineTypeName}}Transition(
+    val from: {{machineTypeName}}State,
     val event: String,
-    val to: {{machineName}}State
+    val to: {{machineTypeName}}State
 )
 
-val {{machineName}}Transitions = listOf(
+val {{machineVariableName}}Transitions = listOf(
+{{#groupedTransitions}}
 {{#transitions}}
-    {{machineName}}Transition({{machineName}}State.{{from}}, "{{event}}", {{machineName}}State.{{to}}){{^isLast}},{{/isLast}}
+    {{machineTypeName}}Transition(
+        {{machineTypeName}}State.{{sourceStateTypeName}},
+        "{{event}}",
+        {{machineTypeName}}State.{{toTypeName}}
+    ){{^isLast}},{{/isLast}}
 {{/transitions}}
+{{/groupedTransitions}}
 )

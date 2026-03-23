@@ -7,11 +7,8 @@ struct UrkelParserTests {
     func parseValidMachine() throws {
         let source = """
         # comment
-        @imports
-          import Foundation
-          import Dependencies
-
         machine Bluetooth
+        @compose BLE
         @factory makeObserver(url: URL)
 
         @states
@@ -27,7 +24,8 @@ struct UrkelParserTests {
 
         let ast = try UrkelParser().parse(source: source)
         #expect(ast.machineName == "Bluetooth")
-        #expect(ast.imports == ["Foundation", "Dependencies"])
+        #expect(ast.imports.isEmpty)
+        #expect(ast.composedMachines == ["BLE"])
         #expect(ast.transitions.count == 2)
         #expect(ast.factory?.parameters.first?.name == "url")
     }
@@ -117,11 +115,8 @@ struct UrkelParserTests {
     @Test("Prints canonical urkel formatting")
     func printCanonicalFormatting() throws {
         let messy = """
-        @imports
-         import Foundation
-           import Dependencies
-
         machine  Bluetooth
+        @compose BLE
         @factory   makeObserver( url : URL , debounceMs : Int )
         @states
           init    Idle
@@ -137,11 +132,8 @@ struct UrkelParserTests {
         let output = parser.print(ast: ast)
 
         #expect(output == """
-        @imports
-          import Foundation
-          import Dependencies
-
         machine Bluetooth
+        @compose BLE
         @factory makeObserver(url: URL, debounceMs: Int)
         @states
           init Idle
@@ -151,5 +143,93 @@ struct UrkelParserTests {
           Idle -> start -> Running
           Running -> stop(reason: String) -> Stopped
         """)
+    }
+
+    @Test("Parses fork transition and captures spawned machine")
+    func parsesForkTransition() throws {
+        let source = """
+        machine Scale
+        @compose BLE
+        @states
+          init WakingUp
+          state Tare
+        @transitions
+          WakingUp -> hardwareReady -> Tare => BLE.init
+        """
+
+        let ast = try UrkelParser().parse(source: source)
+        #expect(ast.composedMachines == ["BLE"])
+        #expect(ast.transitions.count == 1)
+        #expect(ast.transitions[0].spawnedMachine == "BLE")
+    }
+
+    @Test("Rejects deprecated @imports syntax with actionable message")
+    func rejectsDeprecatedImportsBlock() {
+        let source = """
+        @imports
+          import Foundation
+        @states
+          init Idle
+        @transitions
+          Idle -> start -> Idle
+        """
+
+        do {
+            _ = try UrkelParser().parse(source: source)
+            Issue.record("Expected parse error")
+        } catch let error as UrkelParseError {
+            #expect(error.message.contains("`@imports` is no longer supported"))
+            #expect(error.message.contains("urkel-config.json"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("Attaches preceding comments to state and transition nodes")
+    func commentAttachment() throws {
+        let source = """
+        machine Commented
+        @states
+          # First state docs
+          # line two
+          init Idle
+          state Running
+        @transitions
+          # Starts running
+          Idle -> start -> Running
+        """
+
+        let ast = try UrkelParser().parse(source: source)
+        let idle = try #require(ast.states.first(where: { $0.name == "Idle" }))
+        #expect(idle.docComments.count == 2)
+        #expect(idle.docComments[0].text == "First state docs")
+        #expect(idle.docComments[1].text == "line two")
+        #expect(idle.docComments[0].range?.start.line == 3)
+
+        let transition = try #require(ast.transitions.first)
+        #expect(transition.docComments.count == 1)
+        #expect(transition.docComments[0].text == "Starts running")
+        #expect(transition.docComments[0].range?.start.line == 8)
+    }
+
+    @Test("Parses @continuation block correctly")
+    func parsesContinuationBlock() throws {
+        let source = """
+        machine folderwatch
+        @factory makeObserver(directory: URL, debounceMs: Int)
+        @states
+          init Idle
+          state Running
+          final Stopped
+        @transitions
+          Idle -> start -> Running
+          Running -> events
+          Running -> stop -> Stopped
+        @continuation
+          events -> AsyncThrowingStream<DirectoryEvent, Error>
+        """
+        let ast = try UrkelParser().parse(source: source)
+        #expect(ast.continuations["events"] == "AsyncThrowingStream<DirectoryEvent, Error>")
+        #expect(ast.transitions.first(where: { $0.event == "events" })?.to == nil)
     }
 }

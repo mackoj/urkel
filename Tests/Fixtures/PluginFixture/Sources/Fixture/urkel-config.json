@@ -2,5 +2,7 @@
   "outputDirectory": ".generated/urkel",
   "language": "kotlin",
   "outputExtension": "kt",
-  "templateImports": ["kotlin.collections", "kotlin.io"]
+  "imports": {
+    "kotlin": ["kotlin.collections", "kotlin.io"]
+  }
 }

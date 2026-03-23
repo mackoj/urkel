@@ -108,16 +108,16 @@ private func makeHandlers(counter: RuntimeCallCounter) -> BluetoohBlenderRuntime
 
 private func makeConnectedWithBowlObserver(
     handlers: BluetoohBlenderRuntimeHandlers
-) -> BluetoohBlenderObserver<BluetoohBlenderMachine.ConnectedWithBowl> {
+) -> BluetoohBlenderMachine<BluetoohBlenderStateConnectedWithBowl> {
     .init(
         internalContext: .init(),
         _startScan: { context in try await handlers.startScan(); return context },
         _stopScan: { context in try await handlers.stopScan(); return context },
-        _deviceFoundDeviceCBPeripheral: { context, device in try await handlers.deviceFound(device); return context },
+        _deviceFoundCBPeripheral: { context, device in try await handlers.deviceFound(device); return context },
         _timeout: { context in try await handlers.timeout(); return context },
         _cancelConnect: { context in try await handlers.cancelConnect(); return context },
         _connectSuccess: { context in try await handlers.connectSuccess(); return context },
-        _connectFailErrorError: { context, error in try await handlers.connectFail(error); return context },
+        _connectFailError: { context, error in try await handlers.connectFail(error); return context },
         _startBlendSlow: { context in try await handlers.startBlendSlow(); return context },
         _startBlendMedium: { context in try await handlers.startBlendMedium(); return context },
         _startBlendHigh: { context in try await handlers.startBlendHigh(); return context },
@@ -138,16 +138,16 @@ private func makeConnectedWithBowlObserver(
 
 private func makeConnectingObserver(
     handlers: BluetoohBlenderRuntimeHandlers
-) -> BluetoohBlenderObserver<BluetoohBlenderMachine.Connecting> {
+) -> BluetoohBlenderMachine<BluetoohBlenderStateConnecting> {
     .init(
         internalContext: .init(),
         _startScan: { context in try await handlers.startScan(); return context },
         _stopScan: { context in try await handlers.stopScan(); return context },
-        _deviceFoundDeviceCBPeripheral: { context, device in try await handlers.deviceFound(device); return context },
+        _deviceFoundCBPeripheral: { context, device in try await handlers.deviceFound(device); return context },
         _timeout: { context in try await handlers.timeout(); return context },
         _cancelConnect: { context in try await handlers.cancelConnect(); return context },
         _connectSuccess: { context in try await handlers.connectSuccess(); return context },
-        _connectFailErrorError: { context, error in try await handlers.connectFail(error); return context },
+        _connectFailError: { context, error in try await handlers.connectFail(error); return context },
         _startBlendSlow: { context in try await handlers.startBlendSlow(); return context },
         _startBlendMedium: { context in try await handlers.startBlendMedium(); return context },
         _startBlendHigh: { context in try await handlers.startBlendHigh(); return context },

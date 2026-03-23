@@ -26,6 +26,32 @@ struct CLIFoundationTests {
         #expect(command.input == "./Sources")
         #expect(command.output == "./Generated")
     }
+
+    @Test("Generate command accepts effective config flag")
+    func generateCapturesEffectiveConfigFlag() throws {
+        let command = try UrkelCLI.parseAsRoot([
+            "generate",
+            "./Bluetooth.urkel",
+            "--output",
+            "./Generated",
+            "--print-effective-config"
+        ]) as! UrkelCLI.Generate
+
+        #expect(command.printEffectiveConfig == true)
+    }
+
+    @Test("Watch command accepts effective config flag")
+    func watchCapturesEffectiveConfigFlag() throws {
+        let command = try UrkelCLI.parseAsRoot([
+            "watch",
+            "./Sources",
+            "--output",
+            "./Generated",
+            "--print-effective-config"
+        ]) as! UrkelCLI.Watch
+
+        #expect(command.printEffectiveConfig == true)
+    }
 }
 
 @Suite("US 1.2 - File Pipeline")

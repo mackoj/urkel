@@ -11,6 +11,8 @@ public struct UrkelWatchService {
         language: String? = nil,
         swiftImports: [String] = [],
         templateImports: [String] = [],
+        additionalConfigSearchDirectories: [URL] = [],
+        verboseConfiguration: Bool = false,
         pollIntervalNanoseconds: UInt64 = 300_000_000,
         stopAfterInitial: Bool = false
     ) async throws {
@@ -22,7 +24,9 @@ public struct UrkelWatchService {
             outputExtension: outputExtension,
             language: language,
             swiftImports: swiftImports.isEmpty ? nil : swiftImports,
-            templateImports: templateImports.isEmpty ? nil : templateImports
+            templateImports: templateImports.isEmpty ? nil : templateImports,
+            additionalConfigSearchDirectories: additionalConfigSearchDirectories,
+            verboseConfiguration: verboseConfiguration
         )
 
         guard !stopAfterInitial else {
@@ -43,7 +47,9 @@ public struct UrkelWatchService {
                         outputExtension: outputExtension,
                         language: language,
                         swiftImports: swiftImports.isEmpty ? nil : swiftImports,
-                        templateImports: templateImports.isEmpty ? nil : templateImports
+                        templateImports: templateImports.isEmpty ? nil : templateImports,
+                        additionalConfigSearchDirectories: additionalConfigSearchDirectories,
+                        verboseConfiguration: verboseConfiguration
                     )
                 }
             }
@@ -61,7 +67,13 @@ public struct UrkelWatchService {
                     let ext = outputExtension ?? defaultExtension(forLanguage: language)
                     candidates = [outputRoot.appendingPathComponent("\(baseName).\(ext)")]
                 } else {
-                    candidates = [outputRoot.appendingPathComponent("\(baseName)+Generated.swift")]
+                    // Native Swift: 3 files named after the normalized machine type name.
+                    let machineName = SwiftCodeEmitter().normalizedTypeName(baseName)
+                    candidates = [
+                        outputRoot.appendingPathComponent("\(machineName)Machine.swift"),
+                        outputRoot.appendingPathComponent("\(machineName)Client.swift"),
+                        outputRoot.appendingPathComponent("\(machineName)Client+Dependency.swift")
+                    ]
                 }
 
                 for candidate in candidates where FileManager.default.fileExists(atPath: candidate.path) {
