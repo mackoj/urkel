@@ -29,7 +29,7 @@ extension FolderWatchClient {
         Self(
             makeObserver: { directory, debounceMs in
                 let context = runtime.initialContext(directory, debounceMs)
-                return FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>(
+                return FolderWatchMachine<FolderWatchStateIdle>(
                     internalContext: context,
                 _start: runtime.startTransition,
                 _stop: runtime.stopTransition
@@ -43,9 +43,9 @@ extension FolderWatchClient {
 
 /// Dependency client entry point for constructing FolderWatch state machines.
 public struct FolderWatchClient: Sendable {
-    public var makeObserver: @Sendable (URL, Int) -> FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>
+    public var makeObserver: @Sendable (URL, Int) -> FolderWatchMachine<FolderWatchStateIdle>
 
-    public init(makeObserver: @escaping @Sendable (URL, Int) -> FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>) {
+    public init(makeObserver: @escaping @Sendable (URL, Int) -> FolderWatchMachine<FolderWatchStateIdle>) {
         self.makeObserver = makeObserver
     }
 }

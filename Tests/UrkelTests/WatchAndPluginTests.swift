@@ -30,7 +30,7 @@ struct WatchAndPluginTests {
             stopAfterInitial: true
         )
 
-        #expect(fm.fileExists(atPath: output.appendingPathComponent("FolderWatchStateMachine.swift").path))
+        #expect(fm.fileExists(atPath: output.appendingPathComponent("FolderWatchMachine.swift").path))
     }
 
     @Test("Watch service removes generated file when source is deleted")
@@ -61,7 +61,7 @@ struct WatchAndPluginTests {
         }
         defer { watcher.cancel() }
 
-        let generated = output.appendingPathComponent("FolderWatchStateMachine.swift")
+        let generated = output.appendingPathComponent("FolderWatchMachine.swift")
 
         let createDeadline = Date().addingTimeInterval(2)
         while !fm.fileExists(atPath: generated.path), Date() < createDeadline {
@@ -112,7 +112,7 @@ struct WatchAndPluginTests {
             stopAfterInitial: true
         )
 
-        let generated = output.appendingPathComponent("nested/FolderWatchStateMachine.swift")
+        let generated = output.appendingPathComponent("nested/FolderWatchMachine.swift")
         #expect(fm.fileExists(atPath: generated.path))
         let body = try String(contentsOf: generated, encoding: .utf8)
         #expect(body.contains("import CustomWatchSDK"))

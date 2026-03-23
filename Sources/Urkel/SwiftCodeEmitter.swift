@@ -2,7 +2,7 @@ import Foundation
 
 /// The three focused Swift files emitted for a single `.urkel` machine.
 public struct EmittedFiles {
-    /// `XxxStateMachine.swift` — typestate markers, state machine struct, transitions, state sum type.
+    /// `XxxMachine.swift` — typestate markers, state machine struct, transitions, state sum type.
     public let stateMachine: String
     /// `XxxClient.swift` — client struct, runtime builder, `fromRuntime`.
     public let client: String
@@ -75,7 +75,7 @@ public struct SwiftCodeEmitter {
     }
 
     private func emitStateMachineFile(for ast: MachineAST, names: Names, nonescapable: Bool = false) -> String {
-        let contextType = ast.contextType ?? "\(names.stateMachineTypeName).State.RuntimeContext"
+        let contextType = ast.contextType ?? "\(names.stateWrapperTypeName)RuntimeContext"
         let signatures = orderedTransitionSignatures(in: ast)
         let composedMeta = ast.composedMachines.map { composedMachineMetadata(for: $0) }
 
@@ -168,34 +168,26 @@ public struct SwiftCodeEmitter {
             }.joined(separator: "\n\n")
         }
 
-        // Build nested State enum with typestate markers (and optional RuntimeContext)
+        // Build flat top-level typestate marker enums
         let stateMarkers = ast.states.map { state in
-            let declaration = "        public enum \(normalizedTypeName(state.name)) {}"
-            let docs = emitDocComments(state.docComments, indentation: "        ")
+            let declaration = "public enum \(names.stateWrapperTypeName)\(normalizedTypeName(state.name)) {}"
+            let docs = emitDocComments(state.docComments, indentation: "")
             return docs.isEmpty ? declaration : "\(docs)\n\(declaration)"
         }.joined(separator: "\n")
 
-        let runtimeContext = ast.contextType == nil
-            ? """
-
-                    public struct RuntimeContext: Sendable {
-                        public init() {}
-                    }
-            """
+        let runtimeContextDecl = ast.contextType == nil
+            ? "\npublic struct \(names.stateWrapperTypeName)RuntimeContext: Sendable {\n    public init() {}\n}"
             : ""
 
-        let stateEnum = """
-            public enum State {
-        \(stateMarkers)\(runtimeContext)
-            }
-        """
-
         return """
+        // MARK: - \(names.machineTypeName) Typestate Markers
+
+        \(stateMarkers)\(runtimeContextDecl)
+
         // MARK: - \(names.machineTypeName) State Machine
 
         /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-        public struct \(names.stateMachineTypeName)<Phase>: \(conformances) {
-        \(stateEnum)
+        public struct \(names.machineStructTypeName)<State>: \(conformances) {
             private var internalContext: \(contextType)
         \(propsSection)
             public init(
@@ -214,7 +206,7 @@ public struct SwiftCodeEmitter {
     }
 
     private func emitClientRuntimeBuilder(for ast: MachineAST, names: Names) -> String {
-        let contextType = ast.contextType ?? "\(names.stateMachineTypeName).State.RuntimeContext"
+        let contextType = ast.contextType ?? "\(names.stateWrapperTypeName)RuntimeContext"
         let signatures = orderedTransitionSignatures(in: ast)
         guard !signatures.isEmpty else { return "" }
 
@@ -307,7 +299,7 @@ public struct SwiftCodeEmitter {
                 Self(
                     \(factoryName): {\(factoryClosureSignature.isEmpty ? "" : " \(factoryClosureSignature)")
                         let context = runtime.initialContext(\(factoryInitArgs))
-                        return \(names.stateMachineTypeName)<\(initialStateType)>(
+                        return \(names.machineStructTypeName)<\(initialStateType)>(
                             internalContext: context\(allObserverArgs)
                         )
                     }
@@ -363,9 +355,9 @@ public struct SwiftCodeEmitter {
 
                 return """
                 \(methodDocs)
-                    public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.stateMachineTypeName)<\(destinationType)> {
+                    public consuming func \(transition.event)(\(signatureParams)) async throws -> \(names.machineStructTypeName)<\(destinationType)> {
                         let nextContext = try await self.\(transitionPropertyName(for: transition))(self.internalContext\(callArgs.isEmpty ? "" : ", \(callArgs)"))
-                        return \(names.stateMachineTypeName)<\(destinationType)>(
+                        return \(names.machineStructTypeName)<\(destinationType)>(
                             internalContext: nextContext\(allPassThrough.isEmpty ? "" : ",\n\(allPassThrough)")
                         )
                     }
@@ -376,7 +368,7 @@ public struct SwiftCodeEmitter {
             return """
             // MARK: - \(names.machineTypeName).\(fromState) Transitions
 
-            extension \(names.stateMachineTypeName) where Phase == \(fromStateType) {
+            extension \(names.machineStructTypeName) where State == \(fromStateType) {
             \(methods)
             }
             """
@@ -389,7 +381,7 @@ public struct SwiftCodeEmitter {
         let cases = ast.states
             .map { state in
                 let stateType = stateTypeName(for: state.name, names: names)
-                return "    case \(caseName(for: state.name))(\(names.stateMachineTypeName)<\(stateType)>)"
+                return "    case \(caseName(for: state.name))(\(names.machineStructTypeName)<\(stateType)>)"
             }
             .joined(separator: "\n")
 
@@ -398,8 +390,8 @@ public struct SwiftCodeEmitter {
             let initialType = stateTypeName(for: initial.name, names: names)
             return """
 
-                public init(_ observer: consuming \(names.stateMachineTypeName)<\(initialType)>) {
-                    self = .\(caseName(for: initial.name))(observer)
+                public init(_ machine: consuming \(names.machineStructTypeName)<\(initialType)>) {
+                    self = .\(caseName(for: initial.name))(machine)
                 }
             """
         }()
@@ -409,7 +401,7 @@ public struct SwiftCodeEmitter {
             let stateCase = caseName(for: state.name)
             let stateType = stateTypeName(for: state.name, names: names)
             return """
-                public borrowing func \(methodName)<R>(_ body: (borrowing \(names.stateMachineTypeName)<\(stateType)>) throws -> R) rethrows -> R? {
+                public borrowing func \(methodName)<R>(_ body: (borrowing \(names.machineStructTypeName)<\(stateType)>) throws -> R) rethrows -> R? {
                     switch self {
                     case let .\(stateCase)(observer):
                         return try body(observer)
@@ -580,7 +572,7 @@ public struct SwiftCodeEmitter {
         let initialStateType = ast.states
             .first(where: { $0.kind == .initial })
             .map { stateTypeName(for: $0.name, names: names) }
-            ?? "\(names.stateMachineTypeName).State.Initial"
+            ?? "\(names.stateWrapperTypeName)Initial"
         let parameters = ast.factory?.parameters ?? []
         let composedMeta = ast.composedMachines.map { composedMachineMetadata(for: $0) }
 
@@ -589,9 +581,9 @@ public struct SwiftCodeEmitter {
 
         let propertyFunctionType: String = {
             if allParamTypes.isEmpty {
-                return "@Sendable () -> \(names.stateMachineTypeName)<\(initialStateType)>"
+                return "@Sendable () -> \(names.machineStructTypeName)<\(initialStateType)>"
             }
-            return "@Sendable (\(allParamTypes.joined(separator: ", "))) -> \(names.stateMachineTypeName)<\(initialStateType)>"
+            return "@Sendable (\(allParamTypes.joined(separator: ", "))) -> \(names.machineStructTypeName)<\(initialStateType)>"
         }()
 
         return """
@@ -613,7 +605,7 @@ public struct SwiftCodeEmitter {
         let initialStateType = ast.states
             .first(where: { $0.kind == .initial })
             .map { stateTypeName(for: $0.name, names: names) }
-            ?? "\(names.stateMachineTypeName).State.Initial"
+            ?? "\(names.stateWrapperTypeName)Initial"
         let parameters = ast.factory?.parameters ?? []
         let composedMeta = ast.composedMachines.map { composedMachineMetadata(for: $0) }
 
@@ -622,9 +614,9 @@ public struct SwiftCodeEmitter {
 
         let propertyFunctionType: String = {
             if allParamTypes.isEmpty {
-                return "@Sendable () -> \(names.stateMachineTypeName)<\(initialStateType)>"
+                return "@Sendable () -> \(names.machineStructTypeName)<\(initialStateType)>"
             }
-            return "@Sendable (\(allParamTypes.joined(separator: ", "))) -> \(names.stateMachineTypeName)<\(initialStateType)>"
+            return "@Sendable (\(allParamTypes.joined(separator: ", "))) -> \(names.machineStructTypeName)<\(initialStateType)>"
         }()
         _ = propertyFunctionType
 
@@ -676,7 +668,7 @@ public struct SwiftCodeEmitter {
     }
 
     private func stateTypeName(for stateName: String, names: Names) -> String {
-        "\(names.stateMachineTypeName).State.\(stateName)"
+        "\(names.stateWrapperTypeName)\(stateName)"
     }
 
     private func transitionPropertyName(for transition: MachineAST.TransitionNode) -> String {
@@ -810,18 +802,18 @@ public struct SwiftCodeEmitter {
     }
 
     private struct Names {
-        let machineTypeName: String       // "FolderWatch"
-        let stateMachineTypeName: String  // "FolderWatchStateMachine"
-        let clientTypeName: String        // "FolderWatchClient"
-        let stateWrapperTypeName: String  // "FolderWatchState"
-        let dependencyKeyName: String     // "folderWatch"
+        let machineTypeName: String         // "FolderWatch"
+        let machineStructTypeName: String   // "FolderWatchMachine"
+        let stateWrapperTypeName: String    // "FolderWatchState" (combined wrapper + typestate prefix)
+        let clientTypeName: String          // "FolderWatchClient"
+        let dependencyKeyName: String       // "folderWatch"
 
         init(from machineName: String) {
             let machineType = SwiftCodeEmitter().normalizedTypeName(machineName)
             self.machineTypeName = machineType
-            self.stateMachineTypeName = "\(machineType)StateMachine"
-            self.clientTypeName = "\(machineType)Client"
+            self.machineStructTypeName = "\(machineType)Machine"
             self.stateWrapperTypeName = "\(machineType)State"
+            self.clientTypeName = "\(machineType)Client"
             self.dependencyKeyName = SwiftCodeEmitter().lowerCamelName(from: machineType)
         }
     }

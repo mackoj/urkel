@@ -10,10 +10,9 @@ struct SwiftCodeEmitterTests {
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
 
         #expect(output.contains("import Foundation"))
-        #expect(output.contains("public enum State {"))
-        #expect(output.contains("public enum Idle {}"))
+        #expect(output.contains("public enum FolderWatchStateIdle {}"))
         #expect(!output.contains("struct FolderWatchRuntimeContext: Sendable"))
-        #expect(output.contains("public struct FolderWatchStateMachine<Phase>: ~Copyable"))
+        #expect(output.contains("public struct FolderWatchMachine<State>: ~Copyable"))
         #expect(!output.contains("actor FolderWatchRuntimeStream<Element: Sendable>"))
         #expect(output.contains("struct FolderWatchClientRuntime"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
@@ -49,10 +48,10 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
-        #expect(output.contains("extension BluetoothStateMachine where Phase == BluetoothStateMachine.State.Idle"))
-        #expect(output.contains("public consuming func start() async throws -> BluetoothStateMachine<BluetoothStateMachine.State.Scanning>"))
-        #expect(output.contains("public consuming func fail() async throws -> BluetoothStateMachine<BluetoothStateMachine.State.Error>"))
-        #expect(output.contains("public consuming func found(device: Peripheral) async throws -> BluetoothStateMachine<BluetoothStateMachine.State.Idle>"))
+        #expect(output.contains("extension BluetoothMachine where State == BluetoothStateIdle"))
+        #expect(output.contains("public consuming func start() async throws -> BluetoothMachine<BluetoothStateScanning>"))
+        #expect(output.contains("public consuming func fail() async throws -> BluetoothMachine<BluetoothStateError>"))
+        #expect(output.contains("public consuming func found(device: Peripheral) async throws -> BluetoothMachine<BluetoothStateIdle>"))
     }
 
     @Test("Emitter keeps distinct transition closures for same event with different payloads")
@@ -87,8 +86,8 @@ struct SwiftCodeEmitterTests {
 
         #expect(output.contains("// MARK: - FolderWatch Combined State"))
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
-        #expect(output.contains("case idle(FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>)"))
-        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchStateMachine<FolderWatchStateMachine.State.Running>) throws -> R) rethrows -> R?"))
+        #expect(output.contains("case idle(FolderWatchMachine<FolderWatchStateIdle>)"))
+        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchMachine<FolderWatchStateRunning>) throws -> R) rethrows -> R?"))
         #expect(output.contains("/// Attempts the `start` transition from the current wrapper state."))
         #expect(output.contains("public consuming func start() async throws -> Self"))
         #expect(output.contains("public consuming func stop() async throws -> Self"))
@@ -139,7 +138,7 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("_bleState: self._bleState"))
 
         // Client factory accepts BLE factory parameter
-        #expect(output.contains("@Sendable (@escaping @Sendable () -> BLEState) -> ScaleStateMachine<ScaleStateMachine.State.WakingUp>"))
+        #expect(output.contains("@Sendable (@escaping @Sendable () -> BLEState) -> ScaleMachine<ScaleStateWakingUp>"))
 
         // fromRuntime closure accepts makeBLE parameter
         #expect(output.contains("makeScaleObserver: { makeBLE in"))
@@ -156,7 +155,7 @@ struct SwiftCodeEmitterTests {
     func emitsNonescapableConformance() {
         let ast = makeFolderWatchAST()
         let output = SwiftCodeEmitter().emitUnified(ast: ast, nonescapable: true)
-        #expect(output.contains("public struct FolderWatchStateMachine<Phase>: ~Copyable, ~Escapable"))
+        #expect(output.contains("public struct FolderWatchMachine<State>: ~Copyable, ~Escapable"))
     }
 
     @Test("Emitter generates BLE forwarding methods when composed AST is provided")
@@ -214,7 +213,7 @@ struct SwiftCodeEmitterTests {
     @Test("Emitter withXxx methods use switch with default for clean borrowing")
     func emitsWithMethodsUsingSwitch() {
         let output = SwiftCodeEmitter().emitUnified(ast: makeFolderWatchAST())
-        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchStateMachine<FolderWatchStateMachine.State.Running>) throws -> R) rethrows -> R?"))
+        #expect(output.contains("public borrowing func withRunning<R>(_ body: (borrowing FolderWatchMachine<FolderWatchStateRunning>) throws -> R) rethrows -> R?"))
         #expect(output.contains("default:"))
         #expect(output.contains("return nil"))
     }
@@ -238,7 +237,7 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
-        #expect(output.contains("public struct FolderWatchStateMachine<Phase>: ~Copyable"))
+        #expect(output.contains("public struct FolderWatchMachine<State>: ~Copyable"))
         #expect(output.contains("public struct FolderWatchClient: Sendable"))
         #expect(output.contains("public enum FolderWatchState: ~Copyable"))
         #expect(output.contains("public var folderWatch: FolderWatchClient"))
@@ -250,8 +249,8 @@ struct SwiftCodeEmitterTests {
         let rhs = SwiftCodeEmitter().emitUnified(ast: makeFolderWatchAST(machineName: "Bluetooth"))
         let combined = lhs + "\n\n" + rhs
 
-        #expect(combined.contains("public struct FolderWatchStateMachine<Phase>: ~Copyable"))
-        #expect(combined.contains("public struct BluetoothStateMachine<Phase>: ~Copyable"))
+        #expect(combined.contains("public struct FolderWatchMachine<State>: ~Copyable"))
+        #expect(combined.contains("public struct BluetoothMachine<State>: ~Copyable"))
         #expect(!combined.contains("public enum Idle {}\npublic enum Running {}\npublic enum Stopped {}"))
     }
 
@@ -272,10 +271,10 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
-        #expect(output.contains("public struct NoContextStateMachine<Phase>: ~Copyable"))
-        #expect(output.contains("public struct RuntimeContext: Sendable {"))
+        #expect(output.contains("public struct NoContextMachine<State>: ~Copyable"))
+        #expect(output.contains("public struct NoContextStateRuntimeContext: Sendable {"))
         #expect(!output.contains("struct NoContextRuntimeContext: Sendable"))
-        #expect(output.contains("private var internalContext: NoContextStateMachine.State.RuntimeContext"))
+        #expect(output.contains("private var internalContext: NoContextStateRuntimeContext"))
     }
 
     @Test("Emitter passes state and transition comments through as Swift doc comments")
@@ -301,7 +300,7 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
-        #expect(output.contains("/// Initial idle state\n        public enum Idle {}"))
+        #expect(output.contains("/// Initial idle state\npublic enum CommentedStateIdle {}"))
         #expect(output.contains("/// Starts the runtime observer"))
         #expect(!output.contains("/// Handles the `start` transition from Idle to Running."))
     }

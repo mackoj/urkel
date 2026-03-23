@@ -205,7 +205,7 @@ public struct UrkelGenerator {
                 nonescapable: resolvedConfiguration.nonescapable
             )
             let machineName = SwiftCodeEmitter().normalizedTypeName(ast.machineName)
-            let stateMachineURL = outputURL.appendingPathComponent("\(machineName)StateMachine.swift")
+            let stateMachineURL = outputURL.appendingPathComponent("\(machineName)Machine.swift")
             let clientURL = outputURL.appendingPathComponent("\(machineName)Client.swift")
             let dependencyURL = outputURL.appendingPathComponent("\(machineName)Client+Dependency.swift")
             try emittedFiles.stateMachine.write(to: stateMachineURL, atomically: true, encoding: .utf8)

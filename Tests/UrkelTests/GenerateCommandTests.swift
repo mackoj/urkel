@@ -47,8 +47,8 @@ struct GenerateCommandTests {
         }
         try await command.run()
 
-        #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("BluetoothStateMachine.swift").path))
-        #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("FolderWatchStateMachine.swift").path))
+        #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("BluetoothMachine.swift").path))
+        #expect(fm.fileExists(atPath: outputDir.appendingPathComponent("FolderWatchMachine.swift").path))
     }
 
     @Test("Generate uses config imports map and output directory")
@@ -92,7 +92,7 @@ struct GenerateCommandTests {
         }
         try await command.run()
 
-        let generated = outputDir.appendingPathComponent("nested/ConfigDrivenStateMachine.swift")
+        let generated = outputDir.appendingPathComponent("nested/ConfigDrivenMachine.swift")
         #expect(fm.fileExists(atPath: generated.path))
         let body = try String(contentsOf: generated, encoding: .utf8)
         #expect(body.contains("import MySDK"))

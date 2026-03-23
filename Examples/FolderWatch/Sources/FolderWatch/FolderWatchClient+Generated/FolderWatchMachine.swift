@@ -1,15 +1,16 @@
 import Foundation
 import Dependencies
 
+// MARK: - FolderWatch Typestate Markers
+
+public enum FolderWatchStateIdle {}
+public enum FolderWatchStateRunning {}
+public enum FolderWatchStateStopped {}
+
 // MARK: - FolderWatch State Machine
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-public struct FolderWatchStateMachine<Phase>: ~Copyable {
-    public enum State {
-        public enum Idle {}
-        public enum Running {}
-        public enum Stopped {}
-    }
+public struct FolderWatchMachine<State>: ~Copyable {
     private var internalContext: FolderWatchContext
 
     private let _start: @Sendable (FolderWatchContext) async throws -> FolderWatchContext
@@ -33,11 +34,11 @@ public struct FolderWatchStateMachine<Phase>: ~Copyable {
 
 // MARK: - FolderWatch.Idle Transitions
 
-extension FolderWatchStateMachine where Phase == FolderWatchStateMachine.State.Idle {
+extension FolderWatchMachine where State == FolderWatchStateIdle {
     /// Handles the `start` transition from Idle to Running.
-    public consuming func start() async throws -> FolderWatchStateMachine<FolderWatchStateMachine.State.Running> {
+    public consuming func start() async throws -> FolderWatchMachine<FolderWatchStateRunning> {
         let nextContext = try await self._start(self.internalContext)
-        return FolderWatchStateMachine<FolderWatchStateMachine.State.Running>(
+        return FolderWatchMachine<FolderWatchStateRunning>(
             internalContext: nextContext,
                 _start: self._start,
                 _stop: self._stop
@@ -47,11 +48,11 @@ extension FolderWatchStateMachine where Phase == FolderWatchStateMachine.State.I
 
 // MARK: - FolderWatch.Running Transitions
 
-extension FolderWatchStateMachine where Phase == FolderWatchStateMachine.State.Running {
+extension FolderWatchMachine where State == FolderWatchStateRunning {
     /// Handles the `stop` transition from Running to Stopped.
-    public consuming func stop() async throws -> FolderWatchStateMachine<FolderWatchStateMachine.State.Stopped> {
+    public consuming func stop() async throws -> FolderWatchMachine<FolderWatchStateStopped> {
         let nextContext = try await self._stop(self.internalContext)
-        return FolderWatchStateMachine<FolderWatchStateMachine.State.Stopped>(
+        return FolderWatchMachine<FolderWatchStateStopped>(
             internalContext: nextContext,
                 _start: self._start,
                 _stop: self._stop
@@ -63,17 +64,17 @@ extension FolderWatchStateMachine where Phase == FolderWatchStateMachine.State.R
 
 /// A runtime-friendly wrapper over all observer states.
 public enum FolderWatchState: ~Copyable {
-    case idle(FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>)
-    case running(FolderWatchStateMachine<FolderWatchStateMachine.State.Running>)
-    case stopped(FolderWatchStateMachine<FolderWatchStateMachine.State.Stopped>)
+    case idle(FolderWatchMachine<FolderWatchStateIdle>)
+    case running(FolderWatchMachine<FolderWatchStateRunning>)
+    case stopped(FolderWatchMachine<FolderWatchStateStopped>)
 
-    public init(_ observer: consuming FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>) {
-        self = .idle(observer)
+    public init(_ machine: consuming FolderWatchMachine<FolderWatchStateIdle>) {
+        self = .idle(machine)
     }
 }
 
 extension FolderWatchState {
-    public borrowing func withIdle<R>(_ body: (borrowing FolderWatchStateMachine<FolderWatchStateMachine.State.Idle>) throws -> R) rethrows -> R? {
+    public borrowing func withIdle<R>(_ body: (borrowing FolderWatchMachine<FolderWatchStateIdle>) throws -> R) rethrows -> R? {
         switch self {
         case let .idle(observer):
             return try body(observer)
@@ -82,7 +83,7 @@ extension FolderWatchState {
         }
     }
 
-    public borrowing func withRunning<R>(_ body: (borrowing FolderWatchStateMachine<FolderWatchStateMachine.State.Running>) throws -> R) rethrows -> R? {
+    public borrowing func withRunning<R>(_ body: (borrowing FolderWatchMachine<FolderWatchStateRunning>) throws -> R) rethrows -> R? {
         switch self {
         case let .running(observer):
             return try body(observer)
@@ -91,7 +92,7 @@ extension FolderWatchState {
         }
     }
 
-    public borrowing func withStopped<R>(_ body: (borrowing FolderWatchStateMachine<FolderWatchStateMachine.State.Stopped>) throws -> R) rethrows -> R? {
+    public borrowing func withStopped<R>(_ body: (borrowing FolderWatchMachine<FolderWatchStateStopped>) throws -> R) rethrows -> R? {
         switch self {
         case let .stopped(observer):
             return try body(observer)
