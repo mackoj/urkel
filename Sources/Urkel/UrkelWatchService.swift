@@ -70,7 +70,7 @@ public struct UrkelWatchService {
                     // Native Swift: 3 files named after the normalized machine type name.
                     let machineName = SwiftCodeEmitter().normalizedTypeName(baseName)
                     candidates = [
-                        outputRoot.appendingPathComponent("\(machineName)StateMachine.swift"),
+                        outputRoot.appendingPathComponent("\(machineName)Machine.swift"),
                         outputRoot.appendingPathComponent("\(machineName)Client.swift"),
                         outputRoot.appendingPathComponent("\(machineName)Client+Dependency.swift")
                     ]

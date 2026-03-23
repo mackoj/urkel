@@ -215,7 +215,7 @@ struct UrkelPlugin: BuildToolPlugin {
       } else {
         // For native Swift, use the first of the 3 generated files as the representative URL.
         let machineName = pascalCased(baseName)
-        outputName = "\(machineName)StateMachine.swift"
+        outputName = "\(machineName)Machine.swift"
       }
 
       return resolvedOutputDirectoryURL.appendingPathComponent(outputName)
