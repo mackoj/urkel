@@ -412,9 +412,14 @@ public struct UrkelParser {
             let transitionDocComments = consumePendingDocComments()
             let rawLine = lines[index]
             let line = trimmed(rawLine)
+            if line.isEmpty { index += 1; continue }
+            if line.hasPrefix("@") { break }
             let parts = try splitTransitionArrows(line, line: index + 1)
-            guard parts.count == 3 || parts.count == 4 else {
-                throw UrkelParseError(line: index + 1, column: 1, message: "Transition must follow: State -> event(params?) -> State [=> Machine.init]")
+            guard parts.count == 2 || parts.count == 3 || parts.count == 4 else {
+                throw UrkelParseError(line: index + 1, column: 1, message: "Transition must follow: State -> event(params?) -> State [=> Machine.init] OR State -> event(params?)")
+            }
+            if parts.count == 2, parts[1].text.isEmpty {
+                throw UrkelParseError(line: index + 1, column: 1, message: "Transition must follow: State -> event(params?) -> State [=> Machine.init] OR State -> event(params?)")
             }
 
             let leadingWhitespaceOffset = rawLine.distance(from: rawLine.startIndex, to: rawLine.firstIndex(where: { !$0.isWhitespace }) ?? rawLine.endIndex)
@@ -424,28 +429,35 @@ public struct UrkelParser {
 
             let from = parts[0].text
             let eventDecl = parts[1].text
-            let to = parts[2].text
-
+            let to: String?
             let spawnedMachine: String?
-            if parts.count == 4 {
-                let forkDecl = parts[3].text
-                guard forkDecl.hasSuffix(".init") else {
-                    throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Fork target must end with .init")
-                }
-                let rawMachine = String(forkDecl.dropLast(".init".count)).trimmingCharacters(in: .whitespaces)
-                guard isIdentifier(rawMachine) else {
-                    throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Invalid composed machine identifier '\(rawMachine)'")
-                }
-                spawnedMachine = rawMachine
-            } else {
+            if parts.count == 2 {
+                to = nil
                 spawnedMachine = nil
+            } else {
+                to = parts[2].text
+                if parts.count == 4 {
+                    let forkDecl = parts[3].text
+                    guard forkDecl.hasSuffix(".init") else {
+                        throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Fork target must end with .init")
+                    }
+                    let rawMachine = String(forkDecl.dropLast(".init".count)).trimmingCharacters(in: .whitespaces)
+                    guard isIdentifier(rawMachine) else {
+                        throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[3].startColumn), message: "Invalid composed machine identifier '\(rawMachine)'")
+                    }
+                    spawnedMachine = rawMachine
+                } else {
+                    spawnedMachine = nil
+                }
             }
 
             guard isIdentifier(from) else {
                 throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[0].startColumn), message: "Invalid source state '\(from)'")
             }
-            guard isIdentifier(to) else {
-                throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[2].startColumn), message: "Expected transition target state")
+            if let to = to {
+                guard isIdentifier(to) else {
+                    throw UrkelParseError(line: index + 1, column: absoluteColumn(parts[2].startColumn), message: "Expected transition target state")
+                }
             }
 
             let eventName: String
@@ -486,6 +498,31 @@ public struct UrkelParser {
             throw UrkelParseError(line: 1, column: 1, message: "Machine must declare at least one state")
         }
 
+        // Parse optional @continuation block
+        var continuations: [String: String] = [:]
+        if index < lines.count, trimmed(lines[index]) == "@continuation" {
+            index += 1
+            while index < lines.count {
+                let cline = trimmed(lines[index])
+                if cline.isEmpty || cline.hasPrefix("#") {
+                    index += 1
+                    continue
+                }
+                if cline.hasPrefix("@") { break }
+                if let arrowRange = cline.range(of: " -> ") {
+                    let eventName = String(cline[..<arrowRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+                    let returnType = String(cline[arrowRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+                    guard isIdentifier(eventName), !returnType.isEmpty else {
+                        throw UrkelParseError(line: index + 1, column: 1, message: "Invalid @continuation entry. Expected: eventName -> SwiftType")
+                    }
+                    continuations[eventName] = returnType
+                } else {
+                    throw UrkelParseError(line: index + 1, column: 1, message: "Invalid @continuation entry. Expected: eventName -> SwiftType")
+                }
+                index += 1
+            }
+        }
+
         let astRange = MachineAST.SourceRange(
             start: .init(line: 1, column: 1),
             end: .init(line: sourceLineCount, column: max(lines.last?.count ?? 1, 1))
@@ -499,6 +536,7 @@ public struct UrkelParser {
             composedMachines: composedMachines,
             states: states,
             transitions: transitions,
+            continuations: continuations,
             range: astRange
         )
     }
@@ -550,9 +588,20 @@ public struct UrkelParser {
                 .map { "\($0.name): \($0.type)" }
                 .joined(separator: ", ")
             let eventDecl = params.isEmpty ? transition.event : "\(transition.event)(\(params))"
-            let forkSuffix = transition.spawnedMachine.map { " => \($0).init" } ?? ""
-            return "  \(transition.from) -> \(eventDecl) -> \(transition.to)\(forkSuffix)"
+            if let to = transition.to {
+                let forkSuffix = transition.spawnedMachine.map { " => \($0).init" } ?? ""
+                return "  \(transition.from) -> \(eventDecl) -> \(to)\(forkSuffix)"
+            } else {
+                return "  \(transition.from) -> \(eventDecl)"
+            }
         })
+
+        if !ast.continuations.isEmpty {
+            lines.append("@continuation")
+            for (event, returnType) in ast.continuations.sorted(by: { $0.key < $1.key }) {
+                lines.append("  \(event) -> \(returnType)")
+            }
+        }
 
         return lines.joined(separator: "\n")
     }

@@ -9,26 +9,57 @@ public enum FolderWatchStateStopped {}
 
 // MARK: - FolderWatch State Machine
 
-/// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
+/// A type-safe state machine encoding the current state in its generic parameter.
 public struct FolderWatchMachine<State>: ~Copyable {
-    private var internalContext: FolderWatchContext
+    public let directory: URL
+    public let debounceMs: Int
 
-    private let _start: @Sendable (FolderWatchContext) async throws -> FolderWatchContext
-    private let _stop: @Sendable (FolderWatchContext) async throws -> FolderWatchContext
+    fileprivate let _startTransition: (@Sendable () async -> FolderWatchMachine<FolderWatchStateRunning>)?
+    fileprivate let _errorErrorTransition: (@Sendable (Error) async -> FolderWatchMachine<FolderWatchStateRunning>)?
+    fileprivate let _stopTransition: (@Sendable () async -> FolderWatchMachine<FolderWatchStateStopped>)?
+    fileprivate let _eventsAccessor: (@Sendable () -> AsyncThrowingStream<DirectoryEvent, Error>)?
+
+    // MARK: Idle State Init
     public init(
-        internalContext: FolderWatchContext,
-        _start: @escaping @Sendable (FolderWatchContext) async throws -> FolderWatchContext,
-        _stop: @escaping @Sendable (FolderWatchContext) async throws -> FolderWatchContext
-    ) {
-        self.internalContext = internalContext
-
-        self._start = _start
-        self._stop = _stop
+        directory: URL,
+        debounceMs: Int,
+        startTransition: @escaping @Sendable () async -> FolderWatchMachine<FolderWatchStateRunning>
+    ) where State == FolderWatchStateIdle {
+        self.directory = directory
+        self.debounceMs = debounceMs
+        _startTransition = startTransition
+        _errorErrorTransition = nil
+        _stopTransition = nil
+        _eventsAccessor = nil
     }
 
-    /// Access the internal context while preserving borrowing semantics.
-    public borrowing func withInternalContext<R>(_ body: (borrowing FolderWatchContext) throws -> R) rethrows -> R {
-        try body(self.internalContext)
+    // MARK: Running State Init
+    public init(
+        directory: URL,
+        debounceMs: Int,
+        errorErrorTransition: @escaping @Sendable (Error) async -> FolderWatchMachine<FolderWatchStateRunning>,
+        stopTransition: @escaping @Sendable () async -> FolderWatchMachine<FolderWatchStateStopped>,
+        eventsAccessor: @escaping @Sendable () -> AsyncThrowingStream<DirectoryEvent, Error>
+    ) where State == FolderWatchStateRunning {
+        self.directory = directory
+        self.debounceMs = debounceMs
+        _errorErrorTransition = errorErrorTransition
+        _stopTransition = stopTransition
+        _startTransition = nil
+        _eventsAccessor = eventsAccessor
+    }
+
+    // MARK: Stopped State Init
+    public init(
+        directory: URL,
+        debounceMs: Int
+    ) where State == FolderWatchStateStopped {
+        self.directory = directory
+        self.debounceMs = debounceMs
+        _startTransition = nil
+        _errorErrorTransition = nil
+        _stopTransition = nil
+        _eventsAccessor = nil
     }
 }
 
@@ -36,27 +67,27 @@ public struct FolderWatchMachine<State>: ~Copyable {
 
 extension FolderWatchMachine where State == FolderWatchStateIdle {
     /// Handles the `start` transition from Idle to Running.
-    public consuming func start() async throws -> FolderWatchMachine<FolderWatchStateRunning> {
-        let nextContext = try await self._start(self.internalContext)
-        return FolderWatchMachine<FolderWatchStateRunning>(
-            internalContext: nextContext,
-                _start: self._start,
-                _stop: self._stop
-        )
+    public consuming func start() async -> FolderWatchMachine<FolderWatchStateRunning> {
+        await _startTransition!()
     }
 }
 
 // MARK: - FolderWatch.Running Transitions
 
 extension FolderWatchMachine where State == FolderWatchStateRunning {
+    /// Handles the `error` transition from Running to Running.
+    public consuming func error(error: Error) async -> FolderWatchMachine<FolderWatchStateRunning> {
+        await _errorErrorTransition!(error)
+    }
+
     /// Handles the `stop` transition from Running to Stopped.
-    public consuming func stop() async throws -> FolderWatchMachine<FolderWatchStateStopped> {
-        let nextContext = try await self._stop(self.internalContext)
-        return FolderWatchMachine<FolderWatchStateStopped>(
-            internalContext: nextContext,
-                _start: self._start,
-                _stop: self._stop
-        )
+    public consuming func stop() async -> FolderWatchMachine<FolderWatchStateStopped> {
+        await _stopTransition!()
+    }
+
+    /// Returns the events accessor while in the Running state.
+    public var events: AsyncThrowingStream<DirectoryEvent, Error> {
+        _eventsAccessor!()
     }
 }
 
@@ -103,28 +134,38 @@ extension FolderWatchState {
 
 
     /// Attempts the `start` transition from the current wrapper state.
-    public consuming func start() async throws -> Self {
+    public mutating func start() async {
         switch consume self {
     case let .idle(observer):
-        let next = try await observer.start()
-        return .running(next)
+        self = .running(await observer.start())
     case let .running(observer):
-        return .running(observer)
+        self = .running(observer)
     case let .stopped(observer):
-        return .stopped(observer)
+        self = .stopped(observer)
+        }
+    }
+
+    /// Attempts the `error` transition from the current wrapper state.
+    public mutating func error(error: Error) async {
+        switch consume self {
+    case let .idle(observer):
+        self = .idle(observer)
+    case let .running(observer):
+        self = .running(await observer.error(error: error))
+    case let .stopped(observer):
+        self = .stopped(observer)
         }
     }
 
     /// Attempts the `stop` transition from the current wrapper state.
-    public consuming func stop() async throws -> Self {
+    public mutating func stop() async {
         switch consume self {
     case let .idle(observer):
-        return .idle(observer)
+        self = .idle(observer)
     case let .running(observer):
-        let next = try await observer.stop()
-        return .stopped(next)
+        self = .stopped(await observer.stop())
     case let .stopped(observer):
-        return .stopped(observer)
+        self = .stopped(observer)
         }
     }
 }

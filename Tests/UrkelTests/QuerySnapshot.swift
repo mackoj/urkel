@@ -23,7 +23,11 @@ extension Snapshotting where Value == MachineAST {
                     .joined(separator: ", ")
                 let eventDecl = payload.isEmpty ? transition.event : "\(transition.event)(\(payload))"
                 let fork = transition.spawnedMachine.map { " => \($0).init" } ?? ""
-                return "  \(transition.from) -> \(eventDecl) -> \(transition.to)\(fork)"
+                if let to = transition.to {
+                    return "  \(transition.from) -> \(eventDecl) -> \(to)\(fork)"
+                } else {
+                    return "  \(transition.from) -> \(eventDecl)"
+                }
             }.joined(separator: "\n")
 
             let factoryDecl: String

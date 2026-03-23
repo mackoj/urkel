@@ -74,9 +74,9 @@ struct SwiftCodeEmitterTests {
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
         #expect(output.contains("private let _connect: @Sendable (String) async throws -> String"))
-        #expect(output.contains("private let _connectErrorError: @Sendable (String, Error) async throws -> String"))
+        #expect(output.contains("private let _connectError: @Sendable (String, Error) async throws -> String"))
         #expect(output.contains("let connectTransition: ConnectTransition"))
-        #expect(output.contains("let connectErrorErrorTransition: ConnectErrorErrorTransition"))
+        #expect(output.contains("let connectErrorTransition: ConnectErrorTransition"))
         #expect(output.contains("let context = runtime.initialContext()"))
     }
 
@@ -348,13 +348,50 @@ struct SwiftCodeEmitterTests {
         )
         """.write(to: packageDir.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
 
-        try (generated + "\n\nprint(\"ok\")\n").write(
+        // Provide the required makeLive() implementation that liveValue references.
+        let liveStub = """
+        extension CompileMachineClient {
+            public static func makeLive() -> Self { .noop }
+        }
+        """
+        try (generated + "\n\n" + liveStub + "\n\nprint(\"ok\")\n").write(
             to: sourcesDir.appendingPathComponent("main.swift"),
             atomically: true,
             encoding: .utf8
         )
 
         let result = try runProcess("/usr/bin/env", ["swift", "build"], cwd: packageDir)
-        #expect(result.0 == 0)
+        #expect(result.0 == 0, "\(result.1)\n\(result.2)")
+    }
+
+    @Test("Closure-captured mode emits stored properties instead of context")
+    func closureCapturedModeEmitsStoredProperties() throws {
+        let source = """
+        machine folderwatch
+        @factory makeObserver(directory: URL, debounceMs: Int)
+        @states
+          init Idle
+          state Running
+          final Stopped
+        @transitions
+          Idle -> start -> Running
+          Running -> events
+          Running -> stop -> Stopped
+        @continuation
+          events -> AsyncThrowingStream<DirectoryEvent, Error>
+        """
+        let ast = try UrkelParser().parse(source: source)
+        let files = SwiftCodeEmitter().emit(ast: ast)
+
+        #expect(files.stateMachine.contains("public let directory: URL"))
+        #expect(files.stateMachine.contains("public let debounceMs: Int"))
+        #expect(!files.stateMachine.contains("withInternalContext"))
+        #expect(files.stateMachine.contains("where State == FolderWatchStateIdle"))
+        #expect(files.stateMachine.contains("where State == FolderWatchStateRunning"))
+        #expect(files.stateMachine.contains("public var events: AsyncThrowingStream<DirectoryEvent, Error>"))
+        #expect(!files.stateMachine.contains("consuming func events"))
+        #expect(!files.client.contains("ClientRuntime"))
+        #expect(!files.client.contains("fromRuntime"))
+        #expect(files.client.contains("noop"))
     }
 }

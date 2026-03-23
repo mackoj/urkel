@@ -1,35 +1,32 @@
 import Foundation
 import Dependencies
 
+// MARK: - Scale Typestate Markers
+
+public enum ScaleStateOff {}
+public enum ScaleStateWakingUp {}
+public enum ScaleStateTare {}
+public enum ScaleStateWeighing {}
+public enum ScaleStateStabilized {}
+public enum ScaleStateMeasuringImpedance {}
+public enum ScaleStateSyncing {}
+public enum ScaleStatePowerDown {}
+
 // MARK: - Scale State Machine
 
-/// Typestate markers for the `Scale` machine.
-public enum ScaleMachine {
-    public enum Off {}
-    public enum WakingUp {}
-    public enum Tare {}
-    public enum Weighing {}
-    public enum Stabilized {}
-    public enum MeasuringImpedance {}
-    public enum Syncing {}
-    public enum PowerDown {}
-}
-
-// MARK: - Scale Observer
-
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-public struct ScaleObserver<State>: ~Copyable {
+public struct ScaleMachine<State>: ~Copyable {
     private var internalContext: ScaleContext
 
     private let _footTap: @Sendable (ScaleContext) async throws -> ScaleContext
     private let _hardwareReady: @Sendable (ScaleContext) async throws -> ScaleContext
     private let _zeroAchieved: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _weightLockedWeightDouble: @Sendable (ScaleContext, Double) async throws -> ScaleContext
+    private let _weightLockedDouble: @Sendable (ScaleContext, Double) async throws -> ScaleContext
     private let _userSteppedOffEarly: @Sendable (ScaleContext) async throws -> ScaleContext
     private let _startBIA: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _biaCompleteMetricsBodyMetrics: @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext
+    private let _biaCompleteBodyMetrics: @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext
     private let _bareFeetRequiredError: @Sendable (ScaleContext) async throws -> ScaleContext
-    private let _syncDataPayloadScalePayload: @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext
+    private let _syncDataScalePayload: @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext
     private let _hardwareFault: @Sendable (ScaleContext) async throws -> ScaleContext
     var _bleState: BLEState?
     let _makeBLE: @Sendable () -> BLEState
@@ -38,12 +35,12 @@ public struct ScaleObserver<State>: ~Copyable {
         _footTap: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
         _hardwareReady: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
         _zeroAchieved: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
-        _weightLockedWeightDouble: @escaping @Sendable (ScaleContext, Double) async throws -> ScaleContext,
+        _weightLockedDouble: @escaping @Sendable (ScaleContext, Double) async throws -> ScaleContext,
         _userSteppedOffEarly: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
         _startBIA: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
-        _biaCompleteMetricsBodyMetrics: @escaping @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext,
+        _biaCompleteBodyMetrics: @escaping @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext,
         _bareFeetRequiredError: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
-        _syncDataPayloadScalePayload: @escaping @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext,
+        _syncDataScalePayload: @escaping @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext,
         _hardwareFault: @escaping @Sendable (ScaleContext) async throws -> ScaleContext,
         _bleState: consuming BLEState? = .none,
         _makeBLE: @escaping @Sendable () -> BLEState
@@ -53,12 +50,12 @@ public struct ScaleObserver<State>: ~Copyable {
         self._footTap = _footTap
         self._hardwareReady = _hardwareReady
         self._zeroAchieved = _zeroAchieved
-        self._weightLockedWeightDouble = _weightLockedWeightDouble
+        self._weightLockedDouble = _weightLockedDouble
         self._userSteppedOffEarly = _userSteppedOffEarly
         self._startBIA = _startBIA
-        self._biaCompleteMetricsBodyMetrics = _biaCompleteMetricsBodyMetrics
+        self._biaCompleteBodyMetrics = _biaCompleteBodyMetrics
         self._bareFeetRequiredError = _bareFeetRequiredError
-        self._syncDataPayloadScalePayload = _syncDataPayloadScalePayload
+        self._syncDataScalePayload = _syncDataScalePayload
         self._hardwareFault = _hardwareFault
         self._bleState = _bleState
         self._makeBLE = _makeBLE
@@ -77,12 +74,12 @@ public struct ScaleObserver<State>: ~Copyable {
         let _footTap = self._footTap
         let _hardwareReady = self._hardwareReady
         let _zeroAchieved = self._zeroAchieved
-        let _weightLockedWeightDouble = self._weightLockedWeightDouble
+        let _weightLockedDouble = self._weightLockedDouble
         let _userSteppedOffEarly = self._userSteppedOffEarly
         let _startBIA = self._startBIA
-        let _biaCompleteMetricsBodyMetrics = self._biaCompleteMetricsBodyMetrics
+        let _biaCompleteBodyMetrics = self._biaCompleteBodyMetrics
         let _bareFeetRequiredError = self._bareFeetRequiredError
-        let _syncDataPayloadScalePayload = self._syncDataPayloadScalePayload
+        let _syncDataScalePayload = self._syncDataScalePayload
         let _hardwareFault = self._hardwareFault
         let _makeBLE = self._makeBLE
         let ble = self._bleState
@@ -93,12 +90,12 @@ public struct ScaleObserver<State>: ~Copyable {
             _footTap: _footTap,
             _hardwareReady: _hardwareReady,
             _zeroAchieved: _zeroAchieved,
-            _weightLockedWeightDouble: _weightLockedWeightDouble,
+            _weightLockedDouble: _weightLockedDouble,
             _userSteppedOffEarly: _userSteppedOffEarly,
             _startBIA: _startBIA,
-            _biaCompleteMetricsBodyMetrics: _biaCompleteMetricsBodyMetrics,
+            _biaCompleteBodyMetrics: _biaCompleteBodyMetrics,
             _bareFeetRequiredError: _bareFeetRequiredError,
-            _syncDataPayloadScalePayload: _syncDataPayloadScalePayload,
+            _syncDataScalePayload: _syncDataScalePayload,
             _hardwareFault: _hardwareFault,
             _bleState: next,
             _makeBLE: _makeBLE
@@ -106,154 +103,23 @@ public struct ScaleObserver<State>: ~Copyable {
     }
 }
 
-// MARK: - Scale Runtime Stream
-
-/// Generic stream lifecycle helper for event-driven runtimes generated from this machine.
-actor ScaleRuntimeStream<Element: Sendable> {
-    nonisolated let events: AsyncThrowingStream<Element, Error>
-
-    private var continuation: AsyncThrowingStream<Element, Error>.Continuation?
-    private var pendingEvent: Element?
-    private var debounceTask: Task<Void, Never>?
-    private let debounceMs: Int
-
-    init(debounceMs: Int = 0) {
-        self.debounceMs = max(0, debounceMs)
-
-        var capturedContinuation: AsyncThrowingStream<Element, Error>.Continuation?
-        self.events = AsyncThrowingStream<Element, Error> { continuation in
-            capturedContinuation = continuation
-        }
-        self.continuation = capturedContinuation
-    }
-
-    func emit(_ event: Element) {
-        guard let continuation else { return }
-
-        if debounceMs == 0 {
-            continuation.yield(event)
-            return
-        }
-
-        pendingEvent = event
-        debounceTask?.cancel()
-        debounceTask = Task { [debounceMs] in
-            try? await Task.sleep(nanoseconds: UInt64(debounceMs) * 1_000_000)
-            self.flushPendingEvent()
-        }
-    }
-
-    func finish(throwing error: Error? = nil) {
-        debounceTask?.cancel()
-        debounceTask = nil
-        pendingEvent = nil
-        continuation?.finish(throwing: error)
-        continuation = nil
-    }
-
-    private func flushPendingEvent() {
-        guard let event = pendingEvent else { return }
-        pendingEvent = nil
-        continuation?.yield(event)
-    }
-}
-
-// MARK: - Scale Runtime Builder
-
-/// Runtime transition hooks used to construct a machine observer without editing generated code.
-struct ScaleClientRuntime {
-    typealias InitialContextBuilder = @Sendable () -> ScaleContext
-    typealias FootTapTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias HardwareReadyTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias ZeroAchievedTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias WeightLockedWeightDoubleTransition = @Sendable (ScaleContext, Double) async throws -> ScaleContext
-    typealias UserSteppedOffEarlyTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias StartBIATransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias BiaCompleteMetricsBodyMetricsTransition = @Sendable (ScaleContext, BodyMetrics) async throws -> ScaleContext
-    typealias BareFeetRequiredErrorTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    typealias SyncDataPayloadScalePayloadTransition = @Sendable (ScaleContext, ScalePayload) async throws -> ScaleContext
-    typealias HardwareFaultTransition = @Sendable (ScaleContext) async throws -> ScaleContext
-    let initialContext: InitialContextBuilder
-    let footTapTransition: FootTapTransition
-    let hardwareReadyTransition: HardwareReadyTransition
-    let zeroAchievedTransition: ZeroAchievedTransition
-    let weightLockedWeightDoubleTransition: WeightLockedWeightDoubleTransition
-    let userSteppedOffEarlyTransition: UserSteppedOffEarlyTransition
-    let startBIATransition: StartBIATransition
-    let biaCompleteMetricsBodyMetricsTransition: BiaCompleteMetricsBodyMetricsTransition
-    let bareFeetRequiredErrorTransition: BareFeetRequiredErrorTransition
-    let syncDataPayloadScalePayloadTransition: SyncDataPayloadScalePayloadTransition
-    let hardwareFaultTransition: HardwareFaultTransition
-
-    init(
-        initialContext: @escaping InitialContextBuilder,
-        footTapTransition: @escaping FootTapTransition,
-        hardwareReadyTransition: @escaping HardwareReadyTransition,
-        zeroAchievedTransition: @escaping ZeroAchievedTransition,
-        weightLockedWeightDoubleTransition: @escaping WeightLockedWeightDoubleTransition,
-        userSteppedOffEarlyTransition: @escaping UserSteppedOffEarlyTransition,
-        startBIATransition: @escaping StartBIATransition,
-        biaCompleteMetricsBodyMetricsTransition: @escaping BiaCompleteMetricsBodyMetricsTransition,
-        bareFeetRequiredErrorTransition: @escaping BareFeetRequiredErrorTransition,
-        syncDataPayloadScalePayloadTransition: @escaping SyncDataPayloadScalePayloadTransition,
-        hardwareFaultTransition: @escaping HardwareFaultTransition
-    ) {
-        self.initialContext = initialContext
-        self.footTapTransition = footTapTransition
-        self.hardwareReadyTransition = hardwareReadyTransition
-        self.zeroAchievedTransition = zeroAchievedTransition
-        self.weightLockedWeightDoubleTransition = weightLockedWeightDoubleTransition
-        self.userSteppedOffEarlyTransition = userSteppedOffEarlyTransition
-        self.startBIATransition = startBIATransition
-        self.biaCompleteMetricsBodyMetricsTransition = biaCompleteMetricsBodyMetricsTransition
-        self.bareFeetRequiredErrorTransition = bareFeetRequiredErrorTransition
-        self.syncDataPayloadScalePayloadTransition = syncDataPayloadScalePayloadTransition
-        self.hardwareFaultTransition = hardwareFaultTransition
-    }
-}
-
-extension ScaleClient {
-    /// Builds a client factory from explicit runtime transition hooks.
-    static func fromRuntime(_ runtime: ScaleClientRuntime) -> Self {
-        Self(
-            makeScale: { makeBLE in
-                let context = runtime.initialContext()
-                return ScaleObserver<ScaleMachine.Off>(
-                    internalContext: context,
-                _footTap: runtime.footTapTransition,
-                _hardwareReady: runtime.hardwareReadyTransition,
-                _zeroAchieved: runtime.zeroAchievedTransition,
-                _weightLockedWeightDouble: runtime.weightLockedWeightDoubleTransition,
-                _userSteppedOffEarly: runtime.userSteppedOffEarlyTransition,
-                _startBIA: runtime.startBIATransition,
-                _biaCompleteMetricsBodyMetrics: runtime.biaCompleteMetricsBodyMetricsTransition,
-                _bareFeetRequiredError: runtime.bareFeetRequiredErrorTransition,
-                _syncDataPayloadScalePayload: runtime.syncDataPayloadScalePayloadTransition,
-                _hardwareFault: runtime.hardwareFaultTransition,
-                _makeBLE: makeBLE
-                )
-            }
-        )
-    }
-}
-
 // MARK: - Scale.Off Transitions
 
-extension ScaleObserver where State == ScaleMachine.Off {
+extension ScaleMachine where State == ScaleStateOff {
     /// Wakes the scale hardware from deep sleep
-    public consuming func footTap() async throws -> ScaleObserver<ScaleMachine.WakingUp> {
+    public consuming func footTap() async throws -> ScaleMachine<ScaleStateWakingUp> {
         let nextContext = try await self._footTap(self.internalContext)
-        return ScaleObserver<ScaleMachine.WakingUp>(
+        return ScaleMachine<ScaleStateWakingUp>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -263,21 +129,21 @@ extension ScaleObserver where State == ScaleMachine.Off {
 
 // MARK: - Scale.WakingUp Transitions
 
-extension ScaleObserver where State == ScaleMachine.WakingUp {
+extension ScaleMachine where State == ScaleStateWakingUp {
     /// FORK: Hardware initialized. Move to Tare, and simultaneously spawn the BLE radio machine.
-    public consuming func hardwareReady() async throws -> ScaleObserver<ScaleMachine.Tare> {
+    public consuming func hardwareReady() async throws -> ScaleMachine<ScaleStateTare> {
         let nextContext = try await self._hardwareReady(self.internalContext)
-        return ScaleObserver<ScaleMachine.Tare>(
+        return ScaleMachine<ScaleStateTare>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._makeBLE(),
                 _makeBLE: self._makeBLE
@@ -287,21 +153,21 @@ extension ScaleObserver where State == ScaleMachine.WakingUp {
 
 // MARK: - Scale.Tare Transitions
 
-extension ScaleObserver where State == ScaleMachine.Tare {
+extension ScaleMachine where State == ScaleStateTare {
     /// Calibrates the load cells to zero
-    public consuming func zeroAchieved() async throws -> ScaleObserver<ScaleMachine.Weighing> {
+    public consuming func zeroAchieved() async throws -> ScaleMachine<ScaleStateWeighing> {
         let nextContext = try await self._zeroAchieved(self.internalContext)
-        return ScaleObserver<ScaleMachine.Weighing>(
+        return ScaleMachine<ScaleStateWeighing>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -311,21 +177,21 @@ extension ScaleObserver where State == ScaleMachine.Tare {
 
 // MARK: - Scale.Weighing Transitions
 
-extension ScaleObserver where State == ScaleMachine.Weighing {
+extension ScaleMachine where State == ScaleStateWeighing {
     /// Locks in the physical weight measurement
-    public consuming func weightLocked(weight: Double) async throws -> ScaleObserver<ScaleMachine.Stabilized> {
-        let nextContext = try await self._weightLockedWeightDouble(self.internalContext, weight)
-        return ScaleObserver<ScaleMachine.Stabilized>(
+    public consuming func weightLocked(weight: Double) async throws -> ScaleMachine<ScaleStateStabilized> {
+        let nextContext = try await self._weightLockedDouble(self.internalContext, weight)
+        return ScaleMachine<ScaleStateStabilized>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -333,19 +199,19 @@ extension ScaleObserver where State == ScaleMachine.Weighing {
     }
 
     /// Graceful exit if the user steps off before a lock is achieved
-    public consuming func userSteppedOffEarly() async throws -> ScaleObserver<ScaleMachine.PowerDown> {
+    public consuming func userSteppedOffEarly() async throws -> ScaleMachine<ScaleStatePowerDown> {
         let nextContext = try await self._userSteppedOffEarly(self.internalContext)
-        return ScaleObserver<ScaleMachine.PowerDown>(
+        return ScaleMachine<ScaleStatePowerDown>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -353,19 +219,19 @@ extension ScaleObserver where State == ScaleMachine.Weighing {
     }
 
     /// Hardware safety fallback
-    public consuming func hardwareFault() async throws -> ScaleObserver<ScaleMachine.PowerDown> {
+    public consuming func hardwareFault() async throws -> ScaleMachine<ScaleStatePowerDown> {
         let nextContext = try await self._hardwareFault(self.internalContext)
-        return ScaleObserver<ScaleMachine.PowerDown>(
+        return ScaleMachine<ScaleStatePowerDown>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -375,21 +241,21 @@ extension ScaleObserver where State == ScaleMachine.Weighing {
 
 // MARK: - Scale.Stabilized Transitions
 
-extension ScaleObserver where State == ScaleMachine.Stabilized {
+extension ScaleMachine where State == ScaleStateStabilized {
     /// Initiates electrical Body Impedance Analysis (Fat/Water %)
-    public consuming func startBIA() async throws -> ScaleObserver<ScaleMachine.MeasuringImpedance> {
+    public consuming func startBIA() async throws -> ScaleMachine<ScaleStateMeasuringImpedance> {
         let nextContext = try await self._startBIA(self.internalContext)
-        return ScaleObserver<ScaleMachine.MeasuringImpedance>(
+        return ScaleMachine<ScaleStateMeasuringImpedance>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -399,21 +265,21 @@ extension ScaleObserver where State == ScaleMachine.Stabilized {
 
 // MARK: - Scale.MeasuringImpedance Transitions
 
-extension ScaleObserver where State == ScaleMachine.MeasuringImpedance {
+extension ScaleMachine where State == ScaleStateMeasuringImpedance {
     /// Captures the BIA metrics and prepares for network transfer
-    public consuming func biaComplete(metrics: BodyMetrics) async throws -> ScaleObserver<ScaleMachine.Syncing> {
-        let nextContext = try await self._biaCompleteMetricsBodyMetrics(self.internalContext, metrics)
-        return ScaleObserver<ScaleMachine.Syncing>(
+    public consuming func biaComplete(metrics: BodyMetrics) async throws -> ScaleMachine<ScaleStateSyncing> {
+        let nextContext = try await self._biaCompleteBodyMetrics(self.internalContext, metrics)
+        return ScaleMachine<ScaleStateSyncing>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -421,19 +287,19 @@ extension ScaleObserver where State == ScaleMachine.MeasuringImpedance {
     }
 
     /// Fallback: If the user is wearing socks, skip BIA and just sync the weight
-    public consuming func bareFeetRequiredError() async throws -> ScaleObserver<ScaleMachine.Syncing> {
+    public consuming func bareFeetRequiredError() async throws -> ScaleMachine<ScaleStateSyncing> {
         let nextContext = try await self._bareFeetRequiredError(self.internalContext)
-        return ScaleObserver<ScaleMachine.Syncing>(
+        return ScaleMachine<ScaleStateSyncing>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -443,21 +309,21 @@ extension ScaleObserver where State == ScaleMachine.MeasuringImpedance {
 
 // MARK: - Scale.Syncing Transitions
 
-extension ScaleObserver where State == ScaleMachine.Syncing {
+extension ScaleMachine where State == ScaleStateSyncing {
     /// EMIT: The scale logic is done. It emits the combined payload and powers down.
-    public consuming func syncData(payload: ScalePayload) async throws -> ScaleObserver<ScaleMachine.PowerDown> {
-        let nextContext = try await self._syncDataPayloadScalePayload(self.internalContext, payload)
-        return ScaleObserver<ScaleMachine.PowerDown>(
+    public consuming func syncData(payload: ScalePayload) async throws -> ScaleMachine<ScaleStatePowerDown> {
+        let nextContext = try await self._syncDataScalePayload(self.internalContext, payload)
+        return ScaleMachine<ScaleStatePowerDown>(
             internalContext: nextContext,
                 _footTap: self._footTap,
                 _hardwareReady: self._hardwareReady,
                 _zeroAchieved: self._zeroAchieved,
-                _weightLockedWeightDouble: self._weightLockedWeightDouble,
+                _weightLockedDouble: self._weightLockedDouble,
                 _userSteppedOffEarly: self._userSteppedOffEarly,
                 _startBIA: self._startBIA,
-                _biaCompleteMetricsBodyMetrics: self._biaCompleteMetricsBodyMetrics,
+                _biaCompleteBodyMetrics: self._biaCompleteBodyMetrics,
                 _bareFeetRequiredError: self._bareFeetRequiredError,
-                _syncDataPayloadScalePayload: self._syncDataPayloadScalePayload,
+                _syncDataScalePayload: self._syncDataScalePayload,
                 _hardwareFault: self._hardwareFault,
                 _bleState: self._bleState,
                 _makeBLE: self._makeBLE
@@ -469,22 +335,22 @@ extension ScaleObserver where State == ScaleMachine.Syncing {
 
 /// A runtime-friendly wrapper over all observer states.
 public enum ScaleState: ~Copyable {
-    case off(ScaleObserver<ScaleMachine.Off>)
-    case wakingUp(ScaleObserver<ScaleMachine.WakingUp>)
-    case tare(ScaleObserver<ScaleMachine.Tare>)
-    case weighing(ScaleObserver<ScaleMachine.Weighing>)
-    case stabilized(ScaleObserver<ScaleMachine.Stabilized>)
-    case measuringImpedance(ScaleObserver<ScaleMachine.MeasuringImpedance>)
-    case syncing(ScaleObserver<ScaleMachine.Syncing>)
-    case powerDown(ScaleObserver<ScaleMachine.PowerDown>)
+    case off(ScaleMachine<ScaleStateOff>)
+    case wakingUp(ScaleMachine<ScaleStateWakingUp>)
+    case tare(ScaleMachine<ScaleStateTare>)
+    case weighing(ScaleMachine<ScaleStateWeighing>)
+    case stabilized(ScaleMachine<ScaleStateStabilized>)
+    case measuringImpedance(ScaleMachine<ScaleStateMeasuringImpedance>)
+    case syncing(ScaleMachine<ScaleStateSyncing>)
+    case powerDown(ScaleMachine<ScaleStatePowerDown>)
 
-    public init(_ observer: consuming ScaleObserver<ScaleMachine.Off>) {
-        self = .off(observer)
+    public init(_ machine: consuming ScaleMachine<ScaleStateOff>) {
+        self = .off(machine)
     }
 }
 
 extension ScaleState {
-    public borrowing func withOff<R>(_ body: (borrowing ScaleObserver<ScaleMachine.Off>) throws -> R) rethrows -> R? {
+    public borrowing func withOff<R>(_ body: (borrowing ScaleMachine<ScaleStateOff>) throws -> R) rethrows -> R? {
         switch self {
         case let .off(observer):
             return try body(observer)
@@ -493,7 +359,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withWakingUp<R>(_ body: (borrowing ScaleObserver<ScaleMachine.WakingUp>) throws -> R) rethrows -> R? {
+    public borrowing func withWakingUp<R>(_ body: (borrowing ScaleMachine<ScaleStateWakingUp>) throws -> R) rethrows -> R? {
         switch self {
         case let .wakingUp(observer):
             return try body(observer)
@@ -502,7 +368,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withTare<R>(_ body: (borrowing ScaleObserver<ScaleMachine.Tare>) throws -> R) rethrows -> R? {
+    public borrowing func withTare<R>(_ body: (borrowing ScaleMachine<ScaleStateTare>) throws -> R) rethrows -> R? {
         switch self {
         case let .tare(observer):
             return try body(observer)
@@ -511,7 +377,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withWeighing<R>(_ body: (borrowing ScaleObserver<ScaleMachine.Weighing>) throws -> R) rethrows -> R? {
+    public borrowing func withWeighing<R>(_ body: (borrowing ScaleMachine<ScaleStateWeighing>) throws -> R) rethrows -> R? {
         switch self {
         case let .weighing(observer):
             return try body(observer)
@@ -520,7 +386,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withStabilized<R>(_ body: (borrowing ScaleObserver<ScaleMachine.Stabilized>) throws -> R) rethrows -> R? {
+    public borrowing func withStabilized<R>(_ body: (borrowing ScaleMachine<ScaleStateStabilized>) throws -> R) rethrows -> R? {
         switch self {
         case let .stabilized(observer):
             return try body(observer)
@@ -529,7 +395,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withMeasuringImpedance<R>(_ body: (borrowing ScaleObserver<ScaleMachine.MeasuringImpedance>) throws -> R) rethrows -> R? {
+    public borrowing func withMeasuringImpedance<R>(_ body: (borrowing ScaleMachine<ScaleStateMeasuringImpedance>) throws -> R) rethrows -> R? {
         switch self {
         case let .measuringImpedance(observer):
             return try body(observer)
@@ -538,7 +404,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withSyncing<R>(_ body: (borrowing ScaleObserver<ScaleMachine.Syncing>) throws -> R) rethrows -> R? {
+    public borrowing func withSyncing<R>(_ body: (borrowing ScaleMachine<ScaleStateSyncing>) throws -> R) rethrows -> R? {
         switch self {
         case let .syncing(observer):
             return try body(observer)
@@ -547,7 +413,7 @@ extension ScaleState {
         }
     }
 
-    public borrowing func withPowerDown<R>(_ body: (borrowing ScaleObserver<ScaleMachine.PowerDown>) throws -> R) rethrows -> R? {
+    public borrowing func withPowerDown<R>(_ body: (borrowing ScaleMachine<ScaleStatePowerDown>) throws -> R) rethrows -> R? {
         switch self {
         case let .powerDown(observer):
             return try body(observer)
@@ -561,8 +427,7 @@ extension ScaleState {
     public consuming func footTap() async throws -> Self {
         switch consume self {
     case let .off(observer):
-        let next = try await observer.footTap()
-        return .wakingUp(next)
+        return .wakingUp(try await observer.footTap())
     case let .wakingUp(observer):
         return .wakingUp(observer)
     case let .tare(observer):
@@ -586,8 +451,7 @@ extension ScaleState {
     case let .off(observer):
         return .off(observer)
     case let .wakingUp(observer):
-        let next = try await observer.hardwareReady()
-        return .tare(next)
+        return .tare(try await observer.hardwareReady())
     case let .tare(observer):
         return .tare(observer)
     case let .weighing(observer):
@@ -611,8 +475,7 @@ extension ScaleState {
     case let .wakingUp(observer):
         return .wakingUp(observer)
     case let .tare(observer):
-        let next = try await observer.zeroAchieved()
-        return .weighing(next)
+        return .weighing(try await observer.zeroAchieved())
     case let .weighing(observer):
         return .weighing(observer)
     case let .stabilized(observer):
@@ -636,8 +499,7 @@ extension ScaleState {
     case let .tare(observer):
         return .tare(observer)
     case let .weighing(observer):
-        let next = try await observer.weightLocked(weight: weight)
-        return .stabilized(next)
+        return .stabilized(try await observer.weightLocked(weight: weight))
     case let .stabilized(observer):
         return .stabilized(observer)
     case let .measuringImpedance(observer):
@@ -659,8 +521,7 @@ extension ScaleState {
     case let .tare(observer):
         return .tare(observer)
     case let .weighing(observer):
-        let next = try await observer.userSteppedOffEarly()
-        return .powerDown(next)
+        return .powerDown(try await observer.userSteppedOffEarly())
     case let .stabilized(observer):
         return .stabilized(observer)
     case let .measuringImpedance(observer):
@@ -684,8 +545,7 @@ extension ScaleState {
     case let .weighing(observer):
         return .weighing(observer)
     case let .stabilized(observer):
-        let next = try await observer.startBIA()
-        return .measuringImpedance(next)
+        return .measuringImpedance(try await observer.startBIA())
     case let .measuringImpedance(observer):
         return .measuringImpedance(observer)
     case let .syncing(observer):
@@ -709,8 +569,7 @@ extension ScaleState {
     case let .stabilized(observer):
         return .stabilized(observer)
     case let .measuringImpedance(observer):
-        let next = try await observer.biaComplete(metrics: metrics)
-        return .syncing(next)
+        return .syncing(try await observer.biaComplete(metrics: metrics))
     case let .syncing(observer):
         return .syncing(observer)
     case let .powerDown(observer):
@@ -732,8 +591,7 @@ extension ScaleState {
     case let .stabilized(observer):
         return .stabilized(observer)
     case let .measuringImpedance(observer):
-        let next = try await observer.bareFeetRequiredError()
-        return .syncing(next)
+        return .syncing(try await observer.bareFeetRequiredError())
     case let .syncing(observer):
         return .syncing(observer)
     case let .powerDown(observer):
@@ -757,8 +615,7 @@ extension ScaleState {
     case let .measuringImpedance(observer):
         return .measuringImpedance(observer)
     case let .syncing(observer):
-        let next = try await observer.syncData(payload: payload)
-        return .powerDown(next)
+        return .powerDown(try await observer.syncData(payload: payload))
     case let .powerDown(observer):
         return .powerDown(observer)
         }
@@ -774,8 +631,7 @@ extension ScaleState {
     case let .tare(observer):
         return .tare(observer)
     case let .weighing(observer):
-        let next = try await observer.hardwareFault()
-        return .powerDown(next)
+        return .powerDown(try await observer.hardwareFault())
     case let .stabilized(observer):
         return .stabilized(observer)
     case let .measuringImpedance(observer):
@@ -1095,42 +951,5 @@ extension ScaleState {
     case let .powerDown(obs):
         return .powerDown(try await obs._advancingBLEState { ble in try await ble.powerDown() })
         }
-    }
-}
-
-// MARK: - Scale Client
-
-/// Dependency client entry point for constructing Scale observers.
-public struct ScaleClient: Sendable {
-    public var makeScale: @Sendable (@escaping @Sendable () -> BLEState) -> ScaleObserver<ScaleMachine.Off>
-
-    public init(makeScale: @escaping @Sendable (@escaping @Sendable () -> BLEState) -> ScaleObserver<ScaleMachine.Off>) {
-        self.makeScale = makeScale
-    }
-}
-
-extension ScaleClient: DependencyKey {
-    public static let testValue = Self(
-        makeScale: {
-                    _ in fatalError("Configure ScaleClient.testValue in tests.")
-                }
-    )
-
-    public static let previewValue = Self(
-        makeScale: {
-                    _ in fatalError("Configure ScaleClient.previewValue in previews.")
-                }
-    )
-
-    /// The live production implementation.
-    /// Add `public static func makeLive() -> Self` in a `+Live` extension to implement it.
-    public static var liveValue: Self { .makeLive() }
-}
-
-extension DependencyValues {
-    /// Accessor for the generated ScaleClient dependency.
-    public var scale: ScaleClient {
-        get { self[ScaleClient.self] }
-        set { self[ScaleClient.self] = newValue }
     }
 }

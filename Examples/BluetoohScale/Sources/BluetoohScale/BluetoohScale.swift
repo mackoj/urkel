@@ -186,7 +186,7 @@ public extension BLEClient {
                     try await handlers.radioReady()
                     return context
                 },
-                deviceDiscoveredDeviceBLEDeviceTransition: { context, device in
+                deviceDiscoveredBLEDeviceTransition: { context, device in
                     try await handlers.deviceDiscovered(device)
                     return context
                 },
@@ -198,7 +198,7 @@ public extension BLEClient {
                     try await handlers.connectionEstablished()
                     return context
                 },
-                connectionFailedReasonStringTransition: { context, reason in
+                connectionFailedStringTransition: { context, reason in
                     try await handlers.connectionFailed(reason)
                     return context
                 },
@@ -210,7 +210,7 @@ public extension BLEClient {
                     try await handlers.retriesExhausted()
                     return context
                 },
-                startSyncPayloadScalePayloadTransition: { context, payload in
+                startSyncScalePayloadTransition: { context, payload in
                     try await handlers.startSync(payload)
                     return context
                 },
@@ -218,7 +218,7 @@ public extension BLEClient {
                     try await handlers.syncSucceeded()
                     return context
                 },
-                syncFailedReasonStringTransition: { context, reason in
+                syncFailedStringTransition: { context, reason in
                     try await handlers.syncFailed(reason)
                     return context
                 },
@@ -263,7 +263,7 @@ public extension ScaleClient {
                     try await handlers.zeroAchieved()
                     return context
                 },
-                weightLockedWeightDoubleTransition: { context, weight in
+                weightLockedDoubleTransition: { context, weight in
                     try await handlers.weightLocked(weight)
                     return context
                 },
@@ -275,7 +275,7 @@ public extension ScaleClient {
                     try await handlers.startBIA()
                     return context
                 },
-                biaCompleteMetricsBodyMetricsTransition: { context, metrics in
+                biaCompleteBodyMetricsTransition: { context, metrics in
                     try await handlers.biaComplete(metrics)
                     return context
                 },
@@ -283,7 +283,7 @@ public extension ScaleClient {
                     try await handlers.bareFeetRequiredError()
                     return context
                 },
-                syncDataPayloadScalePayloadTransition: { context, payload in
+                syncDataScalePayloadTransition: { context, payload in
                     try await handlers.syncData(payload)
                     return context
                 },

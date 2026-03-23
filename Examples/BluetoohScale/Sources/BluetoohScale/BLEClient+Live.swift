@@ -195,23 +195,23 @@ public extension BLEClient {
                 bridge.startScanning()
                 return ctx
             },
-            deviceDiscoveredDeviceBLEDeviceTransition: { ctx, device in
+            deviceDiscoveredBLEDeviceTransition: { ctx, device in
                 // Connects to the discovered device and waits for characteristics.
                 try await bridge.connect(to: device)
                 var c = ctx; c.lastSeenDevice = device; return c
             },
             scanTimeoutTransition: { ctx in ctx },
             connectionEstablishedTransition: { ctx in ctx },
-            connectionFailedReasonStringTransition: { ctx, _ in ctx },
+            connectionFailedStringTransition: { ctx, _ in ctx },
             retryTransition: { ctx in ctx },
             retriesExhaustedTransition: { ctx in ctx },
-            startSyncPayloadScalePayloadTransition: { ctx, payload in
+            startSyncScalePayloadTransition: { ctx, payload in
                 // Writes the payload over BLE and waits for write acknowledgement.
                 try await bridge.write(payload: payload)
                 return ctx
             },
             syncSucceededTransition: { ctx in ctx },
-            syncFailedReasonStringTransition: { ctx, _ in ctx },
+            syncFailedStringTransition: { ctx, _ in ctx },
             peripheralDisconnectedTransition: { ctx in ctx },
             resetRadioTransition: { ctx in ctx },
             powerDownTransition: { ctx in

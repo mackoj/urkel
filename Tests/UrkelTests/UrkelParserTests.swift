@@ -211,4 +211,25 @@ struct UrkelParserTests {
         #expect(transition.docComments[0].text == "Starts running")
         #expect(transition.docComments[0].range?.start.line == 8)
     }
+
+    @Test("Parses @continuation block correctly")
+    func parsesContinuationBlock() throws {
+        let source = """
+        machine folderwatch
+        @factory makeObserver(directory: URL, debounceMs: Int)
+        @states
+          init Idle
+          state Running
+          final Stopped
+        @transitions
+          Idle -> start -> Running
+          Running -> events
+          Running -> stop -> Stopped
+        @continuation
+          events -> AsyncThrowingStream<DirectoryEvent, Error>
+        """
+        let ast = try UrkelParser().parse(source: source)
+        #expect(ast.continuations["events"] == "AsyncThrowingStream<DirectoryEvent, Error>")
+        #expect(ast.transitions.first(where: { $0.event == "events" })?.to == nil)
+    }
 }

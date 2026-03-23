@@ -162,8 +162,7 @@ struct InlineSnapshotTests {
                 public consuming func start() async throws -> Self {
                     switch consume self {
                 case let .idle(observer):
-                    let next = try await observer.start()
-                    return .running(next)
+                    return .running(try await observer.start())
                 case let .running(observer):
                     return .running(observer)
                 case let .stopped(observer):
@@ -177,8 +176,7 @@ struct InlineSnapshotTests {
                 case let .idle(observer):
                     return .idle(observer)
                 case let .running(observer):
-                    let next = try await observer.stop()
-                    return .stopped(next)
+                    return .stopped(try await observer.stop())
                 case let .stopped(observer):
                     return .stopped(observer)
                     }

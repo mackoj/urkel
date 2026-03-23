@@ -29,13 +29,13 @@ public extension MachineAST {
         let transitionRows = transitions.enumerated().map { transitionIndex, transition in
             let eventName = transition.event
             let eventTypeName = normalizedTypeName(eventName)
-            let toStateTypeName = normalizedTypeName(transition.to)
+            let toStateTypeName = transition.to.map(normalizedTypeName) ?? ""
             return [
                 "from": transition.from,
                 "fromTypeName": normalizedTypeName(transition.from),
                 "event": transition.event,
                 "eventTypeName": eventTypeName,
-                "to": transition.to,
+                "to": transition.to as Any,
                 "toTypeName": toStateTypeName,
                 "spawnedMachine": transition.spawnedMachine as Any,
                 "spawnedMachineTypeName": transition.spawnedMachine.map(normalizedTypeName) as Any,
@@ -61,8 +61,8 @@ public extension MachineAST {
                     [
                         "event": transition.event,
                         "eventTypeName": normalizedTypeName(transition.event),
-                        "to": transition.to,
-                        "toTypeName": normalizedTypeName(transition.to),
+                        "to": transition.to as Any,
+                        "toTypeName": transition.to.map(normalizedTypeName) ?? "",
                         "spawnedMachine": transition.spawnedMachine as Any,
                         "spawnedMachineTypeName": transition.spawnedMachine.map(normalizedTypeName) as Any,
                         "parameters": transition.parameters.enumerated().map { parameterIndex, parameter in

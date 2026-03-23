@@ -95,7 +95,7 @@ public struct MachineAST: Equatable, Sendable {
         public let from: String
         public let event: String
         public let parameters: [Parameter]
-        public let to: String
+        public let to: String?
         public let spawnedMachine: String?
         public let range: SourceRange?
         public let docComments: [DocComment]
@@ -104,7 +104,7 @@ public struct MachineAST: Equatable, Sendable {
             from: String,
             event: String,
             parameters: [Parameter],
-            to: String,
+            to: String?,
             spawnedMachine: String? = nil,
             range: SourceRange? = nil,
             docComments: [DocComment] = []
@@ -127,6 +127,7 @@ public struct MachineAST: Equatable, Sendable {
     public let states: [StateNode]
     public let transitions: [TransitionNode]
     public let emitterOptions: EmitterOptions?
+    public let continuations: [String: String]
     public let range: SourceRange?
 
     public init(
@@ -138,6 +139,7 @@ public struct MachineAST: Equatable, Sendable {
         states: [StateNode],
         transitions: [TransitionNode],
         emitterOptions: EmitterOptions? = nil,
+        continuations: [String: String] = [:],
         range: SourceRange? = nil
     ) {
         self.imports = imports
@@ -148,6 +150,7 @@ public struct MachineAST: Equatable, Sendable {
         self.states = states
         self.transitions = transitions
         self.emitterOptions = emitterOptions
+        self.continuations = continuations
         self.range = range
     }
 }

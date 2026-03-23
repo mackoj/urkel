@@ -14,6 +14,10 @@ public struct EmittedFiles {
 public struct SwiftCodeEmitter {
     public init() {}
 
+    private func isClosureCapturedMode(_ ast: MachineAST) -> Bool {
+        ast.contextType == nil && ast.composedMachines.isEmpty && !ast.continuations.isEmpty
+    }
+
     public func emit(
         ast: MachineAST,
         composedASTs: [String: MachineAST] = [:],
@@ -22,6 +26,23 @@ public struct SwiftCodeEmitter {
     ) -> EmittedFiles {
         let names = Names(from: ast.machineName)
         let imports = emitImports(for: ast, swiftImportsOverride: swiftImportsOverride)
+
+        if isClosureCapturedMode(ast) {
+            let smBody = [
+                emitStateMachineFileClosure(for: ast, names: names),
+                emitExtensionsClosure(for: ast, names: names),
+                emitCombinedStateWrapper(for: ast, names: names, closureCaptured: true),
+            ].filter { !$0.isEmpty }.joined(separator: "\n\n")
+
+            let clientBody = emitClientStructClosure(for: ast, names: names)
+            let dependencyBody = emitDependencyExtensions(for: ast, names: names)
+
+            return EmittedFiles(
+                stateMachine: [imports, smBody].filter { !$0.isEmpty }.joined(separator: "\n\n"),
+                client: [imports, clientBody].filter { !$0.isEmpty }.joined(separator: "\n\n"),
+                dependency: [imports, dependencyBody].filter { !$0.isEmpty }.joined(separator: "\n\n")
+            )
+        }
 
         let stateMachineBody = [
             emitStateMachineFile(for: ast, names: names, nonescapable: nonescapable),
@@ -320,13 +341,14 @@ public struct SwiftCodeEmitter {
 
         return orderedStates.compactMap { fromState in
             guard let stateTransitions = grouped[fromState] else { return nil }
-            let methods = stateTransitions.map { transition in
+            let methods = stateTransitions.compactMap { transition -> String? in
+                guard let toState = transition.to else { return nil }
                 let params = transition.parameters
-                let destinationType = stateTypeName(for: transition.to, names: names)
+                let destinationType = stateTypeName(for: toState, names: names)
                 let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
                 let callArgs = params.map { $0.name }.joined(separator: ", ")
                 let methodDocs = if transition.docComments.isEmpty {
-                    "    /// Handles the `\(transition.event)` transition from \(fromState) to \(transition.to)."
+                    "    /// Handles the `\(transition.event)` transition from \(fromState) to \(toState)."
                 } else {
                     emitDocComments(transition.docComments, indentation: "    ")
                 }
@@ -375,7 +397,7 @@ public struct SwiftCodeEmitter {
         }.joined(separator: "\n\n")
     }
 
-    private func emitCombinedStateWrapper(for ast: MachineAST, names: Names) -> String {
+    private func emitCombinedStateWrapper(for ast: MachineAST, names: Names, closureCaptured: Bool = false) -> String {
         guard !ast.states.isEmpty else { return "" }
 
         let cases = ast.states
@@ -415,6 +437,7 @@ public struct SwiftCodeEmitter {
         var orderedSignatures: [TransitionSignature] = []
         var transitionsBySignature: [TransitionSignature: [MachineAST.TransitionNode]] = [:]
         for transition in ast.transitions {
+            guard transition.to != nil else { continue }
             let signature = TransitionSignature(
                 event: transition.event,
                 parameters: transition.parameters.map { .init(name: $0.name, type: $0.type) }
@@ -432,30 +455,66 @@ public struct SwiftCodeEmitter {
             let callArgs = params.map { "\($0.name): \($0.name)" }.joined(separator: ", ")
 
             let transitionByFrom = Dictionary(uniqueKeysWithValues: transitions.map { ($0.from, $0) })
-            let switchCases = ast.states.map { state in
-                let currentCase = caseName(for: state.name)
-                if let transition = transitionByFrom[state.name] {
-                    let destinationCase = caseName(for: transition.to)
+
+            let switchCases: String
+            if closureCaptured {
+                // mutating mode: assign to self, no return, no try
+                switchCases = ast.states.map { state in
+                    let currentCase = caseName(for: state.name)
+                    if let transition = transitionByFrom[state.name] {
+                        let destinationCase = caseName(for: transition.to!)
+                        let callExpr = callArgs.isEmpty
+                            ? "await observer.\(signature.event)()"
+                            : "await observer.\(signature.event)(\(callArgs))"
+                        return """
+                                case let .\(currentCase)(observer):
+                                    self = .\(destinationCase)(\(callExpr))
+                            """
+                    }
                     return """
                             case let .\(currentCase)(observer):
-                                let next = try await observer.\(signature.event)(\(callArgs))
-                                return .\(destinationCase)(next)
+                                self = .\(currentCase)(observer)
                         """
-                }
-                return """
-                        case let .\(currentCase)(observer):
-                            return .\(currentCase)(observer)
-                    """
-            }.joined(separator: "\n")
-
-            return """
-                /// Attempts the `\(signature.event)` transition from the current wrapper state.
-                public consuming func \(signature.event)(\(signatureParams)) async throws -> Self {
-                    switch consume self {
-            \(switchCases)
+                }.joined(separator: "\n")
+            } else {
+                switchCases = ast.states.map { state in
+                    let currentCase = caseName(for: state.name)
+                    if let transition = transitionByFrom[state.name] {
+                        let destinationCase = caseName(for: transition.to!)
+                        let callExpr = callArgs.isEmpty
+                            ? "try await observer.\(signature.event)()"
+                            : "try await observer.\(signature.event)(\(callArgs))"
+                        return """
+                                case let .\(currentCase)(observer):
+                                    return .\(destinationCase)(\(callExpr))
+                            """
                     }
-                }
-            """
+                    return """
+                            case let .\(currentCase)(observer):
+                                return .\(currentCase)(observer)
+                        """
+                }.joined(separator: "\n")
+            }
+
+            if closureCaptured {
+                return """
+                    /// Attempts the `\(signature.event)` transition from the current wrapper state.
+                    public mutating func \(signature.event)(\(signatureParams)) async {
+                        switch consume self {
+                \(switchCases)
+                        }
+                    }
+                """
+            } else {
+                return """
+                    /// Attempts the `\(signature.event)` transition from the current wrapper state.
+                    public consuming func \(signature.event)(\(signatureParams)) async throws -> Self {
+                        switch consume self {
+                \(switchCases)
+                        }
+                    }
+                """
+            }
         }.joined(separator: "\n\n")
 
         return """
@@ -541,14 +600,14 @@ public struct SwiftCodeEmitter {
     private func composedCarryingStates(composedMachineName: String, in ast: MachineAST) -> Set<String> {
         let forkTargets = ast.transitions
             .filter { $0.spawnedMachine == composedMachineName }
-            .map { $0.to }
+            .compactMap { $0.to }
         var result = Set(forkTargets)
         var queue = Array(forkTargets)
         while !queue.isEmpty {
             let state = queue.removeFirst()
             for transition in ast.transitions where transition.from == state {
-                if result.insert(transition.to).inserted {
-                    queue.append(transition.to)
+                if let to = transition.to, result.insert(to).inserted {
+                    queue.append(to)
                 }
             }
         }
@@ -683,12 +742,14 @@ public struct SwiftCodeEmitter {
     }
 
     private func orderedTransitionSignatures(in ast: MachineAST) -> [TransitionSignature] {
-        ast.transitions.reduce(into: [TransitionSignature]()) { partial, transition in
-            let signature = transitionSignature(for: transition)
-            if !partial.contains(signature) {
-                partial.append(signature)
+        ast.transitions
+            .filter { $0.to != nil }
+            .reduce(into: [TransitionSignature]()) { partial, transition in
+                let signature = transitionSignature(for: transition)
+                if !partial.contains(signature) {
+                    partial.append(signature)
+                }
             }
-        }
     }
 
     private func transitions(for signature: TransitionSignature, in ast: MachineAST) -> [MachineAST.TransitionNode] {
@@ -697,15 +758,8 @@ public struct SwiftCodeEmitter {
 
     private func transitionPropertyName(for signature: TransitionSignature) -> String {
         let suffix = signature.parameters
-            .map { parameter -> String in
-                [
-                    normalizedTypeName(parameter.name),
-                    normalizedTypeName(parameter.type)
-                ]
-                .joined()
-            }
+            .map { normalizedTypeName($0.type) }
             .joined()
-
         return "_\(lowerCamelName(from: signature.event))\(suffix)"
     }
 
@@ -719,9 +773,7 @@ public struct SwiftCodeEmitter {
 
     private func transitionParameterSuffix(for signature: TransitionSignature) -> String {
         signature.parameters
-            .map { parameter in
-                normalizedTypeName(parameter.name) + normalizedTypeName(parameter.type)
-            }
+            .map { normalizedTypeName($0.type) }
             .joined()
     }
 
@@ -836,6 +888,318 @@ public struct SwiftCodeEmitter {
         let event: String
         let parameters: [TransitionParameterSignature]
     }
+    // MARK: - Closure-Captured Mode Emission
+
+    private func emitStateMachineFileClosure(for ast: MachineAST, names: Names) -> String {
+        let factoryParams = ast.factory?.parameters ?? []
+
+        let stateMarkers = ast.states.map { state in
+            let declaration = "public enum \(names.stateWrapperTypeName)\(normalizedTypeName(state.name)) {}"
+            let docs = emitDocComments(state.docComments, indentation: "")
+            return docs.isEmpty ? declaration : "\(docs)\n\(declaration)"
+        }.joined(separator: "\n")
+
+        let stateChangingTransitions = ast.transitions.filter { $0.to != nil }
+        let continuationTransitions = ast.transitions.filter { $0.to == nil }
+
+        let factoryParamProps = factoryParams.map { "    public let \($0.name): \($0.type)" }.joined(separator: "\n")
+
+        var seenSignatures = Set<String>()
+        var closureProps: [String] = []
+        for transition in stateChangingTransitions {
+            let sig = transitionSignature(for: transition)
+            let sigKey = sig.event + sig.parameters.map { $0.name + $0.type }.joined()
+            guard !seenSignatures.contains(sigKey) else { continue }
+            seenSignatures.insert(sigKey)
+            guard let to = transition.to else { continue }
+            let toType = stateTypeName(for: to, names: names)
+            let paramTypes = transition.parameters.map(\.type)
+            let closureType: String
+            if paramTypes.isEmpty {
+                closureType = "@Sendable () async -> \(names.machineStructTypeName)<\(toType)>"
+            } else {
+                closureType = "@Sendable (\(paramTypes.joined(separator: ", "))) async -> \(names.machineStructTypeName)<\(toType)>"
+            }
+            closureProps.append("    fileprivate let \(closurePropertyNameClosure(for: transition)): (\(closureType))?")
+        }
+
+        var seenContinuations = Set<String>()
+        for transition in continuationTransitions {
+            guard !seenContinuations.contains(transition.event) else { continue }
+            seenContinuations.insert(transition.event)
+            guard let returnType = ast.continuations[transition.event] else { continue }
+            closureProps.append("    fileprivate let \(continuationPropertyNameClosure(for: transition.event)): (@Sendable () -> \(returnType))?")
+        }
+
+        var stateInits: [String] = []
+        for state in ast.states {
+            let outgoingStateChanging = stateChangingTransitions.filter { $0.from == state.name }
+            let outgoingContinuation = continuationTransitions.filter { $0.from == state.name }
+            let stateType = stateTypeName(for: state.name, names: names)
+
+            var initParams: [String] = factoryParams.map { "        \($0.name): \($0.type)" }
+            for transition in outgoingStateChanging {
+                guard let to = transition.to else { continue }
+                let toType = stateTypeName(for: to, names: names)
+                let paramTypes = transition.parameters.map(\.type)
+                let closureType: String
+                if paramTypes.isEmpty {
+                    closureType = "@escaping @Sendable () async -> \(names.machineStructTypeName)<\(toType)>"
+                } else {
+                    closureType = "@escaping @Sendable (\(paramTypes.joined(separator: ", "))) async -> \(names.machineStructTypeName)<\(toType)>"
+                }
+                initParams.append("        \(closureParamLabel(for: transition)): \(closureType)")
+            }
+            for transition in outgoingContinuation {
+                guard let returnType = ast.continuations[transition.event] else { continue }
+                initParams.append("        \(continuationParamLabel(for: transition.event)): @escaping @Sendable () -> \(returnType)")
+            }
+
+            var assignments: [String] = factoryParams.map { "        self.\($0.name) = \($0.name)" }
+
+            var handledClosures = Set<String>()
+            for transition in outgoingStateChanging {
+                let sig = transitionSignature(for: transition)
+                let sigKey = sig.event + sig.parameters.map { $0.name + $0.type }.joined()
+                if !handledClosures.contains(sigKey) {
+                    handledClosures.insert(sigKey)
+                    assignments.append("        \(closurePropertyNameClosure(for: transition)) = \(closureParamLabel(for: transition))")
+                }
+            }
+            var allHandledSigKeys = Set<String>()
+            for transition in stateChangingTransitions {
+                let sig = transitionSignature(for: transition)
+                let sigKey = sig.event + sig.parameters.map { $0.name + $0.type }.joined()
+                if !allHandledSigKeys.contains(sigKey) {
+                    allHandledSigKeys.insert(sigKey)
+                    if !handledClosures.contains(sigKey) {
+                        assignments.append("        \(closurePropertyNameClosure(for: transition)) = nil")
+                    }
+                }
+            }
+
+            var handledContinuations = Set<String>()
+            for transition in outgoingContinuation {
+                if !handledContinuations.contains(transition.event) {
+                    handledContinuations.insert(transition.event)
+                    assignments.append("        \(continuationPropertyNameClosure(for: transition.event)) = \(continuationParamLabel(for: transition.event))")
+                }
+            }
+            var nilledContinuations = Set<String>()
+            for transition in continuationTransitions {
+                if !handledContinuations.contains(transition.event), !nilledContinuations.contains(transition.event) {
+                    nilledContinuations.insert(transition.event)
+                    assignments.append("        \(continuationPropertyNameClosure(for: transition.event)) = nil")
+                }
+            }
+
+            let stateKindComment = "    // MARK: \(normalizedTypeName(state.name)) State Init"
+            let initParamList = initParams.joined(separator: ",\n")
+            let assignmentBlock = assignments.joined(separator: "\n")
+
+            stateInits.append("""
+            \(stateKindComment)
+                public init(
+            \(initParamList)
+                ) where State == \(stateType) {
+            \(assignmentBlock)
+                }
+            """)
+        }
+
+        let allProps = [factoryParamProps.isEmpty ? nil : factoryParamProps,
+                        closureProps.isEmpty ? nil : closureProps.joined(separator: "\n")]
+            .compactMap { $0 }.joined(separator: "\n\n")
+
+        let allInits = stateInits.joined(separator: "\n\n")
+
+        return """
+        // MARK: - \(names.machineTypeName) Typestate Markers
+
+        \(stateMarkers)
+
+        // MARK: - \(names.machineTypeName) State Machine
+
+        /// A type-safe state machine encoding the current state in its generic parameter.
+        public struct \(names.machineStructTypeName)<State>: ~Copyable {
+        \(allProps.isEmpty ? "" : "\(allProps)\n")
+        \(allInits)
+        }
+        """
+    }
+
+    private func closurePropertyNameClosure(for transition: MachineAST.TransitionNode) -> String {
+        "_\(lowerCamelName(from: transition.event))\(transitionParameterSuffix(for: transitionSignature(for: transition)))Transition"
+    }
+
+    private func continuationPropertyNameClosure(for eventName: String) -> String {
+        "_\(lowerCamelName(from: eventName))Accessor"
+    }
+
+    private func closureParamLabel(for transition: MachineAST.TransitionNode) -> String {
+        "\(lowerCamelName(from: transition.event))\(transitionParameterSuffix(for: transitionSignature(for: transition)))Transition"
+    }
+
+    private func continuationParamLabel(for eventName: String) -> String {
+        "\(lowerCamelName(from: eventName))Accessor"
+    }
+
+    private func emitExtensionsClosure(for ast: MachineAST, names: Names) -> String {
+        let grouped = Dictionary(grouping: ast.transitions, by: { $0.from })
+        let orderedStates = ast.transitions.map(\.from).reduce(into: [String]()) { partial, state in
+            if !partial.contains(state) { partial.append(state) }
+        }
+
+        return orderedStates.compactMap { fromState -> String? in
+            let stateType = stateTypeName(for: fromState, names: names)
+            let outgoing = grouped[fromState] ?? []
+
+            var methods: [String] = []
+
+            for transition in outgoing where transition.to != nil {
+                guard let to = transition.to else { continue }
+                let toType = stateTypeName(for: to, names: names)
+                let params = transition.parameters
+                let signatureParams = params.map { "\($0.name): \($0.type)" }.joined(separator: ", ")
+                let callArgs = params.map { $0.name }.joined(separator: ", ")
+                let propName = closurePropertyNameClosure(for: transition)
+                let methodDocs = transition.docComments.isEmpty
+                    ? "    /// Handles the `\(transition.event)` transition from \(fromState) to \(to)."
+                    : emitDocComments(transition.docComments, indentation: "    ")
+                let callExpr = callArgs.isEmpty
+                    ? "await \(propName)!()"
+                    : "await \(propName)!(\(callArgs))"
+
+                methods.append("""
+                \(methodDocs)
+                    public consuming func \(transition.event)(\(signatureParams)) async -> \(names.machineStructTypeName)<\(toType)> {
+                        \(callExpr)
+                    }
+                """)
+            }
+
+            for transition in outgoing where transition.to == nil {
+                guard let returnType = ast.continuations[transition.event] else { continue }
+                let propName = continuationPropertyNameClosure(for: transition.event)
+                let methodDocs = transition.docComments.isEmpty
+                    ? "    /// Returns the \(transition.event) accessor while in the \(fromState) state."
+                    : emitDocComments(transition.docComments, indentation: "    ")
+
+                methods.append("""
+                \(methodDocs)
+                    public var \(transition.event): \(returnType) {
+                        \(propName)!()
+                    }
+                """)
+            }
+
+            guard !methods.isEmpty else { return nil }
+
+            return """
+            // MARK: - \(names.machineTypeName).\(fromState) Transitions
+
+            extension \(names.machineStructTypeName) where State == \(stateType) {
+            \(methods.joined(separator: "\n\n"))
+            }
+            """
+        }.joined(separator: "\n\n")
+    }
+
+    private func emitClientStructClosure(for ast: MachineAST, names: Names) -> String {
+        let factoryName = ast.factory?.name ?? "makeObserver"
+        let factoryParams = ast.factory?.parameters ?? []
+        let initialStateName = ast.states.first(where: { $0.kind == .initial }).map(\.name) ?? "Initial"
+        let initialStateType = stateTypeName(for: initialStateName, names: names)
+
+        let paramTypes = factoryParams.map(\.type)
+        let propertyFunctionType: String
+        if paramTypes.isEmpty {
+            propertyFunctionType = "@Sendable () -> \(names.machineStructTypeName)<\(initialStateType)>"
+        } else {
+            propertyFunctionType = "@Sendable (\(paramTypes.joined(separator: ", "))) -> \(names.machineStructTypeName)<\(initialStateType)>"
+        }
+
+        let noop = buildNoopMachine(for: ast, names: names, factoryParams: factoryParams, stateName: initialStateName, indent: "            ")
+
+        let paramNames = factoryParams.map(\.name)
+        let closureSignature = paramNames.isEmpty ? "" : "\(paramNames.joined(separator: ", ")) in\n            "
+
+        return """
+        // MARK: - \(names.machineTypeName) Client
+
+        /// Dependency client entry point for constructing \(names.machineTypeName) state machines.
+        public struct \(names.clientTypeName): Sendable {
+            public var \(factoryName): \(propertyFunctionType)
+
+            public init(\(factoryName): @escaping \(propertyFunctionType)) {
+                self.\(factoryName) = \(factoryName)
+            }
+
+            /// No-op implementation that performs no real side effects.
+            public static var noop: Self {
+                Self(\(factoryName): { \(closureSignature)\(noop)
+                })
+            }
+        }
+        """
+    }
+
+    private func buildNoopMachine(for ast: MachineAST, names: Names, factoryParams: [MachineAST.Parameter], stateName: String, indent: String, visited: Set<String> = []) -> String {
+        let stateType = stateTypeName(for: stateName, names: names)
+        let outgoingStateChanging = ast.transitions.filter { $0.from == stateName && $0.to != nil }
+        let outgoingContinuation = ast.transitions.filter { $0.from == stateName && $0.to == nil }
+
+        let factoryParamNames = factoryParams.map(\.name)
+
+        if outgoingStateChanging.isEmpty && outgoingContinuation.isEmpty {
+            let factoryArgs = factoryParamNames.map { "\($0): \($0)" }.joined(separator: ",\n\(indent)    ")
+            let argStr = factoryArgs.isEmpty ? "" : "\n\(indent)    \(factoryArgs)\n\(indent)"
+            return "\(names.machineStructTypeName)<\(stateType)>(\(argStr))"
+        }
+
+        var args: [String] = factoryParamNames.map { "\($0): \($0)" }
+
+        var seenSigs = Set<String>()
+        for transition in outgoingStateChanging {
+            guard let to = transition.to else { continue }
+            let sig = transitionSignature(for: transition)
+            let sigKey = sig.event + sig.parameters.map { $0.name + $0.type }.joined()
+            guard !seenSigs.contains(sigKey) else { continue }
+            seenSigs.insert(sigKey)
+
+            let paramLabel = closureParamLabel(for: transition)
+            let paramCount = transition.parameters.count
+            let nextIndent = indent + "        "
+
+            let closureParam: String
+            if visited.contains(to) {
+                // Break cycle: self-loop or back-edge — noop can't meaningfully recurse
+                let ignores = paramCount == 0 ? "" : (0..<paramCount).map { _ in "_" }.joined(separator: ", ") + " in "
+                closureParam = "{ \(ignores)fatalError(\"Noop does not support cyclic '\(transition.event)' transition\") }"
+            } else {
+                let innerMachine = buildNoopMachine(for: ast, names: names, factoryParams: factoryParams, stateName: to, indent: nextIndent, visited: visited.union([stateName]))
+                if paramCount == 0 {
+                    closureParam = "{ \(innerMachine) }"
+                } else {
+                    let ignores = (0..<paramCount).map { _ in "_" }.joined(separator: ", ")
+                    closureParam = "{ \(ignores) in \(innerMachine) }"
+                }
+            }
+            args.append("\(paramLabel): \(closureParam)")
+        }
+
+        var seenConts = Set<String>()
+        for transition in outgoingContinuation {
+            guard !seenConts.contains(transition.event) else { continue }
+            seenConts.insert(transition.event)
+            let paramLabel = continuationParamLabel(for: transition.event)
+            args.append("\(paramLabel): { AsyncThrowingStream { $0.finish() } }")
+        }
+
+        let argsStr = args.map { "\(indent)    \($0)" }.joined(separator: ",\n")
+        return "\(names.machineStructTypeName)<\(stateType)>(\n\(argsStr)\n\(indent))"
+    }
+
 }
 
 /// Backward-compatible alias for the native Swift emitter.

@@ -1,44 +1,6 @@
 import Foundation
 import Dependencies
 
-// MARK: - FolderWatch Runtime Builder
-
-/// Runtime transition hooks used to construct a machine observer without editing generated code.
-struct FolderWatchClientRuntime {
-    typealias InitialContextBuilder = @Sendable (URL, Int) -> FolderWatchContext
-    typealias StartTransition = @Sendable (FolderWatchContext) async throws -> FolderWatchContext
-    typealias StopTransition = @Sendable (FolderWatchContext) async throws -> FolderWatchContext
-    let initialContext: InitialContextBuilder
-    let startTransition: StartTransition
-    let stopTransition: StopTransition
-
-    init(
-        initialContext: @escaping InitialContextBuilder,
-        startTransition: @escaping StartTransition,
-        stopTransition: @escaping StopTransition
-    ) {
-        self.initialContext = initialContext
-        self.startTransition = startTransition
-        self.stopTransition = stopTransition
-    }
-}
-
-extension FolderWatchClient {
-    /// Builds a client factory from explicit runtime transition hooks.
-    static func fromRuntime(_ runtime: FolderWatchClientRuntime) -> Self {
-        Self(
-            makeObserver: { directory, debounceMs in
-                let context = runtime.initialContext(directory, debounceMs)
-                return FolderWatchMachine<FolderWatchStateIdle>(
-                    internalContext: context,
-                _start: runtime.startTransition,
-                _stop: runtime.stopTransition
-                )
-            }
-        )
-    }
-}
-
 // MARK: - FolderWatch Client
 
 /// Dependency client entry point for constructing FolderWatch state machines.
@@ -47,5 +9,34 @@ public struct FolderWatchClient: Sendable {
 
     public init(makeObserver: @escaping @Sendable (URL, Int) -> FolderWatchMachine<FolderWatchStateIdle>) {
         self.makeObserver = makeObserver
+    }
+
+    /// No-op implementation that performs no real side effects.
+    public static var noop: Self {
+        Self(makeObserver: { directory, debounceMs in
+            FolderWatchMachine<FolderWatchStateIdle>(
+                directory: directory,
+                debounceMs: debounceMs,
+                startTransition: { FolderWatchMachine<FolderWatchStateRunning>(
+                        directory: directory,
+                        debounceMs: debounceMs,
+                        errorErrorTransition: { _ in FolderWatchMachine<FolderWatchStateRunning>(
+                                directory: directory,
+                                debounceMs: debounceMs,
+                                errorErrorTransition: { _ in fatalError("Noop does not support cyclic 'error' transition") },
+                                stopTransition: { FolderWatchMachine<FolderWatchStateStopped>(
+                                        directory: directory,
+                                        debounceMs: debounceMs
+                                    ) },
+                                eventsAccessor: { AsyncThrowingStream { $0.finish() } }
+                            ) },
+                        stopTransition: { FolderWatchMachine<FolderWatchStateStopped>(
+                                directory: directory,
+                                debounceMs: debounceMs
+                            ) },
+                        eventsAccessor: { AsyncThrowingStream { $0.finish() } }
+                    ) }
+            )
+        })
     }
 }

@@ -326,6 +326,13 @@ private extension UrkelLanguageServer {
             return unreachableStateDiagnostics(stateName: stateName, ast: ast, source: source)
         case .terminalStateHasOutgoingTransitions(let stateName):
             return terminalStateOutgoingDiagnostics(stateName: stateName, ast: ast, source: source)
+        case .missingContinuationReturnType(let event):
+            return [Diagnostic(
+                range: .zero,
+                severity: .error,
+                source: "urkel",
+                message: "Continuation transition '\(event)' must have a return type declared in @continuation block."
+            )]
         }
     }
 
@@ -347,15 +354,15 @@ private extension UrkelLanguageServer {
                 )
             }
 
-            if !knownStates.contains(transition.to),
-               let range = referenceRange(in: source, token: transition.to, line: transition.range?.start.line)
+            if let to = transition.to, !knownStates.contains(to),
+               let range = referenceRange(in: source, token: to, line: transition.range?.start.line)
             {
                 diagnostics.append(
                     Diagnostic(
                         range: range,
                         severity: .error,
                         source: "urkel",
-                        message: "Unresolved state reference: \(transition.to)"
+                        message: "Unresolved state reference: \(to)"
                     )
                 )
             }
@@ -606,7 +613,7 @@ private extension UrkelLanguageServer {
                 ? ""
                 : " with parameters \(transition.parameters.map { "\($0.name): \($0.type)" }.joined(separator: ", "))"
             return Hover(
-                contents: "Transition event `\(transition.event)` from `\(transition.from)` to `\(transition.to)`\(parameters).",
+                contents: "Transition event `\(transition.event)` from `\(transition.from)` to `\(transition.to ?? "(continuation)")`\(parameters).",
                 range: range(for: transition.range)
             )
         }
@@ -621,7 +628,7 @@ private extension UrkelLanguageServer {
                 ? ""
                 : " with parameters \(transition.parameters.map { "\($0.name): \($0.type)" }.joined(separator: ", "))"
             return Hover(
-                contents: "Transition event `\(transition.event)` from `\(transition.from)` to `\(transition.to)`\(parameters).",
+                contents: "Transition event `\(transition.event)` from `\(transition.from)` to `\(transition.to ?? "(continuation)")`\(parameters).",
                 range: range(for: transition.range)
             )
         }
@@ -720,7 +727,7 @@ private extension UrkelLanguageServer {
                     if let range = wordRange(in: rawLine, word: transition.event) {
                         addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .event)
                     }
-                    if let range = wordRange(in: rawLine, word: transition.to) {
+                    if let toState = transition.to, let range = wordRange(in: rawLine, word: toState) {
                         addToken(lineIndex: lineIndex, rawLine: rawLine, range: range, kind: .type)
                     }
                     for parameter in transition.parameters {
@@ -764,7 +771,7 @@ private extension UrkelLanguageServer {
             let ast = try UrkelParser().parse(source: source)
             documents[uri]?.cachedParse = .success(ast)
             documents[uri]?.cachedBestEffortTransitions = ast.transitions.map {
-                TransitionShape(from: $0.from, event: $0.event, to: $0.to)
+                TransitionShape(from: $0.from, event: $0.event, to: $0.to ?? "")
             }
             return ast
         } catch let error as UrkelParseError {
@@ -1061,7 +1068,8 @@ private extension UrkelLanguageServer {
     }
 
     func transitionLineMatches(_ transition: MachineAST.TransitionNode, trimmedLine: String) -> Bool {
-        trimmedLine.contains(transition.from) && trimmedLine.contains(transition.event) && trimmedLine.contains(transition.to)
+        trimmedLine.contains(transition.from) && trimmedLine.contains(transition.event) &&
+            (transition.to.map { trimmedLine.contains($0) } ?? true)
     }
 
     func keywordRange(for state: MachineAST.StateNode, in source: String) -> LSPRange? {

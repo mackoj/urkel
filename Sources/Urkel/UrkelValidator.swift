@@ -9,6 +9,7 @@ public enum UrkelValidationError: Error, Equatable, LocalizedError, Sendable {
     case duplicateTransition(from: String, event: String, to: String)
     case unreachableState(stateName: String)
     case terminalStateHasOutgoingTransitions(stateName: String)
+    case missingContinuationReturnType(event: String)
 
     public var errorDescription: String? {
         switch self {
@@ -28,6 +29,8 @@ public enum UrkelValidationError: Error, Equatable, LocalizedError, Sendable {
             return "Unreachable state: \(stateName)"
         case .terminalStateHasOutgoingTransitions(let stateName):
             return "Terminal state '\(stateName)' cannot have outgoing transitions when strict terminal semantics are enabled."
+        case .missingContinuationReturnType(let event):
+            return "Continuation transition '\(event)' must have a return type declared in @continuation block."
         }
     }
 }
@@ -50,6 +53,7 @@ public struct UrkelValidator {
         try checkDuplicateStates(in: ast)
         try checkDuplicateTransitions(in: ast)
         try checkUnreachableStates(in: ast, initialStateName: initialStateName)
+        try checkContinuationReturnTypes(in: ast)
 
         if options.strictTerminalStateSemantics {
             try checkTerminalStateExits(in: ast)
@@ -76,8 +80,8 @@ public struct UrkelValidator {
             if !knownStates.contains(transition.from) {
                 throw UrkelValidationError.unresolvedStateReference(stateName: transition.from)
             }
-            if !knownStates.contains(transition.to) {
-                throw UrkelValidationError.unresolvedStateReference(stateName: transition.to)
+            if let to = transition.to, !knownStates.contains(to) {
+                throw UrkelValidationError.unresolvedStateReference(stateName: to)
             }
         }
         return initialStateName
@@ -116,13 +120,13 @@ public struct UrkelValidator {
                 from: transition.from,
                 event: transition.event,
                 parameters: transition.parameters.map { "\($0.name):\($0.type)" },
-                to: transition.to
+                to: transition.to ?? ""
             )
             if !seen.insert(signature).inserted {
                 throw UrkelValidationError.duplicateTransition(
                     from: transition.from,
                     event: transition.event,
-                    to: transition.to
+                    to: transition.to ?? ""
                 )
             }
         }
@@ -133,7 +137,9 @@ public struct UrkelValidator {
 
         var adjacency: [String: [String]] = [:]
         for transition in ast.transitions {
-            adjacency[transition.from, default: []].append(transition.to)
+            if let to = transition.to {
+                adjacency[transition.from, default: []].append(to)
+            }
         }
 
         var visited: Set<String> = []
@@ -159,6 +165,14 @@ public struct UrkelValidator {
 
         for transition in ast.transitions where terminalStates.contains(transition.from) {
             throw UrkelValidationError.terminalStateHasOutgoingTransitions(stateName: transition.from)
+        }
+    }
+
+    private static func checkContinuationReturnTypes(in ast: MachineAST) throws {
+        for transition in ast.transitions where transition.to == nil {
+            if ast.continuations[transition.event] == nil {
+                throw UrkelValidationError.missingContinuationReturnType(event: transition.event)
+            }
         }
     }
 }

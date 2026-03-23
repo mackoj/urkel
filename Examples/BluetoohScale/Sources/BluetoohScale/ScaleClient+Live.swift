@@ -9,16 +9,16 @@ public extension ScaleClient {
             footTapTransition: { ctx in ctx },
             hardwareReadyTransition: { ctx in ctx },
             zeroAchievedTransition: { ctx in ctx },
-            weightLockedWeightDoubleTransition: { ctx, weight in
+            weightLockedDoubleTransition: { ctx, weight in
                 var c = ctx; c.latestWeightKg = weight; return c
             },
             userSteppedOffEarlyTransition: { ctx in ctx },
             startBIATransition: { ctx in ctx },
-            biaCompleteMetricsBodyMetricsTransition: { ctx, metrics in
+            biaCompleteBodyMetricsTransition: { ctx, metrics in
                 var c = ctx; c.latestMetrics = metrics; return c
             },
             bareFeetRequiredErrorTransition: { ctx in ctx },
-            syncDataPayloadScalePayloadTransition: { ctx, _ in ctx },
+            syncDataScalePayloadTransition: { ctx, _ in ctx },
             hardwareFaultTransition: { ctx in ctx }
         ))
     }

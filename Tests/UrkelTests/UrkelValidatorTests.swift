@@ -229,4 +229,33 @@ struct UrkelValidatorTests {
             Issue.record("Unexpected error: \(error)")
         }
     }
+
+    @Test("Throws missingContinuationReturnType when continuation has no declared type")
+    func missingContinuationReturnType() throws {
+        let ast = MachineAST(
+            imports: [],
+            machineName: "FolderWatch",
+            contextType: nil,
+            factory: nil,
+            states: [
+                .init(name: "Idle", kind: .initial),
+                .init(name: "Running", kind: .normal),
+                .init(name: "Stopped", kind: .terminal)
+            ],
+            transitions: [
+                .init(from: "Idle", event: "start", parameters: [], to: "Running"),
+                .init(from: "Running", event: "events", parameters: [], to: nil),
+                .init(from: "Running", event: "stop", parameters: [], to: "Stopped")
+            ]
+        )
+
+        do {
+            try UrkelValidator.validate(ast)
+            Issue.record("Expected missingContinuationReturnType error")
+        } catch let error as UrkelValidationError {
+            #expect(error == .missingContinuationReturnType(event: "events"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 }
