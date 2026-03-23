@@ -85,6 +85,43 @@ extension FolderWatchClient: DependencyKey {
 }
 ```
 
+### How It All Works Together: The Typestate Pattern
+
+Urkel's magic comes from encoding state in the **type system itself**. Here's how:
+
+```mermaid
+graph LR
+    A["🔵 FolderWatcher&lt;Idle&gt;<br/>start() ✅<br/>stop() ❌<br/>error() ❌"] -->|"await .start()"| B["🟢 FolderWatcher&lt;Running&gt;<br/>start() ❌<br/>stop() ✅<br/>error() ✅"]
+    B -->|"await .stop()"| C["🔴 FolderWatcher&lt;Stopped&gt;<br/>start() ❌<br/>stop() ❌<br/>error() ❌"]
+    B -->|"await .error(e)"| B
+    
+    style A fill:#e1f5ff,stroke:#01579b,stroke-width:3px,color:#000
+    style B fill:#e8f5e9,stroke:#1b5e20,stroke-width:3px,color:#000
+    style C fill:#ffebee,stroke:#b71c1c,stroke-width:3px,color:#000
+```
+
+**What makes this special:**
+
+| State | Available Methods | Why Others Can't Call Them |
+|-------|------------------|---------------------------|
+| **Idle** | `start()` | ✅ Type is `FolderWatcher<Idle>` | stop(), error() exist only on `FolderWatcher<Running>`, not `FolderWatcher<Idle>` |
+| **Running** | `stop()`, `error()` | ✅ Type is `FolderWatcher<Running>` | The compiler literally won't let you call start() because there's no such method on this type |
+| **Stopped** | *(none)* | ✅ Type is `FolderWatcher<Stopped>` | Final state; no transitions available |
+
+**The genius:** When you call `start()`, it **consumes** the `Idle` state and returns a `Running` state. The old state no longer exists. You cannot accidentally call `start()` twice because the first call destroyed the `Idle` instance.
+
+```swift
+var watcher = FolderWatcher<Idle>(...)
+let running = await watcher.start()    // ✅ OK: Idle → Running
+
+await watcher.stop()                   // ❌ COMPILE ERROR
+// error: use of consumed value 'watcher'
+// The Idle instance was consumed by start()
+
+await running.stop()                   // ✅ OK: Running → Stopped
+let stopped = await running.stop()
+```
+
 ---
 
 ## ✨ Key Features
