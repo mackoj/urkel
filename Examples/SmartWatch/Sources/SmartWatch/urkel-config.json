@@ -1,0 +1,6 @@
+{
+  "outputFolder": "Sources/SmartWatch",
+  "imports": {
+    "swift": ["Foundation", "Dependencies"]
+  }
+}

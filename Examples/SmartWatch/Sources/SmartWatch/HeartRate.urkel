@@ -1,0 +1,48 @@
+machine HeartRate<HeartRateContext>
+@compose BLE
+
+@factory makeHeartRate()
+
+@states
+  init Off
+  state Activating
+  state Idle
+  state Measuring
+  state SensorLost
+  state Error
+  final Terminated
+
+@transitions
+  # Activate the heart rate sensor and simultaneously spawn the BLE machine at Off.
+  # The coordinator must then drive the BLE through Scanning → Connecting → Connected
+  # before the sensor is ready to take measurements.
+  Off -> activate -> Activating => BLE.init
+
+  # BLE is Connected and the HR optical sensor has passed self-check
+  Activating -> sensorReady -> Idle
+
+  # Hardware self-check failed (sensor obstructed, hardware fault, etc.)
+  Activating -> sensorFailed(reason: String) -> Error
+
+  # Request a single heart-rate measurement from the optical sensor
+  Idle -> startMeasurement -> Measuring
+
+  # Sensor has produced a reliable BPM reading; return to Idle, ready for next sample
+  Measuring -> measurementComplete(bpm: Int) -> Idle
+
+  # Sensor lost contact with skin (watch removed or shifted)
+  Measuring -> sensorContactLost -> SensorLost
+
+  # Skin contact restored; resume measurement from where the sensor lost contact
+  SensorLost -> sensorContactRestored -> Measuring
+
+  # Sensor contact not restored within the allowed window
+  SensorLost -> contactTimeout -> Error
+
+  # Unrecoverable sensor fault; reset the whole stack
+  Error -> reset -> Off
+
+  # Clean shutdown from any running state
+  Idle       -> deactivate -> Terminated
+  Measuring  -> deactivate -> Terminated
+  Error      -> deactivate -> Terminated
