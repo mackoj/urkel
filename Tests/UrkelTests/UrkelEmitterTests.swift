@@ -73,8 +73,8 @@ struct SwiftCodeEmitterTests {
         )
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
-        #expect(output.contains("private let _connect: @Sendable (String) async throws -> String"))
-        #expect(output.contains("private let _connectError: @Sendable (String, Error) async throws -> String"))
+        #expect(output.contains("fileprivate let _connect: @Sendable (String) async throws -> String"))
+        #expect(output.contains("fileprivate let _connectError: @Sendable (String, Error) async throws -> String"))
         #expect(output.contains("let connectTransition: ConnectTransition"))
         #expect(output.contains("let connectErrorTransition: ConnectErrorTransition"))
         #expect(output.contains("let context = runtime.initialContext()"))
@@ -272,7 +272,7 @@ struct SwiftCodeEmitterTests {
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
         #expect(output.contains("public struct NoContextMachine<State>: ~Copyable"))
-        #expect(output.contains("public struct NoContextStateRuntimeContext: Sendable {"))
+        #expect(output.contains("internal struct NoContextStateRuntimeContext: Sendable {"))
         #expect(!output.contains("struct NoContextRuntimeContext: Sendable"))
         #expect(output.contains("private var internalContext: NoContextStateRuntimeContext"))
     }
