@@ -1,0 +1,12 @@
+machine SomeFeature2
+@factory makeSomeFeature2()
+
+@states
+  init Idle
+  state Running
+  final Stopped
+
+@transitions
+  Idle -> start -> Running
+  Running -> error(error:Error) -> Stopped
+  Running -> stop -> Stopped

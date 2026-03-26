@@ -75,4 +75,6 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 ## Epic 11 — Composition and Forking
 
 - [ ][US-11.1 fork operator and composition AST](us-11-1-fork.md)
-- [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md)
+- [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md) *(superseded by US-11.4)*
+- [ ][US-11.3 sub-observer embedding](us-11-3-sub-observer-embedding.md) *(superseded by US-11.4)*
+- [ ][US-11.4 `@compose` SubFSM actor bridge emitter](us-11-4-compose-actor-bridge.md)
