@@ -11,6 +11,24 @@ UrkelFile        ::= { TriviaLine }
 MachineDecl      ::= { Whitespace } "machine" Whitespace Identifier [ ContextDecl ] Newline
 ContextDecl      ::= "<" { Whitespace } Identifier { Whitespace } ">"
 
+/* @compose <Name> — declares that this machine owns and lifecycle-manages a sub-FSM.
+   Multiple @compose declarations are allowed (one per sub-machine).
+   
+   Code generation (US-11.4 actor bridge pattern):
+     For each composed machine "Foo", the generator emits:
+       • private actor SubFSMFoo — owns a consuming FooMachine<FooStateIdle> wrapped in a
+         ~Copyable Phase enum; exposes start()/stop()/error(_:) lifecycle methods.
+         The actor uses a takePhase() helper (via withUnsafeMutablePointer) to work around
+         the Swift 6.3 limitation that actor stored properties are not directly consumable.
+       • ClientRuntime gains: typealias MakeFoo / let makeFoo: MakeFoo
+       • fromRuntime creates SubFSMFoo actors and wraps each parent transition hook to call
+         the appropriate sub-machine lifecycle method before the user's hook.
+     
+   Lifecycle mapping (parent → sub-machine actor method):
+     Transition FROM the initial parent state → SubFSMFoo.start()
+     Transition with an Error-typed parameter  → SubFSMFoo.error(_:)
+     All other transitions                     → SubFSMFoo.stop()
+*/
 ComposeDecl      ::= { Whitespace } "@compose" Whitespace Identifier Newline
 
 FactoryDecl      ::= { Whitespace } "@factory" Whitespace Identifier "(" [ ParameterList ] ")" Newline

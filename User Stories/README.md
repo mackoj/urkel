@@ -4,19 +4,19 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 
 ## Epic 1 — Foundation
 
-- [ ][US-1.1 foundation](us-1-1-foundation.md)
-- [ ][US-1.2 base file pipeline](us-1-2-base.md)
+- [x][US-1.1 foundation](us-1-1-foundation.md)
+- [x][US-1.2 base file pipeline](us-1-2-base.md)
 
 ## Epic 2 — AST and Parsing
 
-- [ ][US-2.1 AST model](us-2-1-ast.md)
-- [ ][US-2.2 parser](us-2-2-parser.md)
-- [ ][US-2.3 swift-parsing refactor](us-2-3-swift-parsing.md)
+- [x][US-2.1 AST model](us-2-1-ast.md)
+- [x][US-2.2 parser](us-2-2-parser.md)
+- [x][US-2.3 swift-parsing refactor](us-2-3-swift-parsing.md)
 
 ## Epic 3 — Validation
 
-- [ ][US-3.1 validator](us-3-1-validator.md)
-- [ ][US-3.2 semantic validation](us-3-2-semval.md)
+- [x][US-3.1 validator](us-3-1-validator.md)
+- [x][US-3.2 semantic validation](us-3-2-semval.md)
 
 ## Epic 4 — Emitter and Generated Runtime
 
@@ -72,7 +72,17 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [x][US-10.5 template model expansion and Kotlin parity](us-10-5-template-model-and-kotlin-parity.md)
 - [x][US-10.6 LSP performance and partial-AST resilience](us-10-6-lsp-performance-and-partial-ast.md)
 
+## Epic 13 — Example Quality
+
+- [ ][US-13.1 wire UrkelPlugin and per-machine configs into the MFSM example](us-13-1-mfsm-plugin-config.md)
+
+## Epic 12 — Emitter Architecture
+
+- [ ][US-12.1 replace string-concatenation emitter with SwiftSyntaxBuilder](us-12-1-swiftsyntax-emitter.md)
+
 ## Epic 11 — Composition and Forking
 
 - [ ][US-11.1 fork operator and composition AST](us-11-1-fork.md)
-- [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md)
+- [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md) *(superseded by US-11.4)*
+- [ ][US-11.3 sub-observer embedding](us-11-3-sub-observer-embedding.md) *(superseded by US-11.4)*
+- [ ][US-11.4 `@compose` SubFSM actor bridge emitter](us-11-4-compose-actor-bridge.md)

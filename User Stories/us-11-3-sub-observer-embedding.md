@@ -1,8 +1,15 @@
 # US-11.3: Sub-Observer Embedding for Composed Machines
 
 **Supersedes:** US-11.2 (Orchestrator Actor Emitter)  
+**Superseded by:** US-11.4 (SubFSM Actor Bridge Emitter)  
 **Depends on:** US-11.1 (Fork Operator & Composition AST)  
-**Status:** Proposed
+**Status:** Superseded — do not implement
+
+> **Why superseded?**  
+> US-11.3 requires consuming stored properties of `~Copyable` type directly on the parent observer value type (via `switch consume self` in a `consuming func`). This works for a struct's own `mutating`/`consuming` methods.  
+> However, once that state needs to cross into the `@Sendable` closure context required by `MainFSMMachine._start` / `_errorError` / `_stop`, there is no safe way to carry the `~Copyable` sub-observer across the boundary — you cannot store it in a class or actor and consume it later, because Swift 6.3 actor stored properties are accessed through synthesised `_read`/`_modify` coroutine accessors, and `consume` requires direct storage.  
+> US-11.4 resolves this by giving each composed machine its own dedicated actor (`SubFSM<Name>`) with a `withUnsafeMutablePointer`-based `takePhase()` helper that bypasses the accessor. This keeps the parent observer untouched and compiles cleanly under Swift 6.3.  
+> This story is kept for historical context only.
 
 ---
 

@@ -1,0 +1,14 @@
+machine MainFSM
+@compose SomeFeature1
+@compose SomeFeature2
+@factory makeMainFSM()
+
+@states
+  init Idle
+  state Running
+  final Stopped
+
+@transitions
+  Idle -> start -> Running
+  Running -> error(error:Error) -> Stopped
+  Running -> stop -> Stopped

@@ -33,7 +33,7 @@ struct UrkelPlugin: BuildToolPlugin {
       }
       
       let outputDirectoryURL = configuration.outputDirectoryURL(in: context)
-      let generatedURL = configuration.generatedOutputURL(
+      let generatedURLs = configuration.generatedOutputURLs(
         for: sourceURL,
         outputDirectoryURL: outputDirectoryURL
       )
@@ -71,11 +71,11 @@ struct UrkelPlugin: BuildToolPlugin {
       }
       
       return .buildCommand(
-        displayName: "Generating \(generatedURL.lastPathComponent)",
+        displayName: "Generating \(generatedURLs[0].lastPathComponent)",
         executable: tool.url,
         arguments: arguments,
         inputFiles: inputFiles,
-        outputFiles: [generatedURL]
+        outputFiles: generatedURLs
       )
     }
   }
@@ -203,22 +203,39 @@ struct UrkelPlugin: BuildToolPlugin {
       context.pluginWorkDirectoryURL
     }
     
-    func generatedOutputURL(for sourceURL: URL, outputDirectoryURL: URL) -> URL {
+    func generatedOutputURLs(for sourceURL: URL, outputDirectoryURL: URL) -> [URL] {
       let resolvedOutputDirectoryURL = self.resolvedOutputDirectoryURL(from: outputDirectoryURL)
 
       let baseName = sourceURL.deletingPathExtension().lastPathComponent
       let outputExtension = resolvedOutputExtension(for: sourceURL)
 
-      let outputName: String
       if raw.template != nil || raw.language != nil {
-        outputName = "\(baseName).\(outputExtension)"
-      } else {
-        // For native Swift, use the first of the 3 generated files as the representative URL.
-        let machineName = pascalCased(baseName)
-        outputName = "\(machineName)Machine.swift"
+        let outputName = "\(baseName).\(outputExtension)"
+        return [resolvedOutputDirectoryURL.appendingPathComponent(outputName)]
       }
 
-      return resolvedOutputDirectoryURL.appendingPathComponent(outputName)
+      // For native Swift, register all 3 generated files so the build system
+      // knows exactly which files each urkel source produces.
+      let rawMachineName = Self.machineNameFromFile(at: sourceURL) ?? baseName
+      let machineName = pascalCased(rawMachineName)
+      return [
+        resolvedOutputDirectoryURL.appendingPathComponent("\(machineName)Machine.swift"),
+        resolvedOutputDirectoryURL.appendingPathComponent("\(machineName)Client.swift"),
+        resolvedOutputDirectoryURL.appendingPathComponent("\(machineName)Client+Dependency.swift"),
+      ]
+    }
+
+    /// Extracts the machine name from the first `machine <Name>` declaration in a `.urkel` file.
+    private static func machineNameFromFile(at url: URL) -> String? {
+      guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+      for line in content.split(separator: "\n", omittingEmptySubsequences: true) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard trimmed.hasPrefix("machine ") else { continue }
+        let name = String(trimmed.dropFirst("machine ".count))
+          .trimmingCharacters(in: .whitespaces)
+        if !name.isEmpty { return name }
+      }
+      return nil
     }
 
     private func pascalCased(_ raw: String) -> String {
