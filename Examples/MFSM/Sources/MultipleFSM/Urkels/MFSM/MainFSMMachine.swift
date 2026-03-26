@@ -13,7 +13,7 @@ internal struct MainFSMStateRuntimeContext: Sendable {
 // MARK: - MainFSM State Machine
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-public struct MainFSMMachine<State>: ~Copyable {
+public struct MainFSMMachine<State>: ~Copyable, Sendable {
     private var internalContext: MainFSMStateRuntimeContext
 
     fileprivate let _start: @Sendable (MainFSMStateRuntimeContext) async throws -> MainFSMStateRuntimeContext
@@ -82,7 +82,7 @@ extension MainFSMMachine where State == MainFSMStateRunning {
 // MARK: - MainFSM Combined State
 
 /// A runtime-friendly wrapper over all observer states.
-public enum MainFSMState: ~Copyable {
+public enum MainFSMState: ~Copyable, Sendable {
     case idle(MainFSMMachine<MainFSMStateIdle>)
     case running(MainFSMMachine<MainFSMStateRunning>)
     case stopped(MainFSMMachine<MainFSMStateStopped>)

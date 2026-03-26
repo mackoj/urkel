@@ -66,7 +66,7 @@ struct InlineSnapshotTests {
             // MARK: - FolderWatch State Machine
 
             /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-            public struct FolderWatchMachine<State>: ~Copyable {
+            public struct FolderWatchMachine<State>: ~Copyable, Sendable {
                 private var internalContext: FolderContext
 
                 fileprivate let _start: @Sendable (FolderContext) async throws -> FolderContext
@@ -119,7 +119,7 @@ struct InlineSnapshotTests {
             // MARK: - FolderWatch Combined State
 
             /// A runtime-friendly wrapper over all observer states.
-            public enum FolderWatchState: ~Copyable {
+            public enum FolderWatchState: ~Copyable, Sendable {
                 case idle(FolderWatchMachine<FolderWatchStateIdle>)
                 case running(FolderWatchMachine<FolderWatchStateRunning>)
                 case stopped(FolderWatchMachine<FolderWatchStateStopped>)

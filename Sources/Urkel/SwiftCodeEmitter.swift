@@ -121,7 +121,7 @@ public struct SwiftCodeEmitter {
 
         let allAssignments = closureAssignments
 
-        let conformances = nonescapable ? "~Copyable, ~Escapable" : "~Copyable"
+        let conformances = nonescapable ? "~Copyable, ~Escapable" : "~Copyable, Sendable"
         let propsSection = closureProps.isEmpty ? "" : "\n\(closureProps)"
 
         // Build flat top-level typestate marker enums
@@ -529,7 +529,7 @@ public struct SwiftCodeEmitter {
         // MARK: - \(names.machineTypeName) Combined State
 
         /// A runtime-friendly wrapper over all observer states.
-        public enum \(names.stateWrapperTypeName): ~Copyable {
+        public enum \(names.stateWrapperTypeName): ~Copyable, Sendable {
         \(cases)
         \(initialInit)
         }

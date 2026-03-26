@@ -13,7 +13,7 @@ internal struct SomeFeature1StateRuntimeContext: Sendable {
 // MARK: - SomeFeature1 State Machine
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-public struct SomeFeature1Machine<State>: ~Copyable {
+public struct SomeFeature1Machine<State>: ~Copyable, Sendable {
     private var internalContext: SomeFeature1StateRuntimeContext
 
     fileprivate let _start: @Sendable (SomeFeature1StateRuntimeContext) async throws -> SomeFeature1StateRuntimeContext
@@ -82,7 +82,7 @@ extension SomeFeature1Machine where State == SomeFeature1StateRunning {
 // MARK: - SomeFeature1 Combined State
 
 /// A runtime-friendly wrapper over all observer states.
-public enum SomeFeature1State: ~Copyable {
+public enum SomeFeature1State: ~Copyable, Sendable {
     case idle(SomeFeature1Machine<SomeFeature1StateIdle>)
     case running(SomeFeature1Machine<SomeFeature1StateRunning>)
     case stopped(SomeFeature1Machine<SomeFeature1StateStopped>)
