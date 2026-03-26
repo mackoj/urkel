@@ -72,6 +72,10 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 - [x][US-10.5 template model expansion and Kotlin parity](us-10-5-template-model-and-kotlin-parity.md)
 - [x][US-10.6 LSP performance and partial-AST resilience](us-10-6-lsp-performance-and-partial-ast.md)
 
+## Epic 12 — Emitter Architecture
+
+- [ ][US-12.1 replace string-concatenation emitter with SwiftSyntaxBuilder](us-12-1-swiftsyntax-emitter.md)
+
 ## Epic 11 — Composition and Forking
 
 - [ ][US-11.1 fork operator and composition AST](us-11-1-fork.md)
