@@ -1,8 +1,7 @@
 machine MainFSM
 @factory makeMainFSM()
 
-# Idea not working yet
-# @compose SomeFeature1, SomeFeature2
+@compose SomeFeature1, SomeFeature2
 
 @states
   init Idle

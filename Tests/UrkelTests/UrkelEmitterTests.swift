@@ -103,8 +103,8 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("public static var liveValue: Self { .makeLive() }"))
     }
 
-    @Test("Emitter embeds sub-observer slot and factory for composed machines")
-    func emitsSubObserverEmbeddingForComposition() {
+    @Test("Emitter generates SubFSM actor bridge for composed machines")
+    func emitsSubFSMActorBridgeForComposition() {
         let ast = MachineAST(
             imports: ["Foundation", "Dependencies"],
             machineName: "Scale",
@@ -124,31 +124,34 @@ struct SwiftCodeEmitterTests {
 
         let output = SwiftCodeEmitter().emitUnified(ast: ast)
 
-        // Sub-observer slot and factory are embedded in the observer
-        #expect(output.contains("var _bleState: BLEState?"))
-        #expect(output.contains("let _makeBLE: @Sendable () -> BLEState"))
+        // US-11.4: SubFSM actor is generated, not sub-observer embedding
+        #expect(output.contains("private actor SubFSMBLE"))
+        #expect(output.contains("private enum Phase: ~Copyable"))
+        #expect(output.contains("case active(BLEState)"))
+        #expect(output.contains("case dead"))
+        #expect(output.contains("private func takePhase() -> Phase"))
+        #expect(output.contains("withUnsafeMutablePointer(to: &phase)"))
+        #expect(output.contains("func start() async throws"))
+        #expect(output.contains("func stop() async throws"))
+        #expect(output.contains("func error(_ err: Error) async throws"))
 
-        // No orchestrator actor generated
-        #expect(!output.contains("public actor ScaleOrchestrator"))
+        // US-11.4: parent struct has NO embedded sub-observer slots
+        #expect(!output.contains("var _bleState"))
+        #expect(!output.contains("let _makeBLE"))
+        #expect(!output.contains("_advancingBLEState"))
 
-        // Fork transition spawns BLE using factory
-        #expect(output.contains("_bleState: self._makeBLE()"))
+        // US-11.4: ClientRuntime has factory property for composed machine
+        #expect(output.contains("typealias MakeBLE = @Sendable () -> BLEMachine<BLEStateIdle>"))
+        #expect(output.contains("let makeBLE: MakeBLE"))
 
-        // Non-fork transitions carry composed state forward
-        #expect(output.contains("_bleState: self._bleState"))
+        // US-11.4: fromRuntime creates actor and wraps transitions
+        #expect(output.contains("let _sub1 = SubFSMBLE(runtime.makeBLE())"))
+        #expect(output.contains("try await _sub1.start()"))
+        #expect(output.contains("try await _sub1.stop()"))
 
-        // Client factory accepts BLE factory parameter
-        #expect(output.contains("@Sendable (@escaping @Sendable () -> BLEState) -> ScaleMachine<ScaleStateWakingUp>"))
-
-        // fromRuntime closure accepts makeBLE parameter
-        #expect(output.contains("makeScaleObserver: { makeBLE in"))
-
-        // fromRuntime passes _makeBLE to observer (bleState uses default .none)
-        #expect(!output.contains("_bleState: nil"))
-        #expect(output.contains("_makeBLE: makeBLE"))
-
-        // Placeholder closures ignore composed factory param
-        #expect(output.contains("makeScaleObserver: {"))
+        // US-11.4: client factory type has NO composed machine parameter
+        #expect(output.contains("@Sendable () -> ScaleMachine<ScaleStateWakingUp>"))
+        #expect(!output.contains("@Sendable (@escaping @Sendable () -> BLEState)"))
     }
 
     @Test("Emitter generates ~Escapable conformance when nonescapable is true")
@@ -158,8 +161,8 @@ struct SwiftCodeEmitterTests {
         #expect(output.contains("public struct FolderWatchMachine<State>: ~Copyable, ~Escapable"))
     }
 
-    @Test("Emitter generates BLE forwarding methods when composed AST is provided")
-    func emitsComposedForwardingMethods() {
+    @Test("Emitter does not generate forwarding methods for composed machines (US-11.4 actor bridge)")
+    func composedMachinesUseActorBridgeNotForwardingMethods() {
         let bleAST = MachineAST(
             imports: ["Foundation"],
             machineName: "BLE",
@@ -194,20 +197,23 @@ struct SwiftCodeEmitterTests {
 
         let output = SwiftCodeEmitter().emitUnified(ast: scaleAST, composedASTs: ["BLE": bleAST])
 
-        // BLE forwarding extension on ScaleState
-        #expect(output.contains("extension ScaleState {"))
-        // blePowerOn with no params
-        #expect(output.contains("public consuming func blePowerOn() async throws -> Self"))
-        // bleDeviceFound with params
-        #expect(output.contains("public consuming func bleDeviceFound(device: String) async throws -> Self"))
-        // Post-fork states use the advance helper
-        #expect(output.contains("case let .tare(obs):"))
-        #expect(output.contains("obs._advancingBLEState"))
-        // Pre-fork states pass through unchanged
-        #expect(output.contains("case let .wakingUp(obs):"))
-        // No forwarding generated without composed AST
-        let outputWithoutAST = SwiftCodeEmitter().emitUnified(ast: scaleAST, composedASTs: [:])
-        #expect(!outputWithoutAST.contains("func blePowerOn"))
+        // US-11.4: SubFSM actor uses lifecycle events from composed AST
+        #expect(output.contains("private actor SubFSMBLE"))
+        #expect(output.contains("state.powerOn()"))   // start call derived from BLE's Off→Scanning event
+
+        // US-11.4: NO old-style forwarding methods on ScaleState
+        #expect(!output.contains("func blePowerOn"))
+        #expect(!output.contains("func bleDeviceFound"))
+        #expect(!output.contains("_advancingBLEState"))
+
+        // BLE lifecycle correctly wired: hardwareReady (from WakingUp = initial) → start
+        //                                finish (from Tare, no Error param)      → stop
+        #expect(output.contains("try await _sub1.start()"))
+        #expect(output.contains("try await _sub1.stop()"))
+
+        // fromRuntime wraps both transitions
+        #expect(output.contains("_hardwareReady: { ctx in"))
+        #expect(output.contains("_finish: { ctx in"))
     }
 
     @Test("Emitter withXxx methods use switch with default for clean borrowing")
