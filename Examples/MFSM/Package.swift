@@ -19,7 +19,7 @@ let package = Package(
       url: "https://github.com/pointfreeco/swift-dependencies.git",
       from: "1.8.1"
     ),
-    .package(path: "../../"),
+//    .package(path: "../../"),
   ],
   targets: [
     .target(
