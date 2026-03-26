@@ -13,7 +13,7 @@ internal struct SomeFeature1StateRuntimeContext: Sendable {
 // MARK: - SomeFeature1 State Machine
 
 /// A type-safe observer wrapper that encodes the current machine state in its generic parameter.
-public struct SomeFeature1Machine<State>: ~Copyable, Sendable {
+public struct SomeFeature1Machine<State>: ~Copyable {
     private var internalContext: SomeFeature1StateRuntimeContext
 
     fileprivate let _start: @Sendable (SomeFeature1StateRuntimeContext) async throws -> SomeFeature1StateRuntimeContext

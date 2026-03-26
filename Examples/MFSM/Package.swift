@@ -26,6 +26,9 @@ let package = Package(
       name: "MultipleFSM",
       dependencies: [
         .product(name: "Dependencies", package: "swift-dependencies"),
+      ],
+      plugins: [
+        .plugin(name: "UrkelPlugin", package: "urkel")
       ]
     ),
     .testTarget(

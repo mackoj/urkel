@@ -1,0 +1,6 @@
+{
+  "outputFolder": "Sources/MultipleFSM/Urkels/SomeFeature2",
+  "imports": {
+    "swift": ["Foundation", "Dependencies"]
+  }
+}

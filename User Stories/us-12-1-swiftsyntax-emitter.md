@@ -68,7 +68,7 @@ is a compile-time type error, not a runtime formatting surprise.
 ### 2.4 The existing emitter has already exceeded its complexity budget
 
 `SwiftCodeEmitter.swift` reached 800 lines before US-11.4.  US-11.4 pushed it
-past 1 200 lines.  US-11.4's `emitSubFSMActors` and the composed-machine branch of
+past 1200 lines.  US-11.4's `emitSubFSMActors` and the composed-machine branch of
 `emitClientRuntimeBuilder` are the most complex functions in the codebase: nested
 string interpolations inside closures inside interpolations, with separate
 indentation decisions for every nesting level.
@@ -117,7 +117,7 @@ generated files shows only semantically meaningful changes.
 
 ```swift
 // Package.swift
-.package(url: "https://github.com/apple/swift-syntax.git", from: "600.0.0"),
+.package(url: "https://github.com/apple/swift-syntax.git", from: "603.0.0<605.0.0"),
 ```
 
 Add `SwiftSyntax` and `SwiftSyntaxBuilder` to the `Urkel` library target.
