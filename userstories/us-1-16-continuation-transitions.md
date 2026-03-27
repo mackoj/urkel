@@ -2,24 +2,22 @@
 
 ## Objective
 
-Document the idiomatic way to model a state that continuously produces a stream of values while active — using `@entry`/`@exit` for producer lifecycle and explicit transitions for errors and natural completion. This is a **convention**, not a new DSL keyword.
+Model a state that continuously produces a stream of values while active. Output events — `-*>` declarations with **no action** — are the DSL mechanism: they declare what the machine emits from a state. The code generator turns them into a typed stream accessible to the caller.
 
 ## Background
 
 Some states exist because the machine is actively producing a sequence of values: a folder watcher emitting file-system events, a BLE connection streaming sensor readings, a price feed emitting quotes. The machine stays in that state for as long as the stream is active.
 
-This looks like it needs special syntax. It does not. The existing DSL already has everything needed:
+The Urkel DSL handles this with two cooperating constructs:
 
-- `@entry State / startProducer` — starts the producer when the state is entered (US-1.7)
-- `@exit  State / stopProducer` — cancels the producer when the state is exited (US-1.7)
-- Explicit transitions for errors from the producer (US-1.1, US-1.2)
-- An optional transition for natural stream completion (producer finished normally)
+1. **`@entry`/`@exit`** — manage the producer lifecycle (start and stop the background task).
+2. **Output events** (`-*>` with no action) — declare what the machine emits while in that state. The generator creates a typed stream for each one.
 
-The producer itself — what kind of stream it is, how it delivers values to the caller — is a **generated API detail** specific to the target language. The DSL describes the lifecycle and the error paths; the code generator handles how values flow to the consumer.
+The shape of the stream (async sequence, callback, channel) is a code generation concern specific to the target language. The DSL only declares the event name and its payload.
 
-## The Pattern
+## DSL Syntax
 
-### Full form
+### Core pattern
 
 ```
 machine FolderWatch
@@ -30,30 +28,100 @@ machine FolderWatch
   state Error
   final Stopped
 
-@entry Running / startWatching    # starts the directory producer
+@entry Running / startWatching    # starts the directory watcher
 @exit  Running / stopWatching     # cancels it when the state is exited for any reason
 
 @transitions
-  Idle    -> start              -> Running
+  Idle    -> start -> Running
 
-  # Errors from the producer are explicit transitions
-  Running -> watchError(error: Error) -> Error
+  # Output event: machine emits this to the caller; generator creates a stream
+  Running -*> directoryChanged(event: DirectoryEvent)
 
-  # Natural completion (producer signalled it is done)
+  # Hard error: producer failed unrecoverably → state change
+  Running -> watchFailed(error: Error) -> Error
+
+  # Soft error: transient; logged in-place, stays Running
+  Running -*> watchWarning(error: Error) / logWarning
+
+  # Natural completion or caller stop
   Running -> watchCompleted -> Stopped
-
-  # Caller-driven stop
-  Running -> stop -> Stopped
+  Running -> stop           -> Stopped
 
   Error   -> retry -> Running
   Error   -> stop  -> Stopped
 ```
 
-### Why `@exit` covers all exits
+### The two forms of `-*>`
+
+| Form | Has action? | Meaning |
+|------|-------------|---------|
+| `State -*> event(params) / action` | Yes | In-place handler — caller sends event, machine runs action |
+| `State -*> event(params)` | No | **Output event** — machine emits this to caller; generator creates stream |
+
+The distinction is direction:
+- **In-place handler**: caller → machine. The caller fires the event; the machine handles it without leaving the state.
+- **Output event**: machine → caller. The producer (started by `@entry`) fires the event; the caller receives it as a stream element.
+
+### Multiple output events from one state
+
+```
+@entry Connected / startSensor
+@exit  Connected / stopSensor
+
+Connected -*> measurement(bpm: Int)          # stream 1
+Connected -*> statusUpdate(status: String)   # stream 2
+Connected -> sensorError(error: Error) -> Error
+Connected -> disconnect -> Idle
+```
+
+Each output event becomes its own stream property on the generated machine type for that state.
+
+### Output event without `@entry`/`@exit`
+
+`@entry`/`@exit` are not required — the output event declaration is independent. A state can declare output events and rely on the client implementation to drive them:
+
+```
+Running -*> tick(elapsed: TimeInterval)   # output; caller observes elapsed ticks
+Running -> stop -> Stopped
+```
+
+## Why `@exit` covers all exits
 
 `@exit Running / stopWatching` fires on **every** transition out of `Running`:
 
-- `Running -> watchError -> Error` → `stopWatching` fires
+- `Running -> watchFailed -> Error` → `stopWatching` fires
+- `Running -> watchCompleted -> Stopped` → `stopWatching` fires
+- `Running -> stop -> Stopped` → `stopWatching` fires
+
+The producer is always cleaned up. The `stopWatching` implementation should be safe to call even if the producer has already finished.
+
+## Acceptance Criteria
+
+* **Given** `Running -*> directoryChanged(event: DirectoryEvent)` with no action, **when** processed, **then** it is recognized as an output event declaration — the generator creates a stream of `DirectoryEvent` accessible from the `Running`-state machine.
+
+* **Given** a state with both an output event and `@entry`/`@exit` actions, **when** the state is entered, **then** the `@entry` action fires; as the producer emits, output events populate the stream; when the state is exited, the `@exit` action fires and the stream is closed.
+
+* **Given** `State -*> event(params)` with no action and no parameters, **when** validated, **then** a warning is emitted: `"Output event 'event' has no parameters — it conveys no data to the caller; consider adding parameters or an action"`.
+
+* **Given** two output events with the same name on the same source state, **when** validated, **then** an error is emitted: `"Duplicate output event 'X' on state 'S'"`.
+
+* **Given** an output event on a `final` state, **when** validated, **then** an error is emitted: `"Final states cannot declare output events"`.
+
+* **Given** a machine with output events, **when** code is generated, **then** each output event becomes a typed stream property on the machine constrained to that state — inaccessible when the machine is in any other state.
+
+## Why not `@continuation`?
+
+`@continuation` was removed because:
+
+1. **Language-specific types** — `AsyncThrowingStream<T, Error>` is Swift. The DSL must be target-language agnostic.
+2. **Not a FSM primitive** — no equivalent exists in XState, SCXML, or Harel statecharts.
+3. **Output events replace it cleanly** — `-*>` without action expresses the same intent: a value produced from a stable state, language-agnostically.
+
+## Notes
+
+- Output events combine naturally with `after(duration)` (US-1.15): if the state times out, the stream is closed and the machine transitions.
+- Output events combine with compound reactive conditions (US-1.17): a parent machine can react via `@on` when a child machine's output stream fires (the child emits an output event → child transitions → parent reacts to child's new state).
+- The generator decides what "stream" means per target language: `AsyncStream` in Swift, `Flow` in Kotlin, an `Observable` in Rx-based targets, etc.
 - `Running -> watchCompleted -> Stopped` → `stopWatching` fires
 - `Running -> stop -> Stopped` → `stopWatching` fires
 

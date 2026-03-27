@@ -17,7 +17,9 @@ The machine handles an event (a seek command, a progress tick, a volume change) 
 
 ## DSL Syntax
 
-### Internal transitions (`-*>`)
+### In-place handler (`-*>` with action)
+
+The caller sends the event; the machine handles it in-place and runs the action. No exit, no re-entry.
 
 ```
 machine VideoPlayer: PlayerContext
@@ -34,13 +36,33 @@ machine VideoPlayer: PlayerContext
   Paused  -> resume                 -> Playing
   Playing -> stop                   -> Stopped
 
-  # Internal: stay in Playing, no exit/re-entry, action fires
+  # In-place handler: caller → machine; action fires, state stays
   Playing -*> seek(position: Double)        / emitSeekUI
   Playing -*> updateProgress(pct: Double)   / updateProgressBar
 
-  # Internal with guard
+  # In-place handler with guard
   Playing -*> adjustVolume(level: Float) [isVolumePermitted] / applyVolume
 ```
+
+### Output event (`-*>` without action)
+
+The machine emits this event to the caller while staying in the state. No action is needed — the generator wires these up as a stream of values the caller can observe. See [US-1.16](us-1-16-continuation-transitions.md) for the full stream production pattern.
+
+```
+@entry Running / startWatching
+@exit  Running / stopWatching
+
+Running -*> directoryChanged(event: DirectoryEvent)   # output: machine → caller
+Running -*> watchWarning(error: Error) / logWarning   # in-place handler: action present
+Running -> watchFailed(error: Error) -> Error
+```
+
+The two forms at a glance:
+
+| Form | Direction | Action? | Meaning |
+|------|-----------|---------|---------|
+| `State -*> event(p) / action` | Caller → machine | Yes | In-place handler |
+| `State -*> event(p)` | Machine → caller | No | Output event → stream |
 
 ## Acceptance Criteria
 
@@ -56,7 +78,11 @@ machine VideoPlayer: PlayerContext
 
 * **Given** an internal transition on a `final` state, **when** validated, **then** an error is emitted: `"Final states cannot have transitions"`.
 
-* **Given** an internal transition with no action and no guard, **when** validated, **then** a warning is emitted: `"Internal transition '-*>' on event 'X' has no action — it silently consumes the event"`.
+* **Given** `Running -*> directoryChanged(event: DirectoryEvent)` with no action, **when** processed, **then** it is recognized as an **output event**: the generator creates a typed stream for `DirectoryEvent` accessible from the machine while in `Running`.
+
+* **Given** an internal transition with no action and **no parameters** (`State -*> reset`), **when** validated, **then** a warning is emitted: `"'-*>' on event 'reset' has no action and no parameters — it silently consumes the event without producing data; add an action or parameters"`.
+
+* **Given** an output event declaration on a `final` state, **when** validated, **then** an error is emitted: `"Final states cannot declare output events"`.
 
 ## Relationship to `->` (self-transition)
 

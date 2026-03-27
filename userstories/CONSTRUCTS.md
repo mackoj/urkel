@@ -14,12 +14,13 @@ All constructs in the Urkel DSL mapped on three axes: **what triggers it**, **wh
 | `State -> event -> Dest` | Caller | Specific state | New state |
 | `State -> event [guard] -> Dest` | Caller | Specific state | New state (conditional) |
 | `State -> event -> Dest / action` | Caller | Specific state | New state + side effect |
-| `State -*> event / action` | Caller | Specific state | In-place, no lifecycle |
+| `State -*> event(params) / action` | Caller | Specific state | In-place, no lifecycle |
+| `State -*> event(params)` | Machine-internal | Specific state | **Output event** → stream |
 | `* -> event -> Dest` ◆ | Caller | Any non-final | New state |
 | `* -*> event / action` ◆ | Caller | Any non-final | In-place, no lifecycle |
 
 `*` is syntactic sugar — expands to one transition per non-final source state. See [US-1.18](us-1-18-wildcard-source.md).  
-`-*>` is an **effect modifier**: no exit/re-entry, no lifecycle hook firing, no timer reset. See [US-1.8](us-1-8-internal-and-wildcard-transitions.md).
+`-*>` has **two forms**: with `/action` = caller-driven in-place handler; without action = output event declaration (machine emits to caller; generator creates a stream). See [US-1.8](us-1-8-internal-and-wildcard-transitions.md), [US-1.16](us-1-16-continuation-transitions.md).
 
 ---
 
@@ -106,8 +107,8 @@ The fork `=>` is an additional side effect on a regular transition, not a separa
 
 | Axis | Values |
 |------|--------|
-| **Trigger** | Caller / Entry-automatic / Timer / Reactive (`@on`) |
+| **Trigger** | Caller / Machine-internal (output event) / Entry-automatic / Timer / Reactive (`@on`) |
 | **Scope** | Specific state / Any non-final (`*`) / Any parent (implicit in `@on`) / AND-scoped (`@on X, State`) |
-| **Effect** | New state (`->`) / In-place no-lifecycle (`-*>`) / Lifecycle side effect (`@entry`/`@exit`) / Fork (`=>`) |
+| **Effect** | New state (`->`) / In-place no-lifecycle (`-*>` + action) / Output event stream (`-*>` no action) / Lifecycle side effect (`@entry`/`@exit`) / Fork (`=>`) |
 
-**Key insight:** `-*>` is a modifier on the **effect** axis — it can combine with any trigger and any scope. `*` is a modifier on the **scope** axis — it applies only to caller-driven transitions. `@on` is the entire **reactive trigger** domain.
+**Key insight:** `-*>` has two distinct uses depending on whether an action is present: with action = in-place caller handler; without action = output event declaration. `*` is a scope modifier for caller-driven transitions only. `@on` is the entire reactive trigger domain.
