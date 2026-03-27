@@ -1,0 +1,254 @@
+/* ============================================================
+   Urkel DSL Grammar — v2
+   Complete EBNF for the Urkel state machine DSL.
+   Supersedes v1/grammar.ebnf.
+
+   Notation:
+     ::=   definition
+     |     alternation
+     [ ]   optional (zero or one)
+     { }   repetition (zero or more)
+     ( )   grouping
+     " "   terminal literal
+   ============================================================ */
+
+
+/* ─── 1. Root ───────────────────────────────────────────────── */
+
+UrkelFile ::= { TriviaLine }
+              MachineDecl
+              { TriviaLine }
+              { ImportDecl TriviaLine* }
+              { ParallelDecl TriviaLine* }
+              StatesBlock
+              { TriviaLine }
+              { EntryExitDecl TriviaLine* }
+              TransitionsBlock
+              { TriviaLine }
+
+
+/* ─── 2. Machine Declaration ────────────────────────────────── */
+
+/* Optional ": ContextType" injects a dependency bundle at
+   construction time (e.g. a struct of closures for effects). */
+MachineDecl ::= { Whitespace } "machine" Whitespace Identifier
+                [ { Whitespace } ":" { Whitespace } Identifier ]
+                { Whitespace } Newline
+
+
+/* ─── 3. Imports ────────────────────────────────────────────── */
+
+/* Declares a sub-machine dependency.
+   Used together with the fork operator "=> Name.init" in transitions. */
+ImportDecl ::= { Whitespace } "@import" Whitespace Identifier
+               [ { Whitespace } "from" { Whitespace } Identifier ]
+               { Whitespace } Newline
+
+
+/* ─── 4. States Block ───────────────────────────────────────── */
+
+StatesBlock ::= { Whitespace } "@states" { Whitespace } Newline
+                { TriviaLine | StateDecl }
+
+StateDecl ::= SimpleStateDecl
+            | CompoundStateDecl
+
+/* StateKind:
+     init   — exactly one per machine; construction-time params allowed.
+     state  — regular non-terminal state; params allowed for state-carried data.
+     final  — terminal state; no outbound transitions; params for output value. */
+SimpleStateDecl ::= { Whitespace } StateKind
+                    [ "(" ParameterList ")" ]
+                    { Whitespace } Identifier
+                    [ { Whitespace } HistoryModifier ]
+                    { Whitespace } Newline
+
+StateKind       ::= "init" | "state" | "final"
+
+/* @history        — shallow: restore last direct child on re-entry.
+   @history(deep)  — deep: restore full active subtree on re-entry. */
+HistoryModifier ::= "@history" [ "(" "deep" ")" ]
+
+/* Compound (hierarchical) state: contains nested states and their
+   inner transitions.  Inner transitions are scoped to the sub-space;
+   cross-boundary transitions go in the outer @transitions block. */
+CompoundStateDecl ::= { Whitespace } "state" { Whitespace } Identifier
+                      [ { Whitespace } HistoryModifier ]
+                      { Whitespace } "{" { Whitespace } Newline
+                      { TriviaLine | SimpleStateDecl }
+                      { TriviaLine | TransitionStmt }
+                      { Whitespace } "}" { Whitespace } Newline
+
+
+/* ─── 5. Parallel Regions ───────────────────────────────────── */
+
+/* "@parallel Name" declares a compound-parallel state named Name.
+   The parent machine can transition into/out of it like any state.
+   All regions start simultaneously on entry and run concurrently.
+   @on Name::done fires when ALL regions have reached a final state. */
+ParallelDecl ::= { Whitespace } "@parallel" Whitespace Identifier
+                 { Whitespace } Newline
+                 { TriviaLine | RegionDecl }
+
+RegionDecl ::= { Whitespace } "region" Whitespace Identifier
+               { Whitespace } Newline
+               StatesBlock
+               TransitionsBlock
+
+
+/* ─── 6. Lifecycle Hooks ────────────────────────────────────── */
+
+/* @entry fires on every transition INTO the named state
+   (including compound-state paths like Active.Playing).
+   @exit  fires on every transition OUT OF the named state.
+   Neither fires on ->> internal transitions. */
+EntryExitDecl ::= { Whitespace } ( "@entry" | "@exit" )
+                  Whitespace StateRef
+                  { Whitespace } "/" { Whitespace } ActionList
+                  { Whitespace } Newline
+
+
+/* ─── 7. Transitions Block ──────────────────────────────────── */
+
+TransitionsBlock ::= { Whitespace } "@transitions" { Whitespace } Newline
+                     { TriviaLine | TransitionStmt | ReactiveStmt }
+
+
+/* ─── 8. Transition Statements ──────────────────────────────── */
+
+/* Full form:
+     Source Arrow Event [Guard] [Arrow Dest [Fork]] [Action]
+
+   Arrow = "->"  : standard (exits and re-enters if Dest == Source)
+   Arrow = "-*>" : effect modifier — no exit/re-entry/lifecycle/timer-reset
+
+   Two uses of "-*>" (distinguished by presence of Action):
+     State -*> event(params) / action  → in-place handler  (caller → machine)
+     State -*> event(params)           → output event decl  (machine → caller stream)
+
+   "always" as Event : fires automatically on state entry (eventless/transient).
+   "after(N unit)"   : fires after a duration; auto-cancels on any other exit.
+
+   Dest omitted on ->>  (by definition — no destination).
+   Fork "=> Name.init" spawns a sub-machine declared with @import. */
+
+TransitionStmt ::= { Whitespace } TransitionSource
+                   { Whitespace } Arrow { Whitespace }
+                   EventOrTimer
+                   [ { Whitespace } GuardClause ]
+                   [ { Whitespace } Arrow { Whitespace } StateRef
+                     [ { Whitespace } ForkClause ] ]
+                   [ { Whitespace } ActionClause ]
+                   { Whitespace } Newline
+
+TransitionSource ::= StateRef   /* specific state (may use dot: Active.Playing) */
+                   | "*"        /* any non-final state — syntactic sugar */
+
+Arrow ::= "->" | "-*>"
+
+EventOrTimer ::= EventDecl | TimerDecl | "always"
+
+EventDecl ::= Identifier [ "(" ParameterList ")" ]
+
+TimerDecl  ::= "after" "(" Duration ")"
+Duration   ::= Number DurationUnit
+Number     ::= Digit { Digit } [ "." { Digit } ]
+DurationUnit ::= "ms" | "s" | "min"
+
+GuardClause  ::= "[" { Whitespace } Identifier { Whitespace } "]"
+ActionClause ::= "/" { Whitespace } ActionList
+ActionList   ::= Identifier { { Whitespace } "," { Whitespace } Identifier }
+ForkClause   ::= "=>" { Whitespace } Identifier ".init"
+
+
+/* ─── 9. Reactive Statements ────────────────────────────────── */
+
+/* "@on" reacts to a sub-machine or parallel region entering a state.
+   Trigger: sub-machine / region state change (not caller-driven).
+
+   ReactiveSource forms:
+     MachineName::StateName          — sub-machine enters StateName
+     MachineName::init               — sub-machine re-enters its init state
+     MachineName::final              — sugar: any final state of sub-machine
+     MachineName::*                  — sugar: any state change in sub-machine
+     ParallelName.RegionName::State  — specific region enters State
+     ParallelName::done              — sugar: all regions reached final
+
+   Optional ", OwnState" adds an AND condition:
+     fires only if parent machine is currently in OwnState.
+
+   Effect:
+     Arrow Dest [Action]  — state change (with optional action)
+     ->> [Action]         — in-place, no lifecycle (with optional action) */
+
+ReactiveStmt ::= { Whitespace } "@on" Whitespace ReactiveSource
+                 [ { Whitespace } "," { Whitespace } Identifier ]
+                 { Whitespace } Arrow { Whitespace }
+                 ( StateRef [ { Whitespace } ActionClause ]
+                 | ActionClause )
+                 { Whitespace } Newline
+
+ReactiveSource ::= ReactiveTarget "::" ReactiveState
+
+ReactiveTarget ::= Identifier                    /* machine or parallel block name */
+                 | Identifier "." Identifier     /* ParallelName.RegionName */
+
+ReactiveState  ::= Identifier | "init" | "final" | "*"
+
+/* StateRef: identifier, optionally qualified with dot for compound-state paths */
+StateRef ::= Identifier { "." Identifier }
+
+
+/* ─── 10. Parameters & Types ────────────────────────────────── */
+
+ParameterList ::= Parameter { { Whitespace } "," { Whitespace } Parameter }
+Parameter     ::= Identifier { Whitespace } ":" { Whitespace } TypeExpr
+
+/* TypeExpr is an opaque host-language type expression.
+   The parser reads until it encounters ")", ",", or a newline.
+   Examples: URL, Int, [String: Any]?, CBPeripheral, BodyMetrics */
+TypeExpr ::= TypeChar { TypeChar }
+TypeChar ::= any character except ")", ",", Newline
+
+
+/* ─── 11. Comments & Doc Comments ───────────────────────────── */
+
+TriviaLine     ::= BlankLine | CommentLine | DocCommentLine
+BlankLine      ::= { Whitespace } Newline
+CommentLine    ::= { Whitespace } "#"  { AnyExceptNewline } Newline
+DocCommentLine ::= { Whitespace } "##" { AnyExceptNewline } Newline
+
+/* Doc comments (##) are attached to the next declaration and
+   appear in generated documentation.  Regular comments (#) are
+   stripped during parsing. */
+
+
+/* ─── 12. Lexical Tokens ─────────────────────────────────────── */
+
+Identifier       ::= IdentStart { IdentCont }
+IdentStart       ::= Letter | "_"
+IdentCont        ::= Letter | Digit | "_"
+Letter           ::= "A".."Z" | "a".."z"
+Digit            ::= "0".."9"
+Whitespace       ::= " " | "\t"
+Newline          ::= "\n" | "\r\n"
+AnyExceptNewline ::= any character except "\n" or "\r"
+
+
+/* ─── 13. Deprecations (v1 → v2 migration) ───────────────────── */
+
+/* The following v1 constructs are NO LONGER valid in v2:
+
+   @factory Name(params)
+     → Replace with:  init(params) StateName  in @states
+
+   @compose Name
+     → Replace with:  @import Name  (and add "from Pkg" if cross-package)
+
+   machine Name<ContextType>
+     → Replace with:  machine Name: ContextType
+
+   Running -> events          (incomplete transition, no @continuation)
+   @continuation events -> T  (continuation block)
+     → Replace with:  Running -*> events(params)  (output event declaration)
+*/
