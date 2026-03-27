@@ -54,9 +54,10 @@ StateDecl ::= SimpleStateDecl
             | CompoundStateDecl
 
 /* StateKind:
-     init   — exactly one per machine; construction-time params allowed.
-     state  — regular non-terminal state; params allowed for state-carried data.
-     final  — terminal state; no outbound transitions; params for output value. */
+     init   — exactly one per machine; construction-time params (US-1.3).
+     state  — regular non-terminal state; params for state-carried data (US-1.19).
+     final  — terminal state; no outbound transitions; params for output value (US-1.5).
+   All three kinds support optional "(" ParameterList ")" symmetrically. */
 SimpleStateDecl ::= { Whitespace } StateKind
                     [ "(" ParameterList ")" ]
                     { Whitespace } Identifier
@@ -129,8 +130,13 @@ TransitionsBlock ::= { Whitespace } "@transitions" { Whitespace } Newline
    "always" as Event : fires automatically on state entry (eventless/transient).
    "after(N unit)"   : fires after a duration; auto-cancels on any other exit.
 
-   Dest omitted on ->>  (by definition — no destination).
-   Fork "=> Name.init" spawns a sub-machine declared with @import. */
+   Dest omitted on "-*>"  (by definition — no destination).
+   Fork "=> Name.init[(bindings)]" spawns a sub-machine declared with @import.
+
+   Evaluation order for "always" rules on the same state (US-1.9):
+     1. "always [guard] ->" rules in declaration order — first truthy match exits state.
+     2. "always [else] ->" fires if no guarded rule matched.
+     3. "-*> always / action" fires only if no state change occurred in steps 1–2. */
 
 TransitionStmt ::= { Whitespace } TransitionSource
                    { Whitespace } Arrow { Whitespace }
@@ -155,10 +161,26 @@ Duration   ::= Number DurationUnit
 Number     ::= Digit { Digit } [ "." { Digit } ]
 DurationUnit ::= "ms" | "s" | "min"
 
-GuardClause  ::= "[" { Whitespace } Identifier { Whitespace } "]"
+/* Guards (US-1.6):
+   [guardName]  — fires when the named predicate returns true.
+   [!guardName] — fires when the named predicate returns false (same impl, inverted).
+   [else]       — fires when no preceding guard on the same (source, event) matched.
+                  Must be the last branch; "else" is a reserved keyword in this position. */
+GuardClause  ::= "[" { Whitespace } GuardExpr { Whitespace } "]"
+GuardExpr    ::= "else" | "!"? Identifier
 ActionClause ::= "/" { Whitespace } ActionList
 ActionList   ::= Identifier { { Whitespace } "," { Whitespace } Identifier }
-ForkClause   ::= "=>" { Whitespace } Identifier ".init"
+
+/* Fork with optional param bindings (US-1.13 / GAP-2):
+   "=> Sub.init"                           — no-param sub-machine.
+   "=> Sub.init(destParam: sourceRef, …)"  — bind each init param to a name from the
+                                             triggering event's params or the source
+                                             state's declared params (US-1.19).
+                                             No expressions or literals; name binding only. */
+ForkClause      ::= "=>" { Whitespace } Identifier ".init"
+                    [ "(" ForkBindingList ")" ]
+ForkBindingList ::= ForkBinding { { Whitespace } "," { Whitespace } ForkBinding }
+ForkBinding     ::= Identifier { Whitespace } ":" { Whitespace } Identifier
 
 
 /* ─── 9. Reactive Statements ────────────────────────────────── */
@@ -235,7 +257,18 @@ Newline          ::= "\n" | "\r\n"
 AnyExceptNewline ::= any character except "\n" or "\r"
 
 
-/* ─── 13. Deprecations (v1 → v2 migration) ───────────────────── */
+/* ─── 13. Reserved Keywords ──────────────────────────────────── */
+
+/* These identifiers have fixed meaning in their syntactic position
+   and cannot be used as state names, event names, or guard names. */
+Keywords ::= "machine" | "always" | "after" | "else"
+           | "@states" | "@transitions" | "@import" | "@parallel"
+           | "@entry" | "@exit" | "@on" | "@history"
+           | "init" | "state" | "final"
+           | "region" | "from" | "done"
+
+
+/* ─── 14. Deprecations (v1 → v2 migration) ───────────────────── */
 
 /* The following v1 constructs are NO LONGER valid in v2:
 
