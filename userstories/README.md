@@ -37,6 +37,7 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | [US-1.11](us-1-11-history-states.md) | History States | `@history` modifier |
 | [US-1.12](us-1-12-parallel-regions.md) | Parallel Regions | `@parallel`, `@on P.Region::State`, `@on P::done` |
 | [US-1.13](us-1-13-machine-composition.md) | Machine Composition | `@import`, fork `=>`, `@on` reactions |
-| [US-1.14](us-1-14-async-invocations.md) | Async Invocations | `@invoke` |
+| [US-1.14](us-1-14-async-loading-pattern.md) | Async Loading Pattern | `@entry`/`@exit` convention for async ops |
 | [US-1.15](us-1-15-delayed-transitions.md) | Delayed Transitions | `after(duration)` |
 | [US-1.16](us-1-16-continuation-transitions.md) | Continuation Transitions | `@continuation` |
+| [US-1.17](us-1-17-compound-reactive-conditions.md) | Compound Reactive Conditions | Multi-condition `@on` AND joins |
