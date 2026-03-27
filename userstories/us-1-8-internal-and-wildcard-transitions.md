@@ -1,21 +1,19 @@
-# US-1.8: Internal Transitions and Wildcard Source
+# US-1.8: Internal Transitions (`-*>`)
 
 ## Objective
 
-Introduce two shorthand constructs that eliminate common boilerplate:
-
-- **Internal transitions** (`-*>`) — handle an event without exiting or re-entering the current state.
-- **Wildcard source** (`*`) — handle an event from any non-final state with a single declaration.
+Introduce the `-*>` arrow as a **cross-cutting effect modifier**: handle an event without exiting or re-entering the current state, suppressing entry and exit action firing. Unlike a self-transition (`-> SameState`), `-*>` leaves the machine's state unchanged in every sense — no lifecycle hooks, no timer resets, no re-entry.
 
 ## Background
 
-Two patterns appear in almost every real-world machine:
+The machine handles an event (a seek command, a progress tick, a volume change) but should not leave its current state. Writing `Playing -> seek -> Playing` is a self-transition — it exits and re-enters `Playing`, firing `@exit`/`@entry` actions and resetting any `after(duration)` timers on that state. This is semantically wrong for in-place updates.
 
-1. **Self-contained updates** — the machine handles an event (a progress tick, a seek command, a UI update) but should not leave its current state. Writing `Playing -> seek -> Playing` works but triggers exit and re-entry — firing exit/entry actions and resetting any associated timers. `-*>` expresses "handle this event, stay here, don't re-enter."
+`-*>` expresses precisely: "handle this event, stay here, do not re-enter." It is not a "type of transition" — it is a **modifier on the arrow** that suppresses exit and re-entry. It can appear anywhere an arrow can:
 
-2. **Cross-cutting events** — events like `networkLost`, `sessionExpired`, or `forceStop` must be handled in every active state. Writing one transition per state (`StateA -> networkLost -> Error`, `StateB -> networkLost -> Error`, …) is noise. A single `* -> networkLost -> Error` expresses the intent cleanly.
-
-Both constructs keep the arrow syntax DNA of Urkel intact.
+- On a regular caller-driven transition: `State -*> event / action`
+- On a wildcard caller-driven transition: `* -*> event / action` (US-1.18)
+- On a reactive `@on` subscription: `@on BLE::X -*> / action` (US-1.13)
+- On an eventless `always` with action only: `State -*> always [guard] / action` (US-1.9)
 
 ## DSL Syntax
 
@@ -44,74 +42,52 @@ machine VideoPlayer: PlayerContext
   Playing -*> adjustVolume(level: Float) [isVolumePermitted] / applyVolume
 ```
 
-### Wildcard source (`*`)
-
-```
-machine NetworkSession: SessionContext
-
-@states
-  init Idle
-  state Connecting
-  state Active
-  state Reconnecting
-  final Closed
-
-@transitions
-  Idle        -> connect    -> Connecting
-  Connecting  -> established -> Active
-  Active      -> disconnect  -> Idle
-  Reconnecting -> retry      -> Connecting
-
-  # Wildcard: networkLost transitions from any non-final state to Reconnecting
-  * -> networkLost                -> Reconnecting  / logDisconnect
-  * -> sessionExpired             -> Closed        / clearSession
-  * -> forceClose                 -> Closed
-```
-
-### Combining both
-
-```
-# Internal wildcard: handle an event in any state without changing state
-# (useful for cross-cutting logging or metrics)
-* -*> ping / recordHeartbeat
-```
-
 ## Acceptance Criteria
-
-**Internal transitions (`-*>`)**
 
 * **Given** `Playing -*> seek(position: Double)`, **when** the `seek` event fires, **then** the machine remains in `Playing` — no state type change occurs.
 
-* **Given** an internal transition with an action, **when** the event fires, **then** the action is invoked; `@entry` and `@exit` actions for the current state do **not** fire.
+* **Given** a state with `@entry`/`@exit` actions and an internal transition on it, **when** the internal transition fires, **then** neither `@exit` nor `@entry` fire — the state is not exited or re-entered.
 
-* **Given** an internal transition with a destination state (`Playing -*> seek -> Paused`), **when** validated, **then** an error is emitted: `"Internal transition '-*>' must not specify a destination state"`.
+* **Given** a state with an `after(duration)` timer and an internal transition on it, **when** the internal transition fires, **then** the timer is **not** reset — it continues counting from when the state was entered.
+
+* **Given** an internal transition with an action (`-*> event / action`), **when** the event fires, **then** the action is invoked.
+
+* **Given** `Playing -*> seek(position: Double) -> Paused` (destination specified on `-*>`), **when** validated, **then** an error is emitted: `"'-*>' must not specify a destination state"`.
 
 * **Given** an internal transition on a `final` state, **when** validated, **then** an error is emitted: `"Final states cannot have transitions"`.
 
-**Wildcard source (`*`)**
+* **Given** an internal transition with no action and no guard, **when** validated, **then** a warning is emitted: `"Internal transition '-*>' on event 'X' has no action — it silently consumes the event"`.
 
-* **Given** `* -> networkLost -> Error`, **when** the machine is in any non-final state and `networkLost` fires, **then** it transitions to `Error`.
+## Relationship to `->` (self-transition)
 
-* **Given** both `* -> networkLost -> Error` and `Active -> networkLost -> Reconnecting`, **when** the machine is in `Active` and `networkLost` fires, **then** the specific transition (`Active -> networkLost -> Reconnecting`) takes precedence over the wildcard.
+The difference between `-*>` and `-> SameState` matters only when the state has lifecycle hooks:
 
-* **Given** a wildcard transition where the `*` expansion would include a state that already has an explicit transition for the same event, **when** validated, **then** a **warning** is emitted noting the shadowed states (but processing continues).
+```
+# Self-transition: exits and re-enters Playing
+# → @exit Playing fires, then @entry Playing fires
+# → after(duration) timers reset
+Playing -> seek(position: Double) -> Playing / emitSeekUI
 
-* **Given** `* -> event -> Dest` where `Dest` is a valid state, **when** processed, **then** the wildcard expands to one transition per non-final source state.
+# Internal transition: stays in Playing
+# → @exit and @entry do NOT fire
+# → after(duration) timers are NOT reset
+Playing -*> seek(position: Double) / emitSeekUI
+```
 
-* **Given** a wildcard internal transition `* -*> event / action`, **when** processed, **then** it expands to one internal transition per non-final source state.
+Without `@entry`/`@exit` actions and without `after(duration)` timers, they are semantically equivalent. **Prefer `-*>` when the intent is "handle this event in-place with no lifecycle effects".**
 
 ## Grammar
 
 ```ebnf
 TransitionStmt  ::= TransitionSource TransitionArrow EventDecl GuardClause? (TransitionArrow Identifier)? ActionClause? Newline
+TransitionArrow ::= "->" | "-*>"
 TransitionSource ::= Identifier | "*"
-TransitionArrow  ::= "->" | "-*>"
 ```
 
-When the arrow is `-*>`, the `TransitionArrow Identifier` (destination) segment is omitted.
+When the arrow is `-*>`, the destination `(TransitionArrow Identifier)` is omitted. `-*>` is valid with any `TransitionSource` — including `*` (US-1.18).
 
 ## Notes
 
-- Internal transitions with guards follow the same guard rules as regular transitions (US-1.6).
-- Wildcards do **not** match `final` states — final states cannot have outgoing transitions.
-- Specific transitions always shadow wildcards for the same `(state, event)` pair. This precedence is resolved at validation time, not at runtime.
+- `-*>` is purely an effect modifier. It is not a separate kind of transition. The same `-*>` arrow appears in `@on` reactions (US-1.13), wildcard transitions (US-1.18), and eventless `always` (US-1.9).
+- Internal transitions with guards follow the same rules as regular transitions (US-1.6): `Playing -*> seek [canSeek] / emitSeek`.
+- For wildcard scope (`*` source), see US-1.18.

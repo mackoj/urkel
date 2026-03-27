@@ -31,7 +31,7 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | [US-1.5](us-1-5-final-state-output.md) | Final State Typed Output | Terminal values |
 | [US-1.6](us-1-6-guards.md) | Guards | Conditional branching |
 | [US-1.7](us-1-7-actions.md) | Actions | Side effects |
-| [US-1.8](us-1-8-internal-and-wildcard-transitions.md) | Internal & Wildcard Transitions | `−∗>` and `*` source |
+| [US-1.8](us-1-8-internal-and-wildcard-transitions.md) | Internal Transitions | `-*>` effect modifier |
 | [US-1.9](us-1-9-eventless-transitions.md) | Eventless Transitions | `always` |
 | [US-1.10](us-1-10-compound-states.md) | Compound States | Hierarchical (HSM) |
 | [US-1.11](us-1-11-history-states.md) | History States | `@history` modifier |
@@ -41,3 +41,4 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | [US-1.15](us-1-15-delayed-transitions.md) | Delayed Transitions | `after(duration)` |
 | [US-1.16](us-1-16-continuation-transitions.md) | Continuation Transitions | `@continuation` |
 | [US-1.17](us-1-17-compound-reactive-conditions.md) | Compound Reactive Conditions | Multi-condition `@on` AND joins |
+| [US-1.18](us-1-18-wildcard-source.md) | Wildcard Source | `*` scope sugar for caller-driven transitions |
