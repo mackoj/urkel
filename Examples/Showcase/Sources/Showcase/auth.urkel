@@ -27,7 +27,7 @@ machine Auth
   RefreshingToken -> refreshSuccess(token: AuthToken)   -> LoggedIn
   RefreshingToken -> refreshFailure                     -> LoggedOut
 
-  LockedOut       -> after(15min)                       -> LoggedOut
+  LockedOut       -> after(15min)                       -> Terminated
 
   * -> terminate -> Terminated
 
