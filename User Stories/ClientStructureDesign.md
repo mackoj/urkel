@@ -41,18 +41,18 @@ FolderWatch has three states (`Idle → Running → Stopped`) and **no compositi
 ```
 ┌──────────────────────────────────────────────────────┐
 │ Generated (FolderWatchClient+Generated.swift)        │
-│                                                       │
-│  FolderWatchObserver<State>  (~Copyable)              │
+│                                                      │
+│  FolderWatchObserver<State>  (~Copyable)             │
 │    .start()  →  FolderWatchObserver<Running>         │
 │    .stop()   →  FolderWatchObserver<Stopped>         │
-│                                                       │
-│  FolderWatchState  (~Copyable)                        │
+│                                                      │
+│  FolderWatchState  (~Copyable)                       │
 │    .idle(FolderWatchObserver<Idle>)                  │
 │    .running(FolderWatchObserver<Running>)            │
 │    .stopped(FolderWatchObserver<Stopped>)            │
 │    .start() / .stop()   (consuming wrappers)         │
-│                                                       │
-│  FolderWatchClient  (Sendable, DependencyKey)         │
+│                                                      │
+│  FolderWatchClient  (Sendable, DependencyKey)        │
 │    makeObserver: (URL, Int) → Observer<Idle>         │
 └──────────────────────────────────────────────────────┘
            │
@@ -392,27 +392,27 @@ This completely eliminates the actor-storage problem from section 5 — not by w
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  Generated layer (XFSMClient.swift)                             │
-│                                                                  │
-│  XObserver<State>: ~Copyable [, ~Escapable]                     │
-│    • holds XContext + transition closures                        │
-│    • for @compose: also holds _yState: YState? + _makeY factory │
-│    • transitions carry the sub-observer forward automatically    │
-│                                                                  │
-│  XState: ~Copyable [, ~Escapable]                               │
-│    • combined enum wrapping all typed observers                  │
-│    • transition methods advance X; BLE-forward methods advance Y │
-│                                                                  │
-│  XClient: Sendable, DependencyKey                               │
-│    • makeX() → XObserver<XMachine.InitialState>                 │
+│  Generated layer (XFSMClient.swift)                            │
+│                                                                │
+│  XObserver<State>: ~Copyable [, ~Escapable]                    │
+│    • holds XContext + transition closures                      │
+│    • for @compose: also holds _yState: YState? + _makeY factory│
+│    • transitions carry the sub-observer forward automatically  │
+│                                                                │
+│  XState: ~Copyable [, ~Escapable]                              │
+│    • combined enum wrapping all typed observers                │
+│    • transition methods advance X; BLE-forward methods advanc Y│
+│                                                                │
+│  XClient: Sendable, DependencyKey                              │
+│    • makeX() → XObserver<XMachine.InitialState>                │
 └────────────────────────────────────────────────────────────────┘
            ↑ factory wired via .fromRuntime()
 ┌────────────────────────────────────────────────────────────────┐
-│  Developer layer (XClient+Live.swift etc.)                       │
-│                                                                  │
-│  XRuntimeHandlers        named closures per transition           │
-│  XRuntimeHandlers.live   connects to real hardware/network       │
-│  XRuntimeHandlers.noop   silent stub for tests                   │
+│  Developer layer (XClient+Live.swift etc.)                     │
+│                                                                │
+│  XRuntimeHandlers        named closures per transition         │
+│  XRuntimeHandlers.live   connects to real hardware/network     │
+│  XRuntimeHandlers.noop   silent stub for tests                 │
 └────────────────────────────────────────────────────────────────┘
 ```
 
