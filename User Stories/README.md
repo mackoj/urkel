@@ -76,3 +76,36 @@ This directory contains the implementation stories for Urkel, grouped by epic.
 
 - [ ][US-11.1 fork operator and composition AST](us-11-1-fork.md)
 - [ ][US-11.2 orchestrator actor emitter](us-11-2-orchestrator.md)
+
+## Epic 12 — Statechart DSL v2
+
+- [ ][US-12.1 guards — conditional transitions](us-12-1-guards.md)
+- [ ][US-12.2 actions — entry, exit, and transition side effects](us-12-2-actions.md)
+- [ ][US-12.3 compound (nested/hierarchical) states](us-12-3-compound-states.md)
+- [ ][US-12.4 parallel states (orthogonal regions)](us-12-4-parallel-states.md)
+- [ ][US-12.5 internal transitions and wildcard sources](us-12-5-internal-transitions-wildcards.md)
+- [ ][US-12.6 history states (`@history`)](us-12-6-history-states.md)
+- [ ][US-12.7 eventless / automatic transitions (`always`)](us-12-7-eventless-transitions.md)
+- [ ][US-12.8 final state output data](us-12-8-final-state-output.md)
+
+## Epic 13 — Visualizer, Simulator & Inspector
+
+- [ ][US-13.1 VS Code statechart visualizer](us-13-1-visualizer.md)
+- [ ][US-13.2 VS Code simulate mode](us-13-2-simulate-mode.md)
+- [ ][US-13.3 CLI path explorer and machine linter](us-13-3-cli-path-explorer.md)
+- [ ][US-13.4 generated Swift test path stubs](us-13-4-generated-test-stubs.md)
+- [ ][US-13.5 runtime trace protocol](us-13-5-runtime-trace-protocol.md)
+
+## Epic 14 — Advanced State Behaviors
+
+- [ ][US-14.1 `@invoke` — async operations as first-class state semantics](us-14-1-invoke.md)
+- [ ][US-14.2 delayed transitions (`after(duration)`)](us-14-2-delayed-transitions.md)
+
+## Epic 15 — Cross-Package Machine Import
+
+- [ ][US-15.1 unified `@import` — replace `@compose` with a single import keyword](us-15-1-cross-package-import.md)
+
+## Epic 16 — Formal Verification & Test Excellence
+
+- [ ][US-16.1 formal property verification (`@assert`)](us-16-1-formal-verification.md)
+- [ ][US-16.2 `UrkelTestSupport` — test helpers library](us-16-2-test-support-library.md)
