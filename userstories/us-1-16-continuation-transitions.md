@@ -1,24 +1,25 @@
-# US-1.16: Continuation Transitions
+# US-1.16: Stream Production Pattern
 
 ## Objective
 
-Allow a state to expose a named, non-consuming accessor that produces a stream of values — a transition that does not change state but returns a live sequence the caller can observe.
+Document the idiomatic way to model a state that continuously produces a stream of values while active — using `@entry`/`@exit` for producer lifecycle and explicit transitions for errors and natural completion. This is a **convention**, not a new DSL keyword.
 
 ## Background
 
-Some states do not just transition in response to external events — they continuously produce values while active. A folder-watcher stays in `Running` and emits a stream of `DirectoryEvent` values. A BLE connection stays in `Connected` and streams sensor readings. A live ticker stays in `Active` and emits periodic prices.
+Some states exist because the machine is actively producing a sequence of values: a folder watcher emitting file-system events, a BLE connection streaming sensor readings, a price feed emitting quotes. The machine stays in that state for as long as the stream is active.
 
-These are not transitions in the traditional sense: the machine stays in the same state while the sequence is active. The caller gets back a typed stream and can iterate over it for as long as the state holds.
+This looks like it needs special syntax. It does not. The existing DSL already has everything needed:
 
-Urkel models this with two cooperating constructs:
+- `@entry State / startProducer` — starts the producer when the state is entered (US-1.7)
+- `@exit  State / stopProducer` — cancels the producer when the state is exited (US-1.7)
+- Explicit transitions for errors from the producer (US-1.1, US-1.2)
+- An optional transition for natural stream completion (producer finished normally)
 
-1. **An incomplete transition** in `@transitions` — a source state and an event name with **no destination** (`Running -> events`). The missing destination signals "this does not change state; it produces a value."
+The producer itself — what kind of stream it is, how it delivers values to the caller — is a **generated API detail** specific to the target language. The DSL describes the lifecycle and the error paths; the code generator handles how values flow to the consumer.
 
-2. **A `@continuation` block** at the top level — declares the return type for each named incomplete transition.
+## The Pattern
 
-The name `continuation` reflects that the machine _continues_ in its current state while the caller reads the produced sequence.
-
-## DSL Syntax
+### Full form
 
 ```
 machine FolderWatch
@@ -26,74 +27,101 @@ machine FolderWatch
 @states
   init(directory: URL, debounceMs: Int) Idle
   state Running
+  state Error
   final Stopped
+
+@entry Running / startWatching    # starts the directory producer
+@exit  Running / stopWatching     # cancels it when the state is exited for any reason
+
+@transitions
+  Idle    -> start              -> Running
+
+  # Errors from the producer are explicit transitions
+  Running -> watchError(error: Error) -> Error
+
+  # Natural completion (producer signalled it is done)
+  Running -> watchCompleted -> Stopped
+
+  # Caller-driven stop
+  Running -> stop -> Stopped
+
+  Error   -> retry -> Running
+  Error   -> stop  -> Stopped
+```
+
+### Why `@exit` covers all exits
+
+`@exit Running / stopWatching` fires on **every** transition out of `Running`:
+
+- `Running -> watchError -> Error` → `stopWatching` fires
+- `Running -> watchCompleted -> Stopped` → `stopWatching` fires
+- `Running -> stop -> Stopped` → `stopWatching` fires
+
+The producer is always cleaned up. The implementation of `stopWatching` should be safe to call even if the producer has already stopped.
+
+### Recoverable error (stay in Running)
+
+If the producer encounters a transient error but should keep running:
+
+```
+# Error is logged as a side effect; machine stays in Running
+Running -*> watchError(error: Error) / logWatchError
+```
+
+Using `-*>` means: handle the error event in-place, no exit/re-entry, `stopWatching`/`startWatching` do **not** fire. See [US-1.8](us-1-8-internal-and-wildcard-transitions.md).
+
+### Without natural completion (indefinite stream)
+
+```
+@entry Running / startWatching
+@exit  Running / stopWatching
 
 @transitions
   Idle    -> start -> Running
   Running -> stop  -> Stopped
 
-  # Incomplete transition: no destination — produces a value stream
-  Running -> events
-  Running -> error(error: Error) -> Running   # recoverable error, stays Running
-
-@continuation
-  events -> AsyncThrowingStream<DirectoryEvent, Error>
+  Running -*> watchError(error: Error) / logError   # recoverable, stays Running
 ```
 
-### Multiple continuations
+### Multiple producers in the same state
 
 ```
+@entry Connected / startMeasurements, startHeartbeat
+@exit  Connected / stopMeasurements,  stopHeartbeat
+
 @transitions
-  Connected -> measurements
-  Connected -> statusUpdates
-
-@continuation
-  measurements   -> AsyncStream<Measurement>
-  statusUpdates  -> AsyncStream<StatusUpdate>
+  Connected -> measurementError(error: Error) -> Error
+  Connected -> disconnect                      -> Idle
 ```
 
-### Continuation with parameters
+## Naming convention
+
+Name entry/exit actions and error events from the **producer's perspective**:
 
 ```
-@transitions
-  Active -> priceUpdates(symbol: String)
+# Good — describes the producer
+@entry Running / startWatching
+@exit  Running / stopWatching
+Running -> watchError(error: Error) -> Error
 
-@continuation
-  priceUpdates -> AsyncStream<PriceQuote>
+# Avoid — too generic
+@entry Running / start
+@exit  Running / stop
+Running -> error(error: Error) -> Error
 ```
 
-## Acceptance Criteria
+## Why not `@continuation`?
 
-* **Given** `Running -> events` (no destination), **when** processed, **then** it is recognized as a continuation transition — a non-consuming accessor that does not change the machine's state type.
+A `@continuation` keyword was considered for Urkel. It was removed because:
 
-* **Given** `@continuation` with `events -> AsyncThrowingStream<DirectoryEvent, Error>`, **when** processed, **then** `events` is matched to the incomplete transition and its return type is captured.
-
-* **Given** an incomplete transition `State -> eventName` with no corresponding entry in `@continuation`, **when** validated, **then** an error is emitted: `"Incomplete transition 'eventName' from 'State' has no @continuation return type"`.
-
-* **Given** a `@continuation` entry `eventName -> ReturnType` with no matching incomplete transition, **when** validated, **then** an error is emitted: `"@continuation declares 'eventName' but no incomplete transition for 'eventName' exists"`.
-
-* **Given** an incomplete transition where the event name has parameters (`Running -> measurements(filter: String)`), **when** processed, **then** the parameters are valid — the caller passes them when requesting the stream.
-
-* **Given** an incomplete transition on a `final` state, **when** validated, **then** an error is emitted: `"Final states cannot declare continuation transitions"`.
-
-* **Given** an incomplete transition on a state that is not a `state` kind (e.g., on an `init` state), **when** validated, **then** a **warning** is emitted: `"Continuation transition on 'init' state 'X' — consider whether this is intentional"`.
-
-* **Given** a machine with continuation transitions and no `@continuation` block, **when** validated, **then** an error is emitted: `"Machine has incomplete transitions but no @continuation block"`.
-
-## Grammar
-
-```ebnf
-TransitionStmt    ::= Identifier "->" EventDecl ("->" Identifier ForkClause? ActionClause?)? Newline
-ContinuationBlock ::= "@continuation" Newline ContinuationEntry+
-ContinuationEntry ::= Identifier "->" ReturnType Newline
-ReturnType        ::= (any non-newline characters forming a valid host-language type)
-```
-
-An incomplete transition is one where the `"->" Identifier` destination segment is omitted. This is a distinct syntactic form — the single arrow followed immediately by a newline is unambiguous.
+1. **It is not a FSM primitive** — no equivalent exists in XState, SCXML, or Harel statecharts.
+2. **It is language-specific** — `AsyncThrowingStream<T, Error>` is a Swift concept. The DSL should be target-language agnostic.
+3. **The existing constructs already express the intent** — `@entry`/`@exit` manage the producer lifecycle completely; error paths are explicit transitions.
+4. **The stream's delivery mechanism is a code generation concern** — how values flow from the producer to the consumer (a channel, an async sequence, a callback) depends on the target language and is appropriately handled by the emitter, not declared in the DSL.
 
 ## Notes
 
-- Continuation transitions use the host language's native async sequence types. The DSL captures the return type verbatim — it does not parse or validate it.
-- The machine remains in its current state while the caller iterates the continuation. The continuation ends when the state is exited (the stream is cancelled/completed by the runtime).
-- This construct combines with US-1.3 (core transitions) to produce a machine that can both transition to new states and stream values from a stable state — these are not mutually exclusive.
-- The `@continuation` block appears after `@transitions` in the file.
+- There is no DSL-level distinction between a "streaming state" and any other state. The pattern is entirely a matter of what `@entry`/`@exit` and transitions you attach.
+- The entry action name (`startWatching`) and exit action name (`stopWatching`) appear on the machine's injectable `Client` struct, making the producer lifecycle an explicit part of the generated API contract.
+- Combine this pattern with `after(duration)` (US-1.15) if the producer should time out: `Running -> after(30s) -> TimedOut`.
+- If the producer can restart after an error, combine with the async loading pattern (US-1.14): `Error -> retry -> Running` re-enters `Running`, which fires `@entry Running / startWatching` again automatically.

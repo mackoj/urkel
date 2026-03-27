@@ -1,4 +1,8 @@
-# US-1.3: Init State Parameters
+# US-1.3: Factory Declaration — Superseded
+
+This story has been superseded. Construction-time parameters are now declared directly on the `init` state.
+
+See [US-1.3: Init State Parameters](us-1-3-init-state-parameters.md).
 
 ## Objective
 

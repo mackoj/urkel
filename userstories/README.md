@@ -4,6 +4,8 @@ This directory contains the user stories for Urkel, organized by epic.
 
 Previous stories are archived under [`v1/`](v1/README.md).
 
+A complete reference of all DSL constructs mapped on trigger × scope × effect axes is in [`dsl-construct-map.md`](dsl-construct-map.md).
+
 ---
 
 ## Epic 1 — Urkel DSL
@@ -39,6 +41,6 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | [US-1.13](us-1-13-machine-composition.md) | Machine Composition | `@import`, fork `=>`, `@on` reactions |
 | [US-1.14](us-1-14-async-loading-pattern.md) | Async Loading Pattern | `@entry`/`@exit` convention for async ops |
 | [US-1.15](us-1-15-delayed-transitions.md) | Delayed Transitions | `after(duration)` |
-| [US-1.16](us-1-16-continuation-transitions.md) | Continuation Transitions | `@continuation` |
+| [US-1.16](us-1-16-continuation-transitions.md) | Stream Production Pattern | `@entry`/`@exit` convention for producers |
 | [US-1.17](us-1-17-compound-reactive-conditions.md) | Compound Reactive Conditions | Multi-condition `@on` AND joins |
 | [US-1.18](us-1-18-wildcard-source.md) | Wildcard Source | `*` scope sugar for caller-driven transitions |
