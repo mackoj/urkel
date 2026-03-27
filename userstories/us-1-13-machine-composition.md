@@ -48,6 +48,36 @@ machine Scale: ScaleContext
   Weighing -> userSteppedOff            -> PowerDown
 ```
 
+### Fork with parameter binding
+
+When the sub-machine's `init` state declares construction-time params (US-1.19 /
+US-1.3), the fork clause can supply them by binding names from the triggering
+event's params or the source state's params.
+
+```
+machine Scale: ScaleContext
+
+@import BLEPeripheral    # BLEPeripheral has: init(serviceUUIDs: [String]) Off
+
+@transitions
+  # hardwareReady carries the UUIDs; bind them to BLEPeripheral's init param.
+  WakingUp -> hardwareReady(uuids: [String]) -> Tare => BLEPeripheral.init(serviceUUIDs: uuids)
+```
+
+The right-hand side of each binding (`: uuids`) is a **name reference** — it
+must resolve to a param from the triggering event or, if the source state carries
+data (US-1.19), a param from the source state. No expressions or literals are
+allowed; the DSL is purely declarative.
+
+```
+@states
+  state Configured(serviceUUIDs: [String])   # source state carries UUIDs
+
+@transitions
+  # Bind from source state param instead of event param.
+  Configured -> start -> Scanning => BLEPeripheral.init(serviceUUIDs: serviceUUIDs)
+```
+
 ### Reacting to sub-machine state changes (`@on`)
 
 ```
@@ -130,6 +160,16 @@ machine HeartRate: HeartRateContext
 
 * **Given** a valid `=> BLE.init` fork, **when** the parent transition fires, **then** the parent moves to its destination state AND the `BLE` sub-machine starts at its `init` state simultaneously.
 
+* **Given** `=> BLEPeripheral.init(serviceUUIDs: uuids)` where `uuids` is a param of the triggering event, **when** the fork fires, **then** `BLEPeripheral` is constructed with `serviceUUIDs` bound to the value of `uuids` from the event.
+
+* **Given** `=> Sub.init(param: ref)` where `ref` does not match any param of the triggering event or the source state's declared params (US-1.19), **when** validated, **then** an error is emitted: `"Fork binding 'ref' does not resolve to an event param or source-state param"`.
+
+* **Given** `=> Sub.init(param: ref)` where `param` is not declared in `Sub`'s `init` state, **when** validated, **then** an error is emitted: `"Sub-machine 'Sub' has no init param named 'param'"`.
+
+* **Given** `=> Sub.init()` (empty binding list) when `Sub`'s `init` state declares required params, **when** validated, **then** an error is emitted: `"Fork to 'Sub.init' is missing required params: ..."`.
+
+* **Given** `=> Sub.init` (no binding clause) when `Sub`'s `init` state has no params, **when** the fork fires, **then** the sub-machine starts normally — the binding clause is optional when there are no params.
+
 * **Given** a `final` source state on a fork transition, **when** validated, **then** an error is emitted: `"Transitions cannot originate from final states"`.
 
 ### `@on` subscriptions
@@ -160,12 +200,18 @@ machine HeartRate: HeartRateContext
 
 ```ebnf
 ImportDecl      ::= "@import" Identifier ("from" Identifier)? Newline
-ForkClause      ::= "=>" Identifier ".init"
+ForkClause      ::= "=>" Identifier ".init" [ "(" ForkBindingList ")" ]
+ForkBindingList ::= ForkBinding { "," ForkBinding }
+ForkBinding     ::= Identifier ":" Identifier   /* destParam: sourceRef (name binding only) */
 OnDecl          ::= "@on" MachineStateRef ("->" (Identifier "->")? Identifier ActionClause?
                                           | "-*>" ActionClause) Newline
 MachineStateRef ::= Identifier "::" StateRef
 StateRef        ::= "init" | "final" | "*" | Identifier
 ```
+
+`ForkBinding` right-hand side is a **name reference** only — it resolves to a param
+from the triggering event or the source state's declared params (US-1.19).
+No expressions, literals, or computed values are allowed.
 
 `ImportDecl` appears after the `machine` header and before `@states`. `OnDecl` entries appear at the top level alongside `@entry`/`@exit`, outside `@states` and `@transitions`.
 
@@ -188,3 +234,4 @@ StateRef        ::= "init" | "final" | "*" | Identifier
 - `::` is reserved for cross-machine references in `@on`. `.` remains the separator for compound state hierarchy (US-1.10). The visual distinction is deliberate.
 - `@on BLE::*` is a broad wildcard useful for cross-cutting concerns (tracing, logging). Prefer specific state subscriptions for all logic.
 - The deprecated `@compose` keyword (alias for local `@import`) is still accepted with a deprecation warning but does not support `@on` — migrate to `@import` to use subscriptions.
+- **Cross-machine data flow**: `@on` reacts to *state changes*, not output event streams. To pass typed data from a child machine to a parent action, declare the child's state with params (US-1.19) and react with `@on Child::State -*> / action`. The action receives the child machine in its typed state, with all state params accessible as properties. Output events (US-1.16) are API-facing streams for the final consumer — they are intentionally not observable via `@on`.

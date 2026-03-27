@@ -78,6 +78,17 @@ machine Checkout: CheckoutContext
 
 * **Given** multiple `always` transitions on the same state, **when** the state is entered, **then** they are evaluated in **declaration order**; the first truthy branch is taken.
 
+* **Given** a state has both `always ->` (state-changing) rules and `-*> always / action` (in-place per-frame) rules, **when** the state is entered and a state-changing `always` branch matches, **then** the `-*> always` actions do **not** fire for that entry — the machine has already left the state. Conversely, if no `always ->` matches (the machine remains in the state), **then** all `-*> always / action` rules fire.
+
+  ```
+  # Jumping has one guarded state-change and one per-frame in-place hook.
+  # Evaluation on entry:
+  #   1. Check [upwardVelocityZero] → if true, transition to Falling. Done.
+  #   2. If false: machine stays in Jumping → applyGravityUp fires.
+  Jumping -> always [upwardVelocityZero] -> Falling
+  Jumping -*> always                     / applyGravityUp
+  ```
+
 * **Given** `State -> always -> Dest` (unguarded), **when** the state is entered, **then** it immediately and unconditionally transitions to `Dest` — the state is **transient** and callers never observe it as a stable state.
 
 * **Given** an unguarded `always` transition where source equals destination (`State -> always -> State`), **when** validated, **then** an error is emitted: `"Unguarded 'always' from 'State' to 'State' creates an infinite loop"`.
@@ -100,6 +111,10 @@ EventDecl   ::= Identifier ("(" ParameterList ")")? | "always"
 
 ## Notes
 
-- `always` transitions are evaluated synchronously on state entry, after any `@entry` actions (US-1.7).
+- `always` transitions are evaluated synchronously on state entry, **after** any `@entry` actions (US-1.7) have fired.
 - A state whose only outgoing transitions are unguarded `always` is considered **transient**: it is guaranteed to never be a stable resting state.
 - For timed automatic transitions (fire after N seconds), see the delayed transitions story (US-1.15).
+- **Evaluation order within a state** (from first to last per entry tick):
+  1. `always [guard] ->` rules, in declaration order — first truthy match causes a state change and stops evaluation.
+  2. `always [else] ->` — fires if no guarded rule matched (US-1.6).
+  3. `-*> always [guard] / action` — fires only if no state change occurred; all matching per-frame hooks fire.

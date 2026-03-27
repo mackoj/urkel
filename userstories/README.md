@@ -44,3 +44,19 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | [US-1.16](us-1-16-continuation-transitions.md) | Stream Production Pattern | `@entry`/`@exit` convention for producers |
 | [US-1.17](us-1-17-compound-reactive-conditions.md) | Compound Reactive Conditions | Multi-condition `@on` AND joins |
 | [US-1.18](us-1-18-wildcard-source.md) | Wildcard Source | `*` scope sugar for caller-driven transitions |
+| [US-1.19](us-1-19-state-carried-data.md) | State-Carried Data | `state Name(params)` — typed data on any state kind |
+
+### DSL Construct Reference
+
+[`CONSTRUCTS.md`](CONSTRUCTS.md) — complete trigger × scope × effect reference table.
+
+### Known Gaps — Status
+
+| Gap | Description | Status |
+|-----|-------------|--------|
+| GAP-1 | State-carried data on non-final/non-init states | ✅ Resolved — US-1.19 |
+| GAP-2 | Fork `=>` cannot pass params to sub-machine constructor | ✅ Resolved — US-1.13 `ForkBinding` |
+| GAP-3 | No `[else]` guard fallback | ✅ Already in US-1.6 |
+| GAP-4 | Output events not observable by parent via `@on` | ✅ By design — resolved by GAP-1 pattern; see US-1.13 Notes |
+| GAP-5 | Dot notation needed in `@entry`/`@exit` for compound sub-states | ✅ Already in v2 grammar via `StateRef` |
+| GAP-6 | Evaluation order of `always ->` vs `-*> always` | ✅ Resolved — US-1.9 criterion + Notes |
