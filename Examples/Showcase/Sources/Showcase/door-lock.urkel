@@ -1,0 +1,31 @@
+## Keypad door lock with PIN and biometric entry.
+## Demonstrates: [guard] + [else] on same event, after() for auto-lock + alarm timeout,
+##               output event for lock state stream (notify UI).
+machine DoorLock
+
+@states
+  init  Locked
+  state Unlocked
+  state Alarmed
+  final Disabled
+
+@entry Unlocked / disengageBolt
+@exit  Unlocked / engageBolt
+@entry Alarmed  / soundAlarm
+@exit  Alarmed  / silenceAlarm
+
+@transitions
+  Locked -> enterPin(pin: String) [pinCorrect]      -> Unlocked
+  Locked -> enterPin(pin: String) [else]            -> Alarmed   # wrong PIN
+  Locked -> biometricScan        [biometricValid]   -> Unlocked
+  Locked -> biometricScan        [else]             -> Locked    # failed scan: stay locked
+
+  Unlocked -> lock                                  -> Locked
+  Unlocked -> after(30s)                            -> Locked    # auto-lock timeout
+  Unlocked -*> lockState(isOpen: Bool)              # output: lock state stream
+
+  Alarmed -> reset(adminCode: String)               -> Locked
+  Alarmed -> after(5min)                            -> Locked    # alarm auto-reset
+
+  * -> disable -> Disabled
+

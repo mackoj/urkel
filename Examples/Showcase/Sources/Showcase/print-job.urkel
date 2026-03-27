@@ -1,0 +1,43 @@
+## Parallel processing of a print job (rendering + spool check run concurrently).
+## Demonstrates: @parallel, region, @on P::done for all-regions-complete,
+##               @on P.Region::State for per-region reaction.
+machine PrintJob
+
+@parallel Processing
+  region Rendering
+    @states
+      init Queued
+      state Rendering
+      final Rendered
+
+    @transitions
+      Queued    -> startRender  -> Rendering
+      Rendering -> renderDone   -> Rendered
+      Rendering -> renderFailed -> Queued     # retry from init
+
+  region SpoolCheck
+    @states
+      init Checking
+      state Ready
+      final Cleared
+
+    @transitions
+      Checking -> spoolClear    -> Ready
+      Ready    -> after(1s)     -> Cleared
+      Checking -> spoolBlocked  -> Checking   # stay, retry
+
+@states
+  init Idle
+  state Processing     # the @parallel block state
+  state Error
+  final Done
+  final Failed
+
+@transitions
+  Idle       -> submit(jobId: String)   -> Processing
+
+  @on Processing::done                  -> Done   # both regions finished
+  @on Processing.Rendering::Queued      -> Error  # render retried too many times (business logic in guard)
+
+  Processing -> cancel                  -> Failed
+

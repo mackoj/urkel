@@ -1,0 +1,35 @@
+## 2D endless-runner character animation (inspired by Apple GameplayKit guide).
+## Demonstrates: @entry for animation/sound, always for gravity-based
+##               automatic transition (upward speed reaches zero -> Falling),
+##               ->> always / action for per-frame position update.
+machine Runner
+
+@states
+  init Running
+  state Jumping
+  state Falling
+  final Crashed
+
+@entry Running / loopRunAnimation
+@entry Jumping / playJumpSound, startJumpAnimation
+@entry Falling / startFallAnimation
+@exit  Falling / playLandingSound, playLandingAnimation
+
+@transitions
+  Running -> jump              -> Jumping
+  Running -> runOffLedge       -> Falling
+
+  ## Per-frame: move character upward, decelerating with gravity
+  Jumping -*> always           / applyGravityUp
+
+  ## Automatic: when upward velocity reaches zero, start falling
+  Jumping -> always [upwardVelocityZero] -> Falling
+
+  ## Per-frame: move character downward
+  Falling -*> always           / applyGravityDown
+
+  ## Automatic: when character touches ground, return to Running
+  Falling -> always [touchingGround]     -> Running
+
+  Running -> hitObstacle       -> Crashed
+  Falling -> hitObstacle       -> Crashed

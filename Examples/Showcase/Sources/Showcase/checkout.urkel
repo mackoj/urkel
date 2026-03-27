@@ -1,0 +1,45 @@
+## E-commerce checkout wizard.
+## Demonstrates: sequential state flow with guards, [else] fallback,
+##               final state with typed output, * wildcard cancel,
+##               output event for wizard progress, after() payment timeout.
+machine Checkout
+
+@states
+  init  Cart
+  state Address
+  state Payment
+  state Review
+  state Processing
+  state Error
+  final(orderId: String) Confirmed
+  final Cancelled
+
+@entry Processing / showLoadingOverlay
+@exit  Processing / hideLoadingOverlay
+
+@transitions
+  Cart       -> proceed [hasItems]          -> Address
+  Cart       -> proceed [else]              -> Cart         # empty cart: stay, show warning
+
+  Address    -> proceed [isAddressValid]    -> Payment
+  Address    -> proceed [else]              -> Address      # invalid: stay, show error
+  Address    -> back                        -> Cart
+
+  Payment    -> proceed [isPaymentValid]    -> Review
+  Payment    -> proceed [else]              -> Payment
+  Payment    -> back                        -> Address
+
+  Review     -> confirm                     -> Processing
+  Review     -> back                        -> Payment
+
+  Processing -> orderConfirmed(orderId: String) -> Confirmed
+  Processing -> orderFailed(error: Error)       -> Error
+  Processing -> after(60s)                      -> Error    # payment timeout
+
+  Error      -> retry                           -> Processing
+  Error      -> editPayment                     -> Payment
+
+  *          -> cancel                          -> Cancelled
+
+  Checkout   -*> stepProgress(step: Int, total: Int)         # output: wizard progress stream
+

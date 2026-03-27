@@ -1,0 +1,19 @@
+## A counter with in-place increment/decrement and an output stream.
+## Demonstrates: ->> in-place handler (with action), ->> output event (no action),
+##               @entry for initialisation, self-transition via reset.
+machine Counter
+
+@states
+  init Idle
+  state Active
+  final Done
+
+@entry Active / resetCount
+
+@transitions
+  Idle   -> start   -> Active
+  Active -*> increment              / incrementCount   # in-place handler
+  Active -*> decrement              / decrementCount   # in-place handler
+  Active -*> value(count: Int)                         # output event -> stream
+  Active -> reset   -> Active                          # self-transition: re-enters, fires @entry
+  Active -> finish  -> Done

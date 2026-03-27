@@ -1,0 +1,41 @@
+## BLE peripheral driver — reusable sub-machine imported by other BLE machines.
+## Demonstrates: init(params) with service UUIDs, output event (RSSI stream),
+##               Reconnecting sub-loop with guard + [else], @entry/@exit for radio lifecycle.
+## NOTE: BLEPeripheral is intentionally generic — other machines @import it
+##       and react to its states via @on. It does NOT import anything itself.
+machine BLEPeripheral
+
+@states
+  init(serviceUUIDs: [String]) Off
+  state Scanning
+  state Connecting
+  state Connected
+  state Reconnecting
+  state Error
+  final PoweredDown
+
+@entry Scanning    / startBleScan
+@exit  Scanning    / stopBleScan
+@entry Connected   / subscribeToCharacteristics
+@exit  Connected   / unsubscribeFromCharacteristics
+
+@transitions
+  Off           -> powerOn                                  -> Scanning
+  Scanning      -> deviceDiscovered(device: BLEDevice)      -> Connecting
+  Scanning      -> after(30s)                               -> Error       # scan timeout
+
+  Connecting    -> connectionEstablished                    -> Connected
+  Connecting    -> connectionFailed(reason: String)         -> Reconnecting
+
+  Connected     -> peripheralDisconnected                   -> Reconnecting
+
+  ## Output: live signal strength while connected
+  Connected     -*> rssi(value: Int)
+
+  Reconnecting  -> retry [retriesRemaining]                 -> Scanning
+  Reconnecting  -> retry [else]                             -> Error       # retries exhausted
+  Reconnecting  -> after(5s)                                -> Scanning    # back-off timer
+
+  Error         -> resetRadio                               -> Off
+  * -> powerDown -> PoweredDown
+

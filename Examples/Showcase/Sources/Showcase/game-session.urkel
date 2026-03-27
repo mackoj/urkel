@@ -1,0 +1,51 @@
+## Multiplayer game session.
+## Demonstrates: ->> in-place for lobby roster changes (no exit/re-entry),
+##               [guard] on startGame, @entry/@exit for UI setup, output events,
+##               after() for AFK timeout, final Disbanded.
+## GAP-NOTE: "Lobby -> playerJoined -> Lobby" (agent's version) is a SELF-TRANSITION
+##           — fires @entry/@exit and resets after() timers each time.
+##           The correct form is "-*>" so the lobby state persists in-place.
+machine GameSession
+
+@states
+  init  Lobby
+  state Starting
+  state InProgress
+  state Paused
+  state RoundEnd
+  state GameOver
+  final Disbanded
+
+@entry Lobby      / showLobbyUI
+@exit  Lobby      / hideLobbyUI
+@entry InProgress / startGameMusic
+@exit  InProgress / stopGameMusic
+
+@transitions
+  ## In-place: roster changes without exiting Lobby
+  Lobby -*> playerJoined(player: Player) / addToRoster
+  Lobby -*> playerLeft(player: Player)   / removeFromRoster
+  Lobby -*> roster(players: [Player])                   # output: live roster stream
+
+  Lobby   -> startGame [minimumPlayersPresent]          -> Starting
+  Starting -> allPlayersReady                           -> InProgress
+  Starting -> after(30s)                                -> InProgress   # auto-start timeout
+
+  InProgress -*> scoreUpdate(player: Player, score: Int)  # output: live score stream
+  InProgress ->  pause                                  -> Paused
+  InProgress ->  roundCompleted(scores: [PlayerScore])  -> RoundEnd
+
+  ## In-place: handle disconnection without pausing game
+  InProgress -*> playerDisconnected(player: Player) / handleDisconnect
+
+  Paused -> resume                                      -> InProgress
+  Paused -> after(5min)                                 -> GameOver     # AFK timeout
+
+  RoundEnd -> nextRound [moreRoundsRemaining]           -> InProgress
+  RoundEnd -> finalRound                                -> GameOver
+
+  GameOver -> rematch [allPlayersAgree]                 -> Lobby
+  GameOver -> after(60s)                                -> Disbanded
+
+  * -> disband -> Disbanded
+

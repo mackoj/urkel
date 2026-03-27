@@ -1,0 +1,33 @@
+## User authentication with JWT refresh.
+## Demonstrates: after() for lockout timeout + auto token refresh,
+##               @entry for session setup, output event for session stream.
+machine Auth
+
+@states
+  init  LoggedOut
+  state LoggingIn
+  state LoggedIn
+  state RefreshingToken
+  state LockedOut
+  final Terminated
+
+@entry LoggedIn / setupSession
+@exit  LoggedIn / tearDownSession
+
+@transitions
+  LoggedOut       -> signIn(credentials: Credentials)   -> LoggingIn
+  LoggingIn       -> signInSuccess(token: AuthToken)    -> LoggedIn
+  LoggingIn       -> signInFailure(error: AuthError)    -> LoggedOut
+  LoggingIn       -> tooManyAttempts                    -> LockedOut
+
+  LoggedIn        -> signOut                            -> LoggedOut
+  LoggedIn        -> tokenExpired                       -> RefreshingToken
+  LoggedIn       -*> session(user: User)                # output: session state stream
+
+  RefreshingToken -> refreshSuccess(token: AuthToken)   -> LoggedIn
+  RefreshingToken -> refreshFailure                     -> LoggedOut
+
+  LockedOut       -> after(15min)                       -> LoggedOut
+
+  * -> terminate -> Terminated
+

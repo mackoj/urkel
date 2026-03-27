@@ -1,0 +1,41 @@
+## Elevator with hierarchical Moving state and shallow history.
+## Demonstrates: compound state {}, @history, history pseudostate as target,
+##               @entry/@exit for door lifecycle, after() auto-close,
+##               ->> output event for floor indicator.
+## GAP-NOTE (compound state syntax): inner transitions inside {} share the same
+##           arrow syntax as outer transitions but have no "@transitions" header.
+machine Elevator
+
+@states
+  init  Idle
+  state Moving @history {
+    init  MovingUp
+    state MovingDown
+
+    MovingUp   -> arrivedAtFloor -> Idle
+    MovingDown -> arrivedAtFloor -> Idle
+  }
+  state DoorsOpen
+  state Emergency
+  final Shutdown
+
+@entry DoorsOpen / openDoors
+@exit  DoorsOpen / closeDoors
+
+@transitions
+  Idle      -> callUp(floor: Int)   -> Moving.MovingUp
+  Idle      -> callDown(floor: Int) -> Moving.MovingDown
+  Idle      -> openDoors            -> DoorsOpen
+
+  DoorsOpen -> closeDoors           -> Idle
+  DoorsOpen -> after(30s)           -> Idle                # auto-close
+
+  Moving    -> emergencyStop        -> Emergency
+  Emergency -> reset                -> Idle
+  ## Restore last direction (MovingUp or MovingDown) on retry after emergency
+  Emergency -> retryLastCall        -> Moving.History
+
+  Moving -*> floorIndicator(floor: Int)                    # output: current floor stream
+
+  * -> shutdown -> Shutdown
+

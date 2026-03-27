@@ -1,0 +1,13 @@
+## The simplest possible machine.
+## Demonstrates: core structure, wildcard source (*), final state.
+machine Toggle
+
+@states
+  init Off
+  state On
+  final Destroyed
+
+@transitions
+  Off -> toggle   -> On
+  On  -> toggle   -> Off
+  *   -> destroy  -> Destroyed

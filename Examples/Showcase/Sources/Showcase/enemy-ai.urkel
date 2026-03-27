@@ -1,0 +1,57 @@
+## Enemy AI finite state machine (inspired by GameplayKit).
+## Demonstrates: always [guard] for automatic transitions, ->> always / action
+##               for per-frame behaviour (move/attack), @entry for visuals,
+##               * wildcard for global stun/death events.
+## GAP-NOTE: Per-frame ->> always fires only AFTER all always [guard] checks
+##           fail (evaluation order per US-1.9 / GAP-6 fix).
+machine EnemyAI
+
+@states
+  init  Patrolling
+  state Investigating
+  state Chasing
+  state Attacking
+  state Fleeing
+  state Stunned(duration: TimeInterval)
+  final Dead
+
+@entry Patrolling    / playWalkAnimation
+@entry Chasing       / playRunAnimation
+@entry Attacking     / playAttackAnimation
+@entry Fleeing       / playFleeAnimation
+@exit  Attacking     / stopAttackAnimation
+
+@transitions
+  Patrolling    -> noiseHeard(position: Position)      -> Investigating
+  Patrolling    -> playerSpotted(player: Player)       -> Chasing
+
+  Investigating -> playerFound(player: Player)         -> Chasing
+  Investigating -> after(10s)                          -> Patrolling
+
+  ## Auto-transition: enter attack range → start attacking
+  Chasing -> always [playerInAttackRange]              -> Attacking
+  Chasing -> always [playerLost]                       -> Investigating
+
+  ## Per-frame: pursue player while chasing (fires only when no always-> matched)
+  Chasing      -*> always / moveTowardPlayer
+
+  ## Auto-transition: player fled out of range → resume chase
+  Attacking -> always [playerOutOfRange]               -> Chasing
+
+  ## Auto-transition: health critical → flee
+  Attacking -> always [healthCritical]                 -> Fleeing
+
+  ## Per-frame: deal damage each frame while in range
+  Attacking    -*> always / dealDamagePerFrame
+
+  ## Output event: notify subscribers of damage dealt
+  Attacking    -*> damageDone(amount: Int)
+
+  Fleeing -> always [safeDistanceReached]              -> Patrolling
+  Fleeing -> always [cornered]                         -> Attacking
+
+  ## Global: stun/kill from any non-final state
+  * -> stunned(duration: TimeInterval)                 -> Stunned
+  Stunned -> after(3s)                                 -> Patrolling
+  * -> killed                                          -> Dead
+

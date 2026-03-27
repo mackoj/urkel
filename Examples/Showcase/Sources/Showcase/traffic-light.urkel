@@ -1,0 +1,15 @@
+## Classic timer-driven state machine.
+## Demonstrates: after() timer, cyclic transitions, wildcard emergency stop.
+machine TrafficLight
+
+@states
+  init Red
+  state Green
+  state Yellow
+  final Emergency
+
+@transitions
+  Red    -> after(30s) -> Green
+  Green  -> after(25s) -> Yellow
+  Yellow -> after(5s)  -> Red
+  *      -> emergency  -> Emergency

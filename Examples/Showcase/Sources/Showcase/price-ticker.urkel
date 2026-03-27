@@ -1,0 +1,34 @@
+## Real-time price ticker over WebSocket.
+## Demonstrates: output event as stream declaration (no action),
+##               after() for auto-reconnect back-off, @entry/@exit for socket lifecycle.
+machine PriceTicker
+
+@states
+  init  Disconnected
+  state Connecting
+  state Subscribed
+  state Paused
+  state Error
+  final Closed
+
+@entry Connecting  / openSocket
+@exit  Connecting  / closeSocket
+@entry Subscribed  / subscribeToFeed
+@exit  Subscribed  / unsubscribeFromFeed
+
+@transitions
+  Disconnected -> connect(symbol: String)            -> Connecting
+  Connecting   -> connected                          -> Subscribed
+  Connecting   -> connectionFailed(error: Error)     -> Error
+
+  Subscribed   -*> priceUpdate(price: Decimal)       # output: live price stream
+  Subscribed   ->  pause                             -> Paused
+  Subscribed   ->  socketError(error: Error)         -> Error
+
+  Paused       -> resume                             -> Subscribed
+
+  Error        -> reconnect                          -> Connecting
+  Error        -> after(5s)                          -> Connecting  # auto back-off
+
+  * -> close -> Closed
+

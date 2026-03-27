@@ -1,0 +1,25 @@
+## File-system watcher using the Stream Production Pattern.
+## Demonstrates: init(params) on init state, @entry/@exit for stream lifecycle
+##               (replaces the old @continuation), output event as stream declaration.
+## This is the canonical v2 replacement for the FolderWatch example that originally
+## needed @continuation. The stream is started in @entry and stopped in @exit.
+## Events flow out via "-*> directoryEvent(event: FSEvent)" — no @continuation needed.
+machine FolderWatch
+
+@states
+  init(directory: URL, debounceMs: Int) Idle
+  state Watching
+  state Error
+  final Stopped
+
+@entry Watching / startFSStream
+@exit  Watching / stopFSStream
+
+@transitions
+  Idle     -> start                                 -> Watching
+  Watching -*> directoryEvent(event: FSEvent)       # output: stream of FS events
+  Watching -> watchError(error: Error)              -> Error
+  Error    -> retry                                 -> Watching
+  Error    -> after(10s)                            -> Watching   # auto-retry back-off
+  Watching -> stop -> Stopped
+

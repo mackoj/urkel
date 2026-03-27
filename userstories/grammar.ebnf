@@ -129,6 +129,8 @@ TransitionsBlock ::= { Whitespace } "@transitions" { Whitespace } Newline
 
    "always" as Event : fires automatically on state entry (eventless/transient).
    "after(N unit)"   : fires after a duration; auto-cancels on any other exit.
+   "after(N unit, k: T, …)" : timer with params forwarded to the destination state
+                              (required when the dest state declares params — GAP-7 fix).
 
    Dest omitted on "-*>"  (by definition — no destination).
    Fork "=> Name.init[(bindings)]" spawns a sub-machine declared with @import.
@@ -156,7 +158,7 @@ EventOrTimer ::= EventDecl | TimerDecl | "always"
 
 EventDecl ::= Identifier [ "(" ParameterList ")" ]
 
-TimerDecl  ::= "after" "(" Duration ")"
+TimerDecl  ::= "after" "(" Duration [ { Whitespace } "," { Whitespace } ParameterList ] ")"
 Duration   ::= Number DurationUnit
 Number     ::= Digit { Digit } [ "." { Digit } ]
 DurationUnit ::= "ms" | "s" | "min"

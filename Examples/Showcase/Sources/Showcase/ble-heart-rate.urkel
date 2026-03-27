@@ -1,0 +1,54 @@
+## BLE heart-rate monitor composing BLEPeripheral.
+## Demonstrates: @import (replaces @compose), @on with compound AND condition (US-1.17),
+##               compound state to share output events across sibling states (GAP-10 fix),
+##               fork param binding (US-1.13).
+## GAP-NOTE (GAP-10 — resolved with compound state): both Monitoring and RecordingWorkout
+##           emit heartRate(bpm: Int). Grouping them under a compound Active state means
+##           the output event is declared once on Active, not duplicated.
+## GAP-NOTE: @on BLEPeripheral::Connected, Activating -> Active
+##           fires only when BLE becomes Connected AND we are in Activating.
+##           Without the ", Activating" filter it would fire in any parent state,
+##           including during a workout — incorrectly resetting back to Active.
+machine HeartRate
+
+@import BLEPeripheral
+
+@states
+  init  Off
+  state Activating
+  state Active {
+    init  Idle
+    state Measuring
+    state RecordingWorkout
+
+    Idle            -> startMeasurement     -> Measuring
+    Measuring       -> measurementComplete  -> Idle
+    Idle            -> startWorkout         -> RecordingWorkout
+    RecordingWorkout -> stopWorkout(summary: WorkoutSummary) -> Idle
+  }
+  state SensorLost
+  final Terminated
+
+## Output event declared once on the compound Active state — available in
+## both Active.Measuring and Active.RecordingWorkout without duplication.
+## GAP-10: without compound states you'd duplicate "-*> heartRate" on each sub-state.
+
+@transitions
+  Off        -> activate -> Activating => BLEPeripheral.init
+  Activating -> sensorFailed(reason: String) -> Terminated
+
+  ## Only enter Active when BLE is Connected AND we are still Activating
+  @on BLEPeripheral::Connected, Activating -> Active
+
+  Active     -> sensorContactLost  -> SensorLost
+  SensorLost -> sensorContactRestored -> Active.History
+  SensorLost -> after(30s)         -> Terminated
+
+  Active  -*> heartRate(bpm: Int)           # output: live BPM (available in all Active sub-states)
+  Active  -*> rrInterval(ms: Double)        # output: RR interval stream
+
+  ## BLE drop while active → treat as sensor lost
+  @on BLEPeripheral::Reconnecting, Active -> SensorLost
+
+  * -> deactivate -> Terminated
+

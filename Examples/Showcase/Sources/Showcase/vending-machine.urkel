@@ -1,0 +1,36 @@
+## Coin-operated vending machine.
+## Demonstrates: ->> in-place for coin accumulation (NOT a self-transition —
+##               coins don't reset the state), [guard] + [else] on same event,
+##               output event for live balance, final with dispensed product.
+## GAP-NOTE: "AcceptingCoins -> insertCoin -> AcceptingCoins" (agent's version)
+##           is a SELF-TRANSITION — it exits and re-enters, firing @entry/@exit.
+##           The correct form is "-*>" which stays in-place.
+## GAP-NOTE (resolved): two transitions on the same event from the same source:
+##           [hasSufficientFunds] and [else]. This is the [else] guard in US-1.6.
+machine VendingMachine
+
+@states
+  init  Idle
+  state AcceptingCoins
+  state DispensingItem
+  state ReturningCoins
+  final(product: String) Dispensed
+  final OutOfService
+
+@transitions
+  Idle           -> insertCoin(cents: Int)                          -> AcceptingCoins
+
+  ## In-place: accumulate coins without exiting/re-entering the state
+  AcceptingCoins -*> insertCoin(cents: Int)         / addCoins
+  AcceptingCoins -*> balance(cents: Int)                            # output: running total
+  AcceptingCoins ->  selectItem(code: String) [hasSufficientFunds]  -> DispensingItem
+  AcceptingCoins ->  selectItem(code: String) [else]                -> AcceptingCoins
+  AcceptingCoins ->  returnCoins                                    -> ReturningCoins
+
+  DispensingItem -> dispensed(product: String)      -> Dispensed
+  DispensingItem -> jamError                        -> ReturningCoins
+
+  ReturningCoins -> coinsReturned                   -> Idle
+
+  * -> serviceMode -> OutOfService
+

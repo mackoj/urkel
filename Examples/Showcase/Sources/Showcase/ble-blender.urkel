@@ -1,0 +1,55 @@
+## Bluetooth blender — v2 rewrite of the v1 BluetoohBlender example.
+## Demonstrates: @import (replaces @compose), ->> in-place for speed adjustment
+##               (instead of explicit BlendSlow→BlendMedium→BlendHigh transitions),
+##               output event for motor telemetry, @on for BLE state reactions.
+## GAP-NOTE (v1 vs v2 comparison): v1 had 9 explicit speed-change transitions
+##           (changeSpeedMedium, changeSpeedHigh, etc.). With ->> and a SpeedParam
+##           we collapse them to one in-place event: "adjustSpeed(speed: BlendSpeed)".
+##           The implementation of applySpeed reads the param and sets the motor.
+machine BLEBlender
+
+@import BLEPeripheral
+
+@states
+  init  Off
+  state Scanning
+  state Connecting
+  state ConnectedIdle
+  state Blending
+  state Paused
+  state Error
+  final TurnedOff
+
+@entry ConnectedIdle / enableControls
+@exit  ConnectedIdle / disableControls
+
+@transitions
+  Off           -> powerOn                             -> Scanning
+  Scanning      -> deviceFound(device: BLEDevice)      -> Connecting
+  Scanning      -> after(30s)                          -> Off           # scan timeout: back off
+  Scanning      -> stopScan                            -> Off
+
+  Connecting    -> connectSuccess                      -> ConnectedIdle
+  Connecting    -> connectFail(error: Error)           -> Error
+  Connecting    -> cancel                              -> Off
+
+  ConnectedIdle -> startBlend(speed: BlendSpeed)       -> Blending
+  ConnectedIdle -> disconnect                          -> Off
+
+  ## In-place speed adjustment: no exit/re-entry, @entry/@exit don't fire
+  Blending      -*> adjustSpeed(speed: BlendSpeed) / applySpeed
+  Blending      -*> motorLoad(watts: Int)               # output: motor telemetry stream
+  Blending      -> pause                               -> Paused
+  Blending      -> stop                                -> ConnectedIdle
+
+  Paused        -> resume(speed: BlendSpeed)           -> Blending
+  Paused        -> stop                                -> ConnectedIdle
+
+  Error         -> reset                               -> Off
+
+  ## React to BLE state changes
+  @on BLEPeripheral::Connected    -*> / enableBLEControls
+  @on BLEPeripheral::Reconnecting -> Error
+
+  * -> emergencyStop -> TurnedOff
+

@@ -1,0 +1,56 @@
+## Smart BLE body-composition scale.
+## Demonstrates: @import + fork param binding (US-1.13/GAP-2), @on with compound
+##               AND condition (US-1.17), final with typed output (US-1.3/1.19).
+## GAP-NOTE (GAP-2 resolved): fork binding "=> BLEPeripheral.init(serviceUUIDs: scaleUUIDs)"
+##           passes the scale-specific UUIDs to the sub-machine's init. "scaleUUIDs"
+##           is a name bound to a param of the triggering event (footTap carries no params
+##           here, so scaleUUIDs must be declared on the init state or come from context).
+##           This demonstrates why GAP-2 (params to sub-machine constructor) was critical.
+machine BLEScale
+
+@import BLEPeripheral
+
+@states
+  init(scaleUUIDs: [String]) Off
+  state WakingUp
+  state Tare
+  state Weighing
+  state Stabilized
+  state MeasuringImpedance
+  state Syncing
+  final(weight: Double, metrics: BodyMetrics) Measurement
+  final PowerDown
+
+@entry Tare    / performTare
+@entry Syncing / showSyncIndicator
+@exit  Syncing / hideSyncIndicator
+
+@transitions
+  Off      -> footTap -> WakingUp
+  WakingUp -> hardwareReady -> Tare => BLEPeripheral.init(serviceUUIDs: scaleUUIDs)
+
+  ## Only proceed once BLE is Connected AND we are in Tare phase
+  @on BLEPeripheral::Connected, Tare -> Weighing
+
+  Weighing   -> weightLocked(weight: Double)           -> Stabilized
+  Weighing   -> userSteppedOffEarly                    -> PowerDown
+  Weighing   -> hardwareFault                          -> PowerDown
+
+  ## In-place: keep showing live weight during stabilization
+  Stabilized -*> liveWeight(kg: Double)
+
+  Stabilized -> startBIA                               -> MeasuringImpedance
+  Stabilized -> acceptWeight                           -> Syncing   # weight-only measurement
+
+  MeasuringImpedance -> biaComplete(metrics: BodyMetrics) -> Syncing
+  MeasuringImpedance -> bareFeetRequired               -> Syncing   # skip BIA
+
+  Syncing -> syncDone(weight: Double, metrics: BodyMetrics) -> Measurement
+  Syncing -> skipSync                                  -> PowerDown
+
+  ## React to BLE loss during measurement
+  @on BLEPeripheral::Reconnecting, Syncing -*> / pauseSync
+  @on BLEPeripheral::Connected,    Syncing -*> / resumeSync
+
+  * -> emergencyOff -> PowerDown
+

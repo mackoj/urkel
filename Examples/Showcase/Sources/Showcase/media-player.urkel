@@ -1,0 +1,35 @@
+## Media player with compound (hierarchical) Active state and history.
+## Demonstrates: compound states, @history, @entry/@exit on sub-states,
+##               ->> in-place seek handler, ->> output progress stream,
+##               history pseudostate as transition target.
+machine MediaPlayer
+
+@states
+  init Idle
+  state Active @history {
+    init Buffering
+    state Playing
+    state Paused
+
+    Buffering -> bufferReady    -> Playing
+    Playing   -> pause          -> Paused
+    Paused    -> resume         -> Playing
+    Playing   -> bufferUnderrun -> Buffering
+  }
+  state Error
+  final Stopped
+
+@entry Active.Playing / startPlayback
+@exit  Active.Playing / pausePlayback
+
+@transitions
+  Idle   -> load(url: URL)        -> Active
+  Active -> stop                  -> Idle
+  Active -> error(e: Error)       -> Error
+  Error  -> retry                 -> Active.History   # restore last sub-state
+  Error  -> stop                  -> Idle
+
+  Active -*> progress(pct: Float)                     # output: playback position stream
+  Active -*> seek(position: Double) / doSeek          # in-place: caller seeks, no re-entry
+
+  * -> shutdown -> Stopped

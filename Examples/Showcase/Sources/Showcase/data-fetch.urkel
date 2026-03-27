@@ -1,0 +1,28 @@
+## Generic remote data fetch with retry.
+## Demonstrates: [guard] + [else] on same event/state (US-1.6),
+##               after() for request timeout, output event for loading state stream.
+machine DataFetch
+
+@states
+  init  Idle
+  state Loading
+  state Loaded
+  state Failed
+  final Cancelled
+
+@transitions
+  Idle    -> fetch                                  -> Loading
+  Loading -> success(data: Data)                    -> Loaded
+  Loading -> failure(error: Error)                  -> Failed
+  Loading -> after(30s)                             -> Failed    # request timeout
+  Loading -> cancel                                 -> Cancelled
+
+  Loaded  -> refresh                                -> Loading
+  Loaded  -*> data(value: Data)                     # output: current data stream
+
+  Failed  -> retry [retriesRemaining]               -> Loading
+  Failed  -> retry [else]                           -> Cancelled  # no retries left
+  Failed  -*> error(reason: Error)                  # output: latest error stream
+
+  * -> cancel -> Cancelled
+

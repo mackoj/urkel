@@ -60,3 +60,6 @@ Epic 1 covers the complete DSL specification from the ground up: starting from t
 | GAP-4 | Output events not observable by parent via `@on` | ✅ By design — resolved by GAP-1 pattern; see US-1.13 Notes |
 | GAP-5 | Dot notation needed in `@entry`/`@exit` for compound sub-states | ✅ Already in v2 grammar via `StateRef` |
 | GAP-6 | Evaluation order of `always ->` vs `-*> always` | ✅ Resolved — US-1.9 criterion + Notes |
+| GAP-7 | `after()` cannot supply params to a param-carrying destination state | ✅ Resolved — `after(Ns, param: Type)` added to `TimerDecl` in grammar |
+| GAP-8 | Multiple output event stream lifecycle is implicit | ✅ Not a gap — `@exit State / stopStream` action closes the stream |
+| GAP-10 | Duplicate output event declarations across sibling states | ✅ Resolved by compound state pattern — declare output event once on parent |
