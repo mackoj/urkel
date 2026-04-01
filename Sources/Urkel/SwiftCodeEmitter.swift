@@ -1,16 +1,8 @@
 import Foundation
 
-/// The three focused Swift files emitted for a single `.urkel` machine.
-public struct EmittedFiles {
-    /// `XxxMachine.swift` — typestate markers, state machine struct, transitions, state sum type.
-    public let stateMachine: String
-    /// `XxxClient.swift` — client struct, runtime builder, `fromRuntime`.
-    public let client: String
-    /// `XxxClient+Dependency.swift` — `DependencyKey` conformance + `DependencyValues` accessor.
-    public let dependency: String
-}
+// `EmittedFiles` is defined in Sources/Urkel/Emitter/EmittedFiles.swift (v2).
 
-/// Native Swift code emitter used for the default Urkel generation path.
+/// Native Swift code emitter used for the default Urkel generation path (v1).
 public struct SwiftCodeEmitter {
     public init() {}
 

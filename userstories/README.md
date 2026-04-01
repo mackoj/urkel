@@ -117,6 +117,73 @@ running any Swift code), and provides a CLI path explorer that enumerates all
 
 ---
 
+## Epic 5 — Emitter
+
+The emitter transforms a `UrkelFile` AST into ready-to-compile Swift source code.
+It has two output paths: a **native path** built on `swiftlang/swift-syntax`
+that constructs a typed `SourceFileSyntax` tree (guaranteeing syntactic
+correctness by construction), and a **template path** built on
+`hummingbird-project/swift-mustache` for customisation and non-Swift targets.
+
+### Design Principles
+
+- **Safe by construction.** The primary emitter builds a `swift-syntax` AST,
+  not strings. Malformed output is a compile error in the emitter, not a
+  surprise at generation time.
+- **`~Copyable` typestate.** Generated machines are move-only structs with
+  phantom type parameters. Invalid transitions are compile-time errors.
+- **Phase namespace.** Each machine's state markers live in a nested
+  `XxxPhase` enum. No global name collisions; clean autocomplete.
+- **Injection over inheritance.** Every transition hook, action, guard, and
+  output-event producer is an injected `@Sendable` closure. The machine
+  struct has no runtime polymorphism.
+- **Three-file split.** Every machine produces `XxxMachine.swift` (structure),
+  `XxxClient.swift` (factory + runtime builder), and
+  `XxxClient+Dependency.swift` (DependencyKey). Files are independent;
+  teams can commit them or generate on-the-fly.
+- **Sendable everywhere.** All generated types, closures, and streams satisfy
+  Swift 6 strict concurrency.
+- **Easy to test.** `noop` client, `fromRuntime` builder, borrowing accessors,
+  and `DependencyKey` conformance make every machine trivially injectable
+  in unit tests.
+
+### Generated Code at a Glance
+
+For `machine FolderWatch: FolderContext`:
+
+| Feature | Generated API |
+|---------|--------------|
+| Phase markers | `FolderWatchPhase.Idle`, `.Running`, `.Stopped` |
+| Machine | `FolderWatchMachine<Phase>: ~Copyable, Sendable` |
+| Transition | `consuming func start() async throws -> FolderWatchMachine<FolderWatchPhase.Running>` |
+| State enum | `FolderWatchState: ~Copyable` with `.idle`, `.running`, `.stopped` cases |
+| Read access | `borrowing func withRunning<R>(_:) -> R?` |
+| In-place handler | `borrowing func seek(position: Double) async` |
+| Output event | `borrowing var progress: AsyncStream<Float>` |
+| Guarded transition | `consuming func checkout() async throws -> CheckoutState` |
+| Client | `FolderWatchClient: Sendable` with `@DependencyClient` |
+| Test support | `.noop`, `.fromRuntime(_:)`, `DependencyValues.folderWatch` |
+
+### Stories
+
+| ID | Title | Scope |
+|----|-------|-------|
+| [US-5.1](us-5-1-emitter-infrastructure.md) | Emitter Infrastructure | `swift-syntax` dep, `EmittedFiles`, emitter protocol, file header |
+| [US-5.2](us-5-2-core-machine-emission.md) | Core Machine Emission | Phase namespace, `~Copyable` struct, consuming transitions, state enum |
+| [US-5.3](us-5-3-client-dependency-emission.md) | Client & Dependency Emission | Runtime builder, client struct, `noop`, `fromRuntime`, `DependencyKey` |
+| [US-5.4](us-5-4-final-state-output.md) | Final State Output | `final Done(result: T)` → typed `borrowing var` property |
+| [US-5.5](us-5-5-state-carried-data.md) | State-Carried Data | `state Loaded(data: Data)` → typed properties via constrained extensions |
+| [US-5.6](us-5-6-actions-and-entry-exit.md) | Actions & Entry/Exit Hooks | Injected action closures, `@entry`/`@exit` composition, firing order |
+| [US-5.7](us-5-7-guards.md) | Guards | Predicate closures, multi-destination → state enum, `[else]` branch |
+| [US-5.8](us-5-8-internal-transitions-output-events.md) | Internal Transitions & Output Events | `-*>` + action → `borrowing func`; `-*>` no action → `AsyncStream` |
+| [US-5.9](us-5-9-eventless-transitions.md) | Eventless Transitions | `always` → `autoTransition()` method |
+| [US-5.10](us-5-10-timers.md) | Timers | `after(Ns)` → cancellable `Task`, `startTimer(onFire:)` |
+| [US-5.11](us-5-11-machine-composition.md) | Machine Composition | `@import` + fork `=>` → sub-machine slot; `@on` → reaction methods |
+| [US-5.12](us-5-12-compound-states.md) | Compound States | Nested phase enums, parent-level transitions expand to all children |
+| [US-5.13](us-5-13-mustache-template-emission.md) | Mustache Template Emission | `swift.mustache`, `TemplateContext` model, `renderSwift(file:)` |
+
+---
+
 ### DSL Construct Reference
 
 [`CONSTRUCTS.md`](CONSTRUCTS.md) — complete trigger × scope × effect reference table.

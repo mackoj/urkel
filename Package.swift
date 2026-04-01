@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.12.0"),
         .package(url: "https://github.com/ChimeHQ/JSONRPC", from: "0.9.0"),
         .package(url: "https://github.com/ChimeHQ/LanguageServerProtocol", from: "0.14.0"),
+        .package(url: "https://github.com/swiftlang/swift-syntax", from: "601.0.0"),
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0")
     ],
     targets: [
@@ -30,7 +31,10 @@ let package = Package(
                 .product(name: "Parsing", package: "swift-parsing"),
                 .product(name: "Mustache", package: "swift-mustache"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
-                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol")
+                .product(name: "LanguageServerProtocol", package: "LanguageServerProtocol"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
             ],
             path: "Sources/Urkel",
             resources: [
