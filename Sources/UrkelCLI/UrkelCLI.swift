@@ -8,7 +8,7 @@ struct UrkelCLI: AsyncParsableCommand {
     nonisolated(unsafe) static var configuration = CommandConfiguration(
         commandName: "urkel",
         abstract: "Urkel — type-safe state machine code generator",
-        subcommands: [Generate.self, Watch.self, Validate.self, Paths.self, TestStubs.self]
+        subcommands: [Generate.self, Watch.self, Validate.self, Paths.self, TestStubs.self, Visualize.self]
     )
 }
 
@@ -217,6 +217,33 @@ extension UrkelCLI {
             }
             lines.append("}")
             print(lines.joined(separator: "\n"))
+        }
+    }
+}
+
+extension UrkelCLI {
+    struct Visualize: AsyncParsableCommand {
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Generate a standalone HTML interactive visualizer"
+        )
+
+        @Argument(help: "Input .urkel file")
+        var input: String
+
+        @Option(name: .shortAndLong, help: "Output HTML file (default: <name>.html)")
+        var output: String?
+
+        mutating func run() async throws {
+            let url = URL(fileURLWithPath: input)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let fallback = url.deletingPathExtension().lastPathComponent
+            let file = try UrkelParser().parse(source: source, machineNameFallback: fallback)
+            let graph = GraphJSON.from(file)
+            let html = generateVisualizerHTML(graph: graph, machineName: file.machineName)
+            let outPath = output ?? url.deletingPathExtension().appendingPathExtension("html").path
+            try html.write(toFile: outPath, atomically: true, encoding: .utf8)
+            print("✓ Visualizer written to \(outPath)")
+            print("  Open in your browser: open \(outPath)")
         }
     }
 }

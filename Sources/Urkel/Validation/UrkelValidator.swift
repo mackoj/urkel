@@ -28,8 +28,9 @@ public struct UrkelValidator {
         collectStateNames(from: file.states, into: &stateNames, seen: &seenNames, diagnostics: &diagnostics)
         let stateSet = Set(stateNames)
 
-        // 1. Exactly one init state
-        let initStates = file.simpleStates.filter { $0.kind == .`init` }
+        // 1. Exactly one init state (outer machine only — parallel regions have their own scopes)
+        let outerSimpleStates = file.states.compactMap { if case .simple(let s) = $0 { return s } else { return nil } }
+        let initStates = outerSimpleStates.filter { $0.kind == .`init` }
         if initStates.isEmpty {
             diagnostics.append(Diagnostic(
                 severity: .error,

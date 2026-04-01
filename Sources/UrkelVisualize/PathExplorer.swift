@@ -39,6 +39,8 @@ public struct PathExplorer {
 
         // Build adjacency: from → [(event, to, guard)]
         var adj: [String: [(event: String, to: String, guard: String?)]] = [:]
+
+        // Regular transitions
         for t in transitions {
             let from: String
             switch t.source {
@@ -60,6 +62,23 @@ public struct PathExplorer {
             case nil:             guardStr = nil
             }
             adj[from, default: []].append((event: eventName, to: dest.name, guard: guardStr))
+        }
+
+        // Reactive @on transitions — treated as edges from the named parallel/machine state
+        // e.g. @on Processing::done -> Done  means Processing --[@on.Processing]--> Done
+        for r in file.reactiveStmts {
+            guard let dest = r.destination else { continue }
+            let from: String
+            let eventName: String
+            switch r.source.target {
+            case .machine(let m):
+                from = m
+                eventName = "@on.\(m)"
+            case .region(parallel: let p, region: let rg):
+                from = p
+                eventName = "@on.\(p).\(rg)"
+            }
+            adj[from, default: []].append((event: eventName, to: dest.name, guard: nil))
         }
 
         // Expand wildcard edges

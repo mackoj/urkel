@@ -180,6 +180,7 @@ private struct LineOrientedParser {
 
     private enum Section {
         case preamble, states, transitions, invariants
+        case parallelStates, parallelTransitions
     }
 
     mutating func parse() throws -> UrkelFile {
@@ -193,9 +194,46 @@ private struct LineOrientedParser {
         var section: Section = .preamble
         var machineDocComments: [DocComment] = []
 
+        // Parallel tracking
+        var parallels: [ParallelDecl] = []
+        var inParallel = false
+        var currentParallelName = ""
+        var currentParallelDocs: [DocComment] = []
+        var currentParallelRegions: [RegionDecl] = []
+        var currentRegionName = ""
+        var currentRegionStates: [StateDecl] = []
+        var currentRegionTransitions: [TransitionStmt] = []
+
+        func finalizeRegion() {
+            guard !currentRegionName.isEmpty else { return }
+            currentParallelRegions.append(RegionDecl(
+                name: currentRegionName,
+                states: currentRegionStates,
+                transitions: currentRegionTransitions
+            ))
+            currentRegionName = ""
+            currentRegionStates = []
+            currentRegionTransitions = []
+        }
+
+        func finalizeParallel() {
+            finalizeRegion()
+            guard !currentParallelName.isEmpty else { return }
+            parallels.append(ParallelDecl(
+                name: currentParallelName,
+                regions: currentParallelRegions,
+                docComments: currentParallelDocs
+            ))
+            inParallel = false
+            currentParallelName = ""
+            currentParallelRegions = []
+            currentParallelDocs = []
+        }
+
         for (idx, rawLine) in lines.enumerated() {
             let lineNum = idx + 1
             let trimmed = rawLine.trimmingCharacters(in: .whitespaces)
+            let indent = rawLine.prefix(while: { $0 == " " }).count
 
             if trimmed.isEmpty { continue }
 
@@ -211,18 +249,50 @@ private struct LineOrientedParser {
             // Regular comments
             if trimmed.hasPrefix("#") { continue }
 
-            // Section headers
+            // @parallel block opener
+            if trimmed.hasPrefix("@parallel ") {
+                if inParallel { finalizeParallel() }
+                currentParallelName = String(trimmed.dropFirst("@parallel ".count))
+                    .trimmingCharacters(in: .whitespaces)
+                currentParallelDocs = pendingDocComments
+                pendingDocComments.removeAll()
+                inParallel = true
+                section = .preamble
+                continue
+            }
+
+            // region header inside @parallel
+            if inParallel && trimmed.hasPrefix("region ") {
+                finalizeRegion()
+                currentRegionName = String(trimmed.dropFirst("region ".count))
+                    .trimmingCharacters(in: .whitespaces)
+                pendingDocComments.removeAll()
+                continue
+            }
+
+            // Section headers — route based on indentation
             if trimmed == "@states" || trimmed.hasPrefix("@states ") {
-                section = .states
+                if inParallel && indent > 0 {
+                    section = .parallelStates
+                } else {
+                    if inParallel { finalizeParallel() }
+                    section = .states
+                }
                 pendingDocComments.removeAll()
                 continue
             }
             if trimmed == "@transitions" || trimmed.hasPrefix("@transitions ") {
-                section = .transitions
+                if inParallel && indent > 0 {
+                    section = .parallelTransitions
+                } else {
+                    if inParallel { finalizeParallel() }
+                    section = .transitions
+                }
                 pendingDocComments.removeAll()
                 continue
             }
             if trimmed == "@invariants" {
+                if inParallel { finalizeParallel() }
                 section = .invariants
                 continue
             }
@@ -237,15 +307,27 @@ private struct LineOrientedParser {
 
             // @entry / @exit hooks
             if trimmed.hasPrefix("@entry ") || trimmed.hasPrefix("@exit ") {
+                if inParallel { finalizeParallel() }
                 entryExitHooks.append(try parseEntryExit(trimmed, line: lineNum))
                 pendingDocComments.removeAll()
                 continue
             }
 
+            // @on reactive transition — always at outer level; close parallel first
+            if trimmed.hasPrefix("@on ") {
+                if inParallel { finalizeParallel() }
+                section = .transitions
+                let docs = pendingDocComments
+                pendingDocComments.removeAll()
+                if let decl = try parseTransitionDecl(trimmed, line: lineNum, docComments: docs) {
+                    transitions.append(decl)
+                }
+                continue
+            }
+
             // Silently ignore v1-only directives
             if trimmed.hasPrefix("@compose ") || trimmed.hasPrefix("@factory") ||
-               trimmed.hasPrefix("@continuation") || trimmed.hasPrefix("@parallel") ||
-               trimmed.hasPrefix("@history") {
+               trimmed.hasPrefix("@continuation") || trimmed.hasPrefix("@history") {
                 pendingDocComments.removeAll()
                 continue
             }
@@ -253,6 +335,7 @@ private struct LineOrientedParser {
             switch section {
             case .preamble:
                 if trimmed.hasPrefix("machine") {
+                    if inParallel { finalizeParallel() }
                     let rest = String(trimmed.dropFirst("machine".count)).trimmingCharacters(in: .whitespaces)
                     (machineName, contextType) = parseMachineDecl(rest, fallback: machineNameFallback)
                     machineDocComments = pendingDocComments
@@ -270,16 +353,34 @@ private struct LineOrientedParser {
                 if let decl = try parseTransitionDecl(trimmed, line: lineNum, docComments: docs) {
                     transitions.append(decl)
                 }
+            case .parallelStates:
+                let docs = pendingDocComments
+                pendingDocComments.removeAll()
+                if let decl = try parseStateDecl(trimmed, line: lineNum, docComments: docs) {
+                    currentRegionStates.append(decl)
+                }
+            case .parallelTransitions:
+                let docs = pendingDocComments
+                pendingDocComments.removeAll()
+                if let decl = try parseTransitionDecl(trimmed, line: lineNum, docComments: docs) {
+                    if case .transition(let t) = decl {
+                        currentRegionTransitions.append(t)
+                    }
+                }
             case .invariants:
                 pendingDocComments.removeAll()
             }
         }
+
+        // Close any open parallel block
+        if inParallel { finalizeParallel() }
 
         return UrkelFile(
             machineName: machineName,
             contextType: contextType,
             docComments: machineDocComments,
             imports: imports,
+            parallels: parallels,
             states: states,
             entryExitHooks: entryExitHooks,
             transitions: transitions
