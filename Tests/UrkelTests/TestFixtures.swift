@@ -1,30 +1,9 @@
 import Foundation
 @testable import Urkel
 
-func makeFolderWatchAST(machineName: String = "FolderWatch") -> MachineAST {
-    MachineAST(
-        imports: ["Foundation", "Dependencies"],
-        machineName: machineName,
-        contextType: "FolderContext",
-        factory: .init(
-            name: "makeObserver",
-            parameters: [
-                .init(name: "directory", type: "URL"),
-                .init(name: "debounceMs", type: "Int")
-            ]
-        ),
-        states: [
-            .init(name: "Idle", kind: .initial),
-            .init(name: "Running", kind: .normal),
-            .init(name: "Stopped", kind: .terminal)
-        ],
-        transitions: [
-            .init(from: "Idle", event: "start", parameters: [], to: "Running"),
-            .init(from: "Running", event: "stop", parameters: [], to: "Stopped")
-        ]
-    )
-}
+// MARK: - v2 test helpers
 
+/// Runs an external process and returns (exitCode, stdout, stderr).
 func runProcess(_ executable: String, _ arguments: [String], cwd: URL? = nil) throws -> (Int32, String, String) {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: executable)

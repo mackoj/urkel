@@ -57,9 +57,11 @@ public struct SwiftSyntaxEmitter {
 
     private func emitImportsBlock(for file: UrkelFile) -> String {
         // Dependencies is always required; Foundation is standard.
-        ["Dependencies", "Foundation"]
-            .map { "import \($0)" }
-            .joined(separator: "\n")
+        // Any additional imports from the file's @import declarations are included too.
+        var names: [String] = ["Dependencies", "Foundation"]
+        let extra = file.imports.map(\.name).filter { !names.contains($0) }
+        names.append(contentsOf: extra)
+        return names.map { "import \($0)" }.joined(separator: "\n")
     }
 
     // MARK: - Phase Namespace

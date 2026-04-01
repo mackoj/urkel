@@ -1,146 +1,228 @@
 import ArgumentParser
 import Foundation
 import Urkel
+import UrkelVisualize
 
 @main
 struct UrkelCLI: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
+    nonisolated(unsafe) static var configuration = CommandConfiguration(
         commandName: "urkel",
-        abstract: "Generate compile-time safe typestate Swift from .urkel DSL files.",
-        subcommands: [Generate.self, Watch.self]
+        abstract: "Urkel — type-safe state machine code generator",
+        subcommands: [Generate.self, Watch.self, Validate.self, Paths.self, TestStubs.self]
     )
+}
 
+extension UrkelCLI {
     struct Generate: AsyncParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Generate files from a .urkel source.")
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Generate Swift code from .urkel files"
+        )
 
-        @Argument(help: "Path to the input .urkel file")
+        @Argument(help: "Input .urkel file or directory")
         var input: String
 
         @Option(name: .shortAndLong, help: "Output directory")
         var output: String
 
-        @Option(name: .shortAndLong, help: "Path to a custom .mustache template for foreign language generation")
-        var template: String?
+        @Option(name: .long, help: "Template file path")
+        var template: String? = nil
 
-        @Option(name: .shortAndLong, help: "Output extension for custom template or language mode (e.g. ts, kt, py)")
-        var ext: String?
+        @Option(name: .long, help: "Output file extension")
+        var ext: String? = nil
 
-        @Option(name: .shortAndLong, help: "Use a bundled language template (currently: kotlin)")
-        var lang: String?
+        @Option(name: .long, help: "Target language")
+        var lang: String? = nil
 
-        @Option(name: .customLong("swift-import"), help: "Override Swift emitter imports (repeat option or use comma-separated values)")
-        var swiftImports: [String] = []
+        @Option(name: .long, parsing: .upToNextOption, help: "Swift import statement(s)")
+        var swiftImport: [String] = []
 
-        @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
-        var templateImports: [String] = []
+        @Option(name: .long, parsing: .upToNextOption, help: "Template import(s)")
+        var templateImport: [String] = []
 
-        @Flag(name: .customLong("print-effective-config"), help: "Print effective Urkel config for each generated file")
-        var printEffectiveConfig = false
+        @Flag(name: .long, help: "Print effective configuration and exit")
+        var printEffectiveConfig: Bool = false
 
         mutating func run() async throws {
-            var isDirectory = ObjCBool(false)
-            guard FileManager.default.fileExists(atPath: input, isDirectory: &isDirectory) else {
-                throw UrkelGeneratorError.fileNotFound(URL(fileURLWithPath: input).path)
-            }
-
+            let swiftImports = normalizeImports(swiftImport)
+            let templateImports = normalizeImports(templateImport)
             let generator = UrkelGenerator()
-            let normalizedSwiftImports = normalizedImportList(swiftImports)
-            let normalizedTemplateImports = normalizedImportList(templateImports)
-            let swiftImportsOption = normalizedSwiftImports.isEmpty ? nil : normalizedSwiftImports
-            let templateImportsOption = normalizedTemplateImports.isEmpty ? nil : normalizedTemplateImports
-            let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
 
-            if isDirectory.boolValue {
-                let generated = try generator.generateDirectory(
+            var isDir = ObjCBool(false)
+            if FileManager.default.fileExists(atPath: input, isDirectory: &isDir), isDir.boolValue {
+                _ = try generator.generateDirectory(
                     inputDirectoryPath: input,
                     outputPath: output,
                     templatePath: template,
                     outputExtension: ext,
                     language: lang,
-                    swiftImports: swiftImportsOption,
-                    templateImports: templateImportsOption,
-                    additionalConfigSearchDirectories: [cwdURL],
+                    swiftImports: swiftImports.isEmpty ? nil : swiftImports,
+                    templateImports: templateImports.isEmpty ? nil : templateImports,
                     verboseConfiguration: printEffectiveConfig
                 )
-                for file in generated {
-                    print("Generated: \(file.path)")
-                }
             } else {
-                let generated = try generator.generate(
+                _ = try generator.generate(
                     inputPath: input,
                     outputPath: output,
                     templatePath: template,
                     outputExtension: ext,
                     language: lang,
-                    swiftImports: swiftImportsOption,
-                    templateImports: templateImportsOption,
-                    additionalConfigSearchDirectories: [cwdURL],
+                    swiftImports: swiftImports.isEmpty ? nil : swiftImports,
+                    templateImports: templateImports.isEmpty ? nil : templateImports,
                     verboseConfiguration: printEffectiveConfig
                 )
-                for file in generated {
-                    print("Generated: \(file.path)")
-                }
             }
         }
     }
 
     struct Watch: AsyncParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Watch a directory for .urkel changes.")
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Watch a directory for .urkel changes and regenerate"
+        )
 
-        @Argument(help: "Path to directory to watch")
+        @Argument(help: "Input directory to watch")
         var input: String
 
         @Option(name: .shortAndLong, help: "Output directory")
         var output: String
 
-        @Option(name: .shortAndLong, help: "Path to a custom .mustache template for foreign language generation")
-        var template: String?
+        @Option(name: .long, help: "Template file path")
+        var template: String? = nil
 
-        @Option(name: .shortAndLong, help: "Output extension for custom template or language mode (e.g. ts, kt, py)")
-        var ext: String?
+        @Option(name: .long, help: "Output file extension")
+        var ext: String? = nil
 
-        @Option(name: .shortAndLong, help: "Use a bundled language template (currently: kotlin)")
-        var lang: String?
+        @Option(name: .long, help: "Target language")
+        var lang: String? = nil
 
-        @Option(name: .customLong("swift-import"), help: "Override Swift emitter imports (repeat option or use comma-separated values)")
-        var swiftImports: [String] = []
+        @Option(name: .long, parsing: .upToNextOption, help: "Swift import statement(s)")
+        var swiftImport: [String] = []
 
-        @Option(name: .customLong("template-import"), help: "Override template/language emitter imports (repeat option or use comma-separated values)")
-        var templateImports: [String] = []
+        @Option(name: .long, parsing: .upToNextOption, help: "Template import(s)")
+        var templateImport: [String] = []
 
-        @Flag(name: .customLong("print-effective-config"), help: "Print effective Urkel config for each generated file")
-        var printEffectiveConfig = false
+        @Flag(name: .long, help: "Print effective configuration and exit")
+        var printEffectiveConfig: Bool = false
 
         mutating func run() async throws {
-            let cwdURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
+            let swiftImports = normalizeImports(swiftImport)
+            let templateImports = normalizeImports(templateImport)
             try await UrkelWatchService().run(
                 inputDirectory: input,
                 outputDirectory: output,
                 templatePath: template,
                 outputExtension: ext,
                 language: lang,
-                swiftImports: normalizedImportList(swiftImports),
-                templateImports: normalizedImportList(templateImports),
-                additionalConfigSearchDirectories: [cwdURL],
+                swiftImports: swiftImports,
+                templateImports: templateImports,
                 verboseConfiguration: printEffectiveConfig
             )
         }
     }
-}
 
-private func normalizedImportList(_ values: [String]) -> [String] {
-    var seen = Set<String>()
-    var result: [String] = []
+    struct Validate: AsyncParsableCommand {
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Validate a .urkel file and report diagnostics"
+        )
 
-    for raw in values {
-        for segment in raw.split(separator: ",") {
-            let value = segment.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty else { continue }
-            if seen.insert(value).inserted {
-                result.append(value)
+        @Argument(help: "Input .urkel file")
+        var input: String
+
+        @Flag(name: .long, help: "Output diagnostics as JSON")
+        var json: Bool = false
+
+        mutating func run() async throws {
+            let url = URL(fileURLWithPath: input)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let fallback = url.deletingPathExtension().lastPathComponent
+            let file = try UrkelParser().parse(source: source, machineNameFallback: fallback)
+            let diagnostics = UrkelValidator.validate(file)
+
+            if json {
+                let items = diagnostics.map { d -> [String: String] in
+                    ["severity": d.severity == .error ? "error" : "warning",
+                     "code": d.code.rawValue,
+                     "message": d.message]
+                }
+                let data = try JSONSerialization.data(withJSONObject: items, options: .prettyPrinted)
+                print(String(data: data, encoding: .utf8) ?? "[]")
+            } else {
+                for d in diagnostics {
+                    let sev = d.severity == .error ? "error" : "warning"
+                    fputs("\(sev): \(d.message)\n", stderr)
+                }
+            }
+
+            if diagnostics.contains(where: { $0.severity == .error }) {
+                throw ExitCode.failure
             }
         }
     }
 
-    return result
+    struct Paths: AsyncParsableCommand {
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Enumerate all init→final paths in a state machine"
+        )
+
+        @Argument(help: "Input .urkel file")
+        var input: String
+
+        @Option(name: .long, help: "Maximum number of paths to enumerate")
+        var maxPaths: Int = 100
+
+        mutating func run() async throws {
+            let url = URL(fileURLWithPath: input)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let fallback = url.deletingPathExtension().lastPathComponent
+            let file = try UrkelParser().parse(source: source, machineNameFallback: fallback)
+
+            let paths = PathExplorer().paths(in: file, maxPaths: maxPaths)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(paths)
+            print(String(data: data, encoding: .utf8) ?? "[]")
+        }
+    }
+
+    struct TestStubs: AsyncParsableCommand {
+        nonisolated(unsafe) static var configuration = CommandConfiguration(
+            abstract: "Generate Swift test stubs for all init→final paths"
+        )
+
+        @Argument(help: "Input .urkel file")
+        var input: String
+
+        @Option(name: .long, help: "Maximum number of paths to cover")
+        var maxPaths: Int = 100
+
+        mutating func run() async throws {
+            let url = URL(fileURLWithPath: input)
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let fallback = url.deletingPathExtension().lastPathComponent
+            let file = try UrkelParser().parse(source: source, machineNameFallback: fallback)
+
+            let machineTN = typeName(from: file.machineName)
+            let paths = PathExplorer().paths(in: file, maxPaths: maxPaths)
+
+            var lines = ["import Testing", "@testable import \(machineTN)", ""]
+            lines.append("@Suite(\"\(machineTN) path coverage\")")
+            lines.append("struct \(machineTN)PathTests {")
+
+            for (i, path) in paths.enumerated() {
+                let steps = path.steps.map { "\($0.from) -> \($0.event) -> \($0.to)" }.joined(separator: "; ")
+                lines.append("    @Test(\"path \(i + 1): \(steps)\")")
+                lines.append("    func path\(i + 1)() async throws {")
+                lines.append("        // TODO: implement path test for [\(steps)]")
+                lines.append("    }")
+                lines.append("")
+            }
+            lines.append("}")
+            print(lines.joined(separator: "\n"))
+        }
+    }
+}
+
+private func normalizeImports(_ raw: [String]) -> [String] {
+    raw.flatMap { $0.components(separatedBy: ",") }
+       .map { $0.trimmingCharacters(in: .whitespaces) }
+       .filter { !$0.isEmpty }
 }

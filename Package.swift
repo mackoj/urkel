@@ -8,6 +8,7 @@ let package = Package(
     ],
     products: [
         .library(name: "Urkel", targets: ["Urkel"]),
+        .library(name: "UrkelVisualize", targets: ["UrkelVisualize"]),
         .executable(name: "UrkelCLI", targets: ["UrkelCLI"]),
 //        .executable(name: "urkel-lsp", targets: ["UrkelLSP"]),
         .plugin(name: "UrkelPlugin", targets: ["UrkelPlugin"]),
@@ -45,9 +46,15 @@ let package = Package(
             name: "UrkelCLI",
             dependencies: [
                 "Urkel",
+                "UrkelVisualize",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
             ],
             path: "Sources/UrkelCLI"
+        ),
+        .target(
+            name: "UrkelVisualize",
+            dependencies: ["Urkel"],
+            path: "Sources/UrkelVisualize"
         ),
         .executableTarget(
             name: "UrkelLSP",
@@ -83,6 +90,7 @@ let package = Package(
             name: "UrkelTests",
             dependencies: [
                 "Urkel",
+                "UrkelVisualize",
                 "UrkelCLI",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
                 .product(name: "InlineSnapshotTesting", package: "swift-snapshot-testing")

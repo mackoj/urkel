@@ -60,7 +60,7 @@ public struct UrkelGenerator {
         templateImports: [String]? = nil,
         additionalConfigSearchDirectories: [URL] = [],
         verboseConfiguration: Bool = false,
-        composedASTs: [String: MachineAST] = [:]
+        composedASTs: [String: UrkelFile] = [:]
     ) throws -> [URL] {
         let inputURL = URL(fileURLWithPath: inputPath)
         guard FileManager.default.fileExists(atPath: inputURL.path) else {
@@ -93,71 +93,47 @@ public struct UrkelGenerator {
             case .invalidConfiguration(let url, let underlying):
                 throw UrkelGeneratorError.invalidConfiguration(url, details: underlying.localizedDescription)
             }
-        } catch {
-            throw error
         }
 
-        var ast = try UrkelParser().parse(source: source, machineNameFallback: fallbackName)
-        if ast.machineName == "Machine" {
-            ast = MachineAST(
-                imports: ast.imports,
+        // Parse with v2 parser
+        var file = try UrkelParser().parse(source: source, machineNameFallback: fallbackName)
+
+        // If machine name defaulted to "Machine", use the file name
+        if file.machineName == "Machine" {
+            file = UrkelFile(
                 machineName: fallbackName,
-                contextType: ast.contextType,
-                factory: ast.factory,
-                composedMachines: ast.composedMachines,
-                states: ast.states,
-                transitions: ast.transitions,
-                emitterOptions: ast.emitterOptions,
-                range: ast.range
+                contextType: file.contextType,
+                docComments: file.docComments,
+                imports: file.imports,
+                parallels: file.parallels,
+                states: file.states,
+                entryExitHooks: file.entryExitHooks,
+                transitions: file.transitions,
+                invariants: file.invariants
             )
         }
 
-        let hasEmitterOverrides = (resolvedConfiguration.swiftImports?.isEmpty == false)
-            || (resolvedConfiguration.templateImports?.isEmpty == false)
-        if hasEmitterOverrides {
-            let emitterOptions = MachineAST.EmitterOptions(
-                swiftImports: resolvedConfiguration.swiftImports,
-                templateImports: resolvedConfiguration.templateImports
-            )
-            ast = MachineAST(
-                imports: ast.imports,
-                machineName: ast.machineName,
-                contextType: ast.contextType,
-                factory: ast.factory,
-                composedMachines: ast.composedMachines,
-                states: ast.states,
-                transitions: ast.transitions,
-                emitterOptions: emitterOptions,
-                range: ast.range
+        // Merge config swift imports into the file's import list
+        if let configImports = resolvedConfiguration.swiftImports, !configImports.isEmpty {
+            let existing = Set(file.imports.map(\.name))
+            let extra = configImports
+                .filter { !existing.contains($0) }
+                .map { ImportDecl(name: $0) }
+            file = UrkelFile(
+                machineName: file.machineName,
+                contextType: file.contextType,
+                docComments: file.docComments,
+                imports: file.imports + extra,
+                parallels: file.parallels,
+                states: file.states,
+                entryExitHooks: file.entryExitHooks,
+                transitions: file.transitions,
+                invariants: file.invariants
             )
         }
 
-        try UrkelValidator.validate(ast)
-
-        // When the AST declares @compose and no composedASTs were provided,
-        // auto-resolve by parsing sibling .urkel files in the same directory.
-        let resolvedComposedASTs: [String: MachineAST]
-        if !ast.composedMachines.isEmpty && composedASTs.isEmpty {
-            var siblings: [String: MachineAST] = [:]
-            let directory = inputURL.deletingLastPathComponent()
-            if let contents = try? FileManager.default.contentsOfDirectory(
-                at: directory, includingPropertiesForKeys: nil
-            ) {
-                let siblingParser = UrkelParser()
-                for sibling in contents where sibling.pathExtension == "urkel" && sibling.path != inputURL.path {
-                    if let source = try? String(contentsOf: sibling, encoding: .utf8),
-                       let siblingAST = try? siblingParser.parse(
-                           source: source,
-                           machineNameFallback: sibling.deletingPathExtension().lastPathComponent
-                       ) {
-                        siblings[siblingAST.machineName] = siblingAST
-                    }
-                }
-            }
-            resolvedComposedASTs = siblings
-        } else {
-            resolvedComposedASTs = composedASTs
-        }
+        // Validate with v2 validator
+        try UrkelValidator.validateThrowing(file)
 
         let outputRootURL = URL(fileURLWithPath: outputPath, isDirectory: true)
         let outputURL = Self.resolvedOutputDirectoryURL(
@@ -174,40 +150,55 @@ public struct UrkelGenerator {
             ))
         }
 
-        if let templatePath = resolvedConfiguration.templatePath {
-            let templateString = try String(contentsOfFile: templatePath, encoding: .utf8)
-            let body = try TemplateCodeEmitter().render(
-                ast: ast,
-                templateString: templateString,
-                templateImportsOverride: resolvedConfiguration.templateImports
-            )
-            let fileExtension = resolvedConfiguration.outputExtension ?? inferExtension(fromTemplatePath: templatePath)
+        if let tplPath = resolvedConfiguration.templatePath {
+            let templateString = try String(contentsOfFile: tplPath, encoding: .utf8)
+            var renderFile = file
+            if let tplImports = resolvedConfiguration.templateImports, !tplImports.isEmpty {
+                renderFile = UrkelFile(
+                    machineName: file.machineName,
+                    contextType: file.contextType,
+                    docComments: file.docComments,
+                    imports: tplImports.map { ImportDecl(name: $0) },
+                    parallels: file.parallels,
+                    states: file.states,
+                    entryExitHooks: file.entryExitHooks,
+                    transitions: file.transitions,
+                    invariants: file.invariants
+                )
+            }
+            let body = try MustacheEmitter().render(file: renderFile, templateString: templateString)
+            let fileExtension = resolvedConfiguration.outputExtension ?? inferExtension(fromTemplatePath: tplPath)
             let generatedURL = Self.generatedURL(for: fallbackName, outputExtension: fileExtension, relativeTo: outputURL)
             try body.write(to: generatedURL, atomically: true, encoding: .utf8)
             return [generatedURL]
-        } else if let language = resolvedConfiguration.language {
-            let templateString = try loadBundledTemplate(language: language)
-            let body = try TemplateCodeEmitter().render(
-                ast: ast,
-                templateString: templateString,
-                templateImportsOverride: resolvedConfiguration.templateImports
-            )
-            let fileExtension = resolvedConfiguration.outputExtension ?? defaultExtension(forLanguage: language)
+        } else if let lang = resolvedConfiguration.language {
+            let templateString = try loadBundledTemplate(language: lang)
+            var renderFile = file
+            if let tplImports = resolvedConfiguration.templateImports, !tplImports.isEmpty {
+                renderFile = UrkelFile(
+                    machineName: file.machineName,
+                    contextType: file.contextType,
+                    docComments: file.docComments,
+                    imports: tplImports.map { ImportDecl(name: $0) },
+                    parallels: file.parallels,
+                    states: file.states,
+                    entryExitHooks: file.entryExitHooks,
+                    transitions: file.transitions,
+                    invariants: file.invariants
+                )
+            }
+            let body = try MustacheEmitter().render(file: renderFile, templateString: templateString)
+            let fileExtension = resolvedConfiguration.outputExtension ?? defaultExtension(forLanguage: lang)
             let generatedURL = Self.generatedURL(for: fallbackName, outputExtension: fileExtension, relativeTo: outputURL)
             try body.write(to: generatedURL, atomically: true, encoding: .utf8)
             return [generatedURL]
         } else {
             // Native Swift path: emit 3 focused files.
-            let emittedFiles = SwiftCodeEmitter().emit(
-                ast: ast,
-                composedASTs: resolvedComposedASTs,
-                swiftImportsOverride: resolvedConfiguration.swiftImports,
-                nonescapable: resolvedConfiguration.nonescapable
-            )
-            let machineName = SwiftCodeEmitter().normalizedTypeName(ast.machineName)
-            let stateMachineURL = outputURL.appendingPathComponent("\(machineName)Machine.swift")
-            let clientURL = outputURL.appendingPathComponent("\(machineName)Client.swift")
-            let dependencyURL = outputURL.appendingPathComponent("\(machineName)Client+Dependency.swift")
+            let emittedFiles = try SwiftSyntaxEmitter().emit(file: file)
+            let machineTN = typeName(from: file.machineName)
+            let stateMachineURL = outputURL.appendingPathComponent("\(machineTN)Machine.swift")
+            let clientURL      = outputURL.appendingPathComponent("\(machineTN)Client.swift")
+            let dependencyURL  = outputURL.appendingPathComponent("\(machineTN)Client+Dependency.swift")
             try emittedFiles.stateMachine.write(to: stateMachineURL, atomically: true, encoding: .utf8)
             try emittedFiles.client.write(to: clientURL, atomically: true, encoding: .utf8)
             try emittedFiles.dependency.write(to: dependencyURL, atomically: true, encoding: .utf8)
@@ -227,25 +218,15 @@ public struct UrkelGenerator {
         verboseConfiguration: Bool = false
     ) throws -> [URL] {
         let root = URL(fileURLWithPath: inputDirectoryPath, isDirectory: true)
-        guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
-            return []
-        }
+        guard let enumerator = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
+        ) else { return [] }
 
-        // First pass: parse every .urkel file in the directory so that composed
-        // machines can be resolved when generating each individual file.
         var urkelFiles: [URL] = []
-        var allASTs: [String: MachineAST] = [:]
-        let parser = UrkelParser()
         for case let file as URL in enumerator where file.pathExtension == "urkel" {
             urkelFiles.append(file)
-            if let source = try? String(contentsOf: file, encoding: .utf8),
-               let ast = try? parser.parse(source: source, machineNameFallback: file.deletingPathExtension().lastPathComponent) {
-                allASTs[ast.machineName] = ast
-            }
         }
 
-        // Second pass: generate each file, passing the full AST dict so that
-        // machines that use @compose receive their sub-machine forwarding methods.
         var outputs: [URL] = []
         for file in urkelFiles {
             let generated = try generate(
@@ -257,13 +238,14 @@ public struct UrkelGenerator {
                 swiftImports: swiftImports,
                 templateImports: templateImports,
                 additionalConfigSearchDirectories: additionalConfigSearchDirectories,
-                verboseConfiguration: verboseConfiguration,
-                composedASTs: allASTs
+                verboseConfiguration: verboseConfiguration
             )
             outputs.append(contentsOf: generated)
         }
         return outputs
     }
+
+    // MARK: - Private helpers
 
     private func inferExtension(fromTemplatePath path: String) -> String {
         let templateName = URL(fileURLWithPath: path).lastPathComponent
@@ -278,10 +260,8 @@ public struct UrkelGenerator {
 
     private func defaultExtension(forLanguage language: String) -> String {
         switch language.lowercased() {
-        case "kotlin":
-            return "kt"
-        default:
-            return "txt"
+        case "kotlin": return "kt"
+        default:       return "txt"
         }
     }
 
@@ -290,27 +270,21 @@ public struct UrkelGenerator {
         outputExtension: String,
         relativeTo outputURL: URL
     ) -> URL {
-        let outputName = fallbackName + (outputExtension == "swift" ? "+Generated.swift" : ".\(outputExtension)")
-        return outputURL.appendingPathComponent(outputName)
+        let name = fallbackName + (outputExtension == "swift" ? "+Generated.swift" : ".\(outputExtension)")
+        return outputURL.appendingPathComponent(name)
     }
 
     private static func resolvedOutputDirectoryURL(
         from rootOutputURL: URL,
         configuredOutputFolder: String?
     ) -> URL {
-        guard let configuredOutputFolder, !configuredOutputFolder.isEmpty else {
-            return rootOutputURL
-        }
-
-        return URL(fileURLWithPath: configuredOutputFolder, relativeTo: rootOutputURL).standardizedFileURL
+        guard let folder = configuredOutputFolder, !folder.isEmpty else { return rootOutputURL }
+        return URL(fileURLWithPath: folder, relativeTo: rootOutputURL).standardizedFileURL
     }
 
     private func loadBundledTemplate(language: String) throws -> String {
         let lowered = language.lowercased()
-        guard lowered == "kotlin" else {
-            throw UrkelGeneratorError.unsupportedLanguage(language)
-        }
-
+        guard lowered == "kotlin" else { throw UrkelGeneratorError.unsupportedLanguage(language) }
         guard let url = Bundle.module.url(forResource: lowered, withExtension: "mustache") else {
             throw UrkelGeneratorError.languageTemplateMissing(language)
         }

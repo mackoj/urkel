@@ -116,7 +116,7 @@ public extension UrkelFile {
             "machineVariableName": variableName(from: machineTN),
             "contextType":         contextType as Any,
             "hasContext":          hasContext,
-            "imports":             imports.map(\.name),
+            "imports":             imports.map { ["name": $0.name, "from": $0.from as Any] as [String: Any] },
             "initParams":          (initState?.params ?? []).enumerated().map { idx, p in
                 ["name": p.label, "type": p.typeExpr, "isLast": idx == (initState?.params.count ?? 0) - 1] as [String: Any]
             },

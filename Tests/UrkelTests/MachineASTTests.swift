@@ -3,13 +3,29 @@ import Testing
 
 @Suite("US 2.1 - AST")
 struct MachineASTTests {
-    @Test("MachineAST supports full model and equality")
-    func astEquality() {
-        let lhs = makeFolderWatchAST()
-        let rhs = makeFolderWatchAST()
-        #expect(lhs == rhs)
-        #expect(lhs.factory?.parameters.count == 2)
-        #expect(lhs.states.first?.kind == .initial)
-        #expect(lhs.range == nil)
+    @Test("UrkelFile supports full model and equality")
+    func urkelFileEquality() {
+        let f1 = UrkelFile(
+            machineName: "FolderWatch",
+            contextType: "FolderContext",
+            states: [
+                .simple(SimpleStateDecl(kind: .`init`, name: "Idle")),
+                .simple(SimpleStateDecl(kind: .state, name: "Running")),
+                .simple(SimpleStateDecl(kind: .final, name: "Stopped")),
+            ]
+        )
+        let f2 = UrkelFile(
+            machineName: "FolderWatch",
+            contextType: "FolderContext",
+            states: [
+                .simple(SimpleStateDecl(kind: .`init`, name: "Idle")),
+                .simple(SimpleStateDecl(kind: .state, name: "Running")),
+                .simple(SimpleStateDecl(kind: .final, name: "Stopped")),
+            ]
+        )
+        #expect(f1 == f2)
+        #expect(f1.initState?.name == "Idle")
+        #expect(f1.finalStates.count == 1)
+        #expect(f1.contextType == "FolderContext")
     }
 }
