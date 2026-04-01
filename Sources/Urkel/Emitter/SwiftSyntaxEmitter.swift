@@ -11,10 +11,6 @@ import SwiftSyntax
 /// syntactically invalid output is caught before it reaches disk — the
 /// parse tree is the correctness proof.
 ///
-/// The emitter is intentionally incremental: each `emit*` helper returns a
-/// `String` fragment, making them independently testable and easy to
-/// extend one story at a time.
-///
 /// Usage:
 /// ```swift
 /// let files = try SwiftSyntaxEmitter().emit(file: urkelFile)
@@ -25,8 +21,7 @@ public struct SwiftSyntaxEmitter {
 
     // MARK: - Public API
 
-    /// Emits three source files for the given machine and validates each one
-    /// by parsing it with `SwiftParser`.
+    /// Emits three source files for the given machine and validates each one.
     public func emit(file: UrkelFile) throws -> EmittedFiles {
         let sm  = emitStateMachineSource(for: file)
         let cl  = emitClientSource(for: file)
@@ -37,8 +32,7 @@ public struct SwiftSyntaxEmitter {
 
     // MARK: - Validation
 
-    /// Parses `source` with `SwiftParser` and throws if any error nodes
-    /// are present — guaranteeing syntactic correctness before the file is written.
+    /// Parses `source` with `SwiftParser` and throws if any error nodes are present.
     public func validate(source: String) throws {
         let tree = Parser.parse(source: source)
         guard !tree.hasError else {
@@ -56,15 +50,13 @@ public struct SwiftSyntaxEmitter {
     // MARK: - Imports
 
     private func emitImportsBlock(for file: UrkelFile) -> String {
-        // Dependencies is always required; Foundation is standard.
-        // Any additional imports from the file's @import declarations are included too.
         var names: [String] = ["Dependencies", "Foundation"]
         let extra = file.imports.map(\.name).filter { !names.contains($0) }
         names.append(contentsOf: extra)
         return names.map { "import \($0)" }.joined(separator: "\n")
     }
 
-    // MARK: - Phase Namespace
+    // MARK: - Phase Namespace (US-5.2)
 
     func emitPhaseNamespace(for file: UrkelFile) -> String {
         let machineTN = typeName(from: file.machineName)
@@ -72,8 +64,7 @@ public struct SwiftSyntaxEmitter {
         let cases = file.simpleStates.map { state -> String in
             let tn   = typeName(from: state.name)
             let doc  = phaseDoc(for: state.kind)
-            let decl = "    \(doc)public enum \(tn) {}"
-            return decl
+            return "    \(doc)public enum \(tn) {}"
         }.joined(separator: "\n")
         return """
         // MARK: - \(machineTN) Phases
@@ -94,14 +85,76 @@ public struct SwiftSyntaxEmitter {
         }
     }
 
-    // MARK: - Machine Struct
+    // MARK: - State Data Enum (US-5.4/5.5)
+
+    func emitStateDataEnum(for file: UrkelFile) -> String {
+        let sdStates = statesWithData(in: file)
+        guard !sdStates.isEmpty else { return "" }
+
+        let machineTN = typeName(from: file.machineName)
+        let enumName  = stateDataEnumName(for: file.machineName)
+        var cases: [String] = ["    case none"]
+        for state in sdStates {
+            let cn     = stateDataCaseName(for: state.name)
+            let fields = state.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+            cases.append("    case \(cn)(\(fields))")
+        }
+        return """
+        // MARK: - \(machineTN) State Data
+
+        private enum \(enumName): Sendable {
+        \(cases.joined(separator: "\n"))
+        }
+        """
+    }
+
+    func emitStateDataAccessors(for file: UrkelFile) -> String {
+        let sdStates = statesWithData(in: file)
+        guard !sdStates.isEmpty else { return "" }
+
+        let machineT = machineTypeName(for: file.machineName)
+        let phaseT   = phaseNamespaceName(for: file.machineName)
+
+        return sdStates.map { state -> String in
+            let stateT   = typeName(from: state.name)
+            let caseName = stateDataCaseName(for: state.name)
+
+            let properties = state.params.map { param -> String in
+                let patternParts = state.params.map { p -> String in
+                    p.label == param.label ? "let \(p.label)" : "_"
+                }.joined(separator: ", ")
+                return """
+                    /// Available only in the `\(state.name)` phase.
+                    public borrowing var \(param.label): \(param.typeExpr) {
+                        guard case .\(caseName)(\(patternParts)) = _stateData else {
+                            preconditionFailure("Emitter invariant: in \(state.name) phase but _stateData is \\(_stateData)")
+                        }
+                        return \(param.label)
+                    }
+                """
+            }.joined(separator: "\n\n")
+
+            return """
+            extension \(machineT) where Phase == \(phaseT).\(stateT) {
+            \(properties)
+            }
+            """
+        }.joined(separator: "\n\n")
+    }
+
+    // MARK: - Machine Struct (US-5.2 + 5.4–5.7)
 
     func emitMachineStruct(for file: UrkelFile) -> String {
         let machineTN   = typeName(from: file.machineName)
         let structName  = machineTypeName(for: file.machineName)
         let hasContext  = file.contextType != nil
-        let contextType = file.contextType ?? "Void"
-        let sigs        = uniqueTransitionSignatures(in: file)
+        let ctx         = file.contextType ?? "Void"
+        let closureInfos = allTransitionClosureInfos(in: file)
+        let actionNames  = uniqueActionNames(in: file)
+        let guardNames   = uniqueGuardNames(in: file)
+        let sdStates     = statesWithData(in: file)
+        let hasStateData = !sdStates.isEmpty
+        let sdEnumName   = stateDataEnumName(for: file.machineName)
 
         var lines: [String] = []
         lines.append("// MARK: - \(machineTN) State Machine")
@@ -116,31 +169,66 @@ public struct SwiftSyntaxEmitter {
         """)
 
         if hasContext {
-            lines.append("    fileprivate let _context: \(contextType)")
+            lines.append("    fileprivate let _context: \(ctx)")
         }
-        for sig in sigs {
-            lines.append("    fileprivate let \(sig.propName): \(closureType(sig: sig, ctx: hasContext ? contextType : nil))")
+        if hasStateData {
+            lines.append("    fileprivate let _stateData: \(sdEnumName)")
+        }
+        for info in closureInfos {
+            lines.append("    fileprivate let \(info.propName): \(info.closureTypeStr(ctx: hasContext ? ctx : nil))")
+        }
+        for name in actionNames {
+            let prop = actionPropertyName(for: name)
+            let t    = hasContext ? "@Sendable (\(ctx)) async -> Void" : "@Sendable () async -> Void"
+            lines.append("    fileprivate let \(prop): \(t)")
+        }
+        for name in guardNames {
+            let prop = guardPropertyName(for: name)
+            let t    = hasContext ? "@Sendable (\(ctx)) async -> Bool" : "@Sendable () async -> Bool"
+            lines.append("    fileprivate let \(prop): \(t)")
         }
 
         // init
         var initParts: [String] = []
-        if hasContext { initParts.append("        _context: \(contextType)") }
-        initParts += sigs.map { "        \($0.propName): @escaping \(closureType(sig: $0, ctx: hasContext ? contextType : nil))" }
+        if hasContext { initParts.append("        _context: \(ctx)") }
+        if hasStateData { initParts.append("        _stateData: \(sdEnumName) = .none") }
+        for info in closureInfos {
+            initParts.append("        \(info.propName): @escaping \(info.closureTypeStr(ctx: hasContext ? ctx : nil))")
+        }
+        for name in actionNames {
+            let prop = actionPropertyName(for: name)
+            let t    = hasContext ? "@Sendable (\(ctx)) async -> Void" : "@Sendable () async -> Void"
+            initParts.append("        \(prop): @escaping \(t)")
+        }
+        for name in guardNames {
+            let prop = guardPropertyName(for: name)
+            let t    = hasContext ? "@Sendable (\(ctx)) async -> Bool" : "@Sendable () async -> Bool"
+            initParts.append("        \(prop): @escaping \(t)")
+        }
+
         lines.append("")
         lines.append("    internal init(")
         lines.append(initParts.joined(separator: ",\n"))
         lines.append("    ) {")
         if hasContext { lines.append("        self._context = _context") }
-        for sig in sigs { lines.append("        self.\(sig.propName) = \(sig.propName)") }
+        if hasStateData { lines.append("        self._stateData = _stateData") }
+        for info in closureInfos { lines.append("        self.\(info.propName) = \(info.propName)") }
+        for name in actionNames {
+            let p = actionPropertyName(for: name)
+            lines.append("        self.\(p) = \(p)")
+        }
+        for name in guardNames {
+            let p = guardPropertyName(for: name)
+            lines.append("        self.\(p) = \(p)")
+        }
         lines.append("    }")
 
-        // withContext
         if hasContext {
             lines.append("")
             lines.append("""
                 /// Read-only access to the context without consuming the machine.
                 public borrowing func withContext<R>(
-                    _ body: (borrowing \(contextType)) throws -> R
+                    _ body: (borrowing \(ctx)) throws -> R
                 ) rethrows -> R {
                     try body(_context)
                 }
@@ -151,74 +239,342 @@ public struct SwiftSyntaxEmitter {
         return lines.joined(separator: "\n")
     }
 
-    // MARK: - Transition Extensions
+    // MARK: - Transition Extensions (US-5.2 + 5.6–5.9)
 
     func emitTransitionExtensions(for file: UrkelFile) -> String {
-        let machineT   = machineTypeName(for: file.machineName)
-        let phaseT     = phaseNamespaceName(for: file.machineName)
-        let hasContext = file.contextType != nil
-        let ctx        = file.contextType ?? "Void"
-        let allSigs    = uniqueTransitionSignatures(in: file)
+        let machineT = machineTypeName(for: file.machineName)
+        let phaseT   = phaseNamespaceName(for: file.machineName)
 
         return file.simpleStates.compactMap { state -> String? in
             guard state.kind != .final else { return nil }
-            let outgoing = outgoing(from: state.name, in: file)
-            guard !outgoing.isEmpty else { return nil }
+            let allOut = outgoing(from: state.name, in: file)
+            guard !allOut.isEmpty else { return nil }
 
             let stateT = typeName(from: state.name)
-            let header = """
+            var methods: [String] = []
+
+            // 1. Standard transitions grouped by event name
+            let standard = allOut.filter {
+                guard case .event(_) = $0.event else { return false }
+                return $0.arrow == .standard
+            }
+            var seenEvents = Set<String>()
+            for t in standard {
+                guard case .event(let ev) = t.event else { continue }
+                guard seenEvents.insert(ev.name).inserted else { continue }
+                let group = standard.filter {
+                    guard case .event(let sev) = $0.event else { return false }
+                    return sev.name == ev.name
+                }
+                let hasGuards = group.contains { $0.guard != nil }
+                if hasGuards {
+                    methods.append(emitGuardedMethod(
+                        event: ev.name,
+                        params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) },
+                        group: group, sourceState: state.name, file: file))
+                } else if let t = group.first, let dest = t.destination {
+                    methods.append(emitSimpleMethod(
+                        t: t, sourceState: state.name, event: ev.name,
+                        params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) },
+                        dest: dest.name, file: file))
+                }
+            }
+
+            // 2. Internal in-place transitions (-*> with action, US-5.8)
+            for t in allOut where t.arrow == .`internal` && t.isInPlaceHandler {
+                if case .event(let ev) = t.event {
+                    methods.append(emitInternalInPlaceMethod(
+                        event: ev.name,
+                        params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) },
+                        action: t.action, sourceState: state.name, file: file))
+                }
+            }
+
+            // 3. Always / eventless transitions (US-5.9)
+            let always = allOut.filter { if case .always = $0.event { return true }; return false }
+            if !always.isEmpty {
+                methods.append(emitAlwaysMethod(transitions: always, sourceState: state.name, file: file))
+            }
+
+            guard !methods.isEmpty else { return nil }
+
+            return """
             // MARK: - \(machineT)<\(stateT)>
 
             extension \(machineT) where Phase == \(phaseT).\(stateT) {
+            \(methods.joined(separator: "\n\n"))
+            }
             """
-
-            let methods = outgoing.compactMap { t -> String? in
-                guard case .event(let ev) = t.event,
-                      let dest = t.destination,
-                      t.arrow == .standard else { return nil }
-                let destT    = typeName(from: dest.name)
-                let returnT  = "\(machineT)<\(phaseT).\(destT)>"
-                let paramSig = ev.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
-                let callArgs = ev.params.map { $0.label }.joined(separator: ", ")
-                let prop     = closurePropertyName(for: ev.name, params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) })
-
-                let doc = t.docComments.isEmpty
-                    ? "    /// Transitions from `\(state.name)` to `\(dest.name)`."
-                    : t.docComments.map { "    /// \($0.text)" }.joined(separator: "\n")
-
-                let forwards = allSigs
-                    .map { "            \($0.propName): \($0.propName)" }
-                    .joined(separator: ",\n")
-
-                if hasContext {
-                    let callExpr = callArgs.isEmpty ? "_context" : "_context, \(callArgs)"
-                    let ctxLine  = "let next = try await \(prop)(\(callExpr))"
-                    let ctxInit  = forwards.isEmpty
-                        ? "            _context: next"
-                        : "            _context: next,\n\(forwards)"
-                    return """
-                    \(doc)
-                        public consuming func \(ev.name)(\(paramSig)) async throws -> \(returnT) {
-                            \(ctxLine)
-                            return \(returnT)(
-                    \(ctxInit)
-                            )
-                        }
-                    """
-                } else {
-                    let ctxInit = forwards.isEmpty ? "" : "\n\(forwards)\n        "
-                    return """
-                    \(doc)
-                        public consuming func \(ev.name)(\(paramSig)) -> \(returnT) {
-                            \(returnT)(\(ctxInit))
-                        }
-                    """
-                }
-            }.joined(separator: "\n\n")
-
-            guard !methods.isEmpty else { return nil }
-            return [header, methods, "}"].joined(separator: "\n")
         }.joined(separator: "\n\n")
+    }
+
+    // MARK: - Simple transition method (no guards)
+
+    private func emitSimpleMethod(
+        t: TransitionStmt,
+        sourceState: String,
+        event: String,
+        params: [Parameter],
+        dest: String,
+        file: UrkelFile
+    ) -> String {
+        let machineT   = machineTypeName(for: file.machineName)
+        let phaseT     = phaseNamespaceName(for: file.machineName)
+        let hasCtx     = file.contextType != nil
+        let destT      = typeName(from: dest)
+        let returnT    = "\(machineT)<\(phaseT).\(destT)>"
+        let paramSig   = params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+        let callArgs   = params.map(\.label).joined(separator: ", ")
+        let propName   = transitionPropName(for: t, in: file)
+        let doc        = t.docComments.isEmpty
+            ? "    /// Transitions from `\(sourceState)` to `\(dest)`."
+            : t.docComments.map { "    /// \($0.text)" }.joined(separator: "\n")
+
+        var body: [String] = []
+
+        // @exit hooks
+        for a in exitActions(for: sourceState, in: file) {
+            body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+        }
+
+        // transition
+        if hasCtx {
+            let callExpr = callArgs.isEmpty ? "_context" : "_context, \(callArgs)"
+            body.append("        let next = try await \(propName)(\(callExpr))")
+        } else if !params.isEmpty {
+            body.append("        try await \(propName)(\(callArgs))")
+        }
+
+        // transition actions
+        let nextOrCtx = hasCtx ? "next" : ""
+        for a in (t.action?.actions ?? []) {
+            body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+        }
+
+        // @entry hooks
+        for a in entryActions(for: dest, in: file) {
+            body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+        }
+
+        // return
+        let constructArgs = machineConstructionArgs(destStateName: dest, file: file, indent: 12)
+        body.append("        return \(returnT)(\n\(constructArgs)\n        )")
+
+        let throwsKw = hasCtx ? " async throws" : ""
+        return """
+        \(doc)
+            public consuming func \(event)(\(paramSig))\(throwsKw) -> \(returnT) {
+        \(body.joined(separator: "\n"))
+            }
+        """
+    }
+
+    // MARK: - Guarded transition method (US-5.7)
+
+    private func emitGuardedMethod(
+        event: String,
+        params: [Parameter],
+        group: [TransitionStmt],
+        sourceState: String,
+        file: UrkelFile
+    ) -> String {
+        let machineT   = machineTypeName(for: file.machineName)
+        let phaseT     = phaseNamespaceName(for: file.machineName)
+        let stateEnumT = stateEnumTypeName(for: file.machineName)
+        let hasCtx     = file.contextType != nil
+        let paramSig   = params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+        let callArgs   = params.map(\.label).joined(separator: ", ")
+        let throwsKw   = hasCtx ? " async throws" : ""
+        let nextOrCtx  = hasCtx ? "next" : ""
+
+        var branches: [String] = []
+        var hasElse = false
+
+        for t in group {
+            guard let dest = t.destination else { continue }
+            let destT     = typeName(from: dest.name)
+            let destCase  = stateCaseName(for: dest.name)
+            let propName  = transitionPropName(for: t, in: file)
+
+            var branchBody: [String] = []
+            if hasCtx {
+                let callExpr = callArgs.isEmpty ? "_context" : "_context, \(callArgs)"
+                branchBody.append("            let next = try await \(propName)(\(callExpr))")
+            }
+            for a in (t.action?.actions ?? []) {
+                branchBody.append("            await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            for a in entryActions(for: dest.name, in: file) {
+                branchBody.append("            await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 16)
+            let machineExpr = "\(machineT)<\(phaseT).\(destT)>(\n\(constructArgs)\n            )"
+            branchBody.append("            return .\(destCase)(\(machineExpr))")
+
+            let branchCode = branchBody.joined(separator: "\n")
+
+            switch t.guard {
+            case .none:
+                // Unguarded branch in a guarded group — treat as else
+                branches.append("        } else {\n\(branchCode)")
+                hasElse = true
+            case .named(let n):
+                let pred = "await \(guardPropertyName(for: n))(\(hasCtx ? "_context" : ""))"
+                if branches.isEmpty {
+                    branches.append("        if \(pred) {\n\(branchCode)")
+                } else {
+                    branches.append("        } else if \(pred) {\n\(branchCode)")
+                }
+            case .negated(let n):
+                let pred = "!(await \(guardPropertyName(for: n))(\(hasCtx ? "_context" : "")))"
+                if branches.isEmpty {
+                    branches.append("        if \(pred) {\n\(branchCode)")
+                } else {
+                    branches.append("        } else if \(pred) {\n\(branchCode)")
+                }
+            case .else:
+                branches.append("        } else {\n\(branchCode)")
+                hasElse = true
+            }
+        }
+
+        if !hasElse {
+            // Safety fallback — should not happen in valid machines
+            branches.append("        } else {\n            fatalError(\"Urkel emitter: no guard matched for '\(event)' in '\(sourceState)'\")")
+        }
+
+        let branchStr = branches.joined(separator: "\n") + "\n        }"
+
+        var exitLines: [String] = []
+        for a in exitActions(for: sourceState, in: file) {
+            exitLines.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+        }
+        let exitBlock = exitLines.isEmpty ? "" : exitLines.joined(separator: "\n") + "\n"
+
+        return """
+            /// Handles `\(event)` — pattern-match the result for each guard branch.
+            public consuming func \(event)(\(paramSig))\(throwsKw) -> \(stateEnumT) {
+        \(exitBlock)\(branchStr)
+            }
+        """
+    }
+
+    // MARK: - Internal in-place method (US-5.8)
+
+    private func emitInternalInPlaceMethod(
+        event: String,
+        params: [Parameter],
+        action: ActionClause?,
+        sourceState: String,
+        file: UrkelFile
+    ) -> String {
+        let hasCtx   = file.contextType != nil
+        let paramSig = params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+        var body: [String] = []
+        for a in (action?.actions ?? []) {
+            body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+        }
+        let bodyStr = body.isEmpty ? "        // no-op" : body.joined(separator: "\n")
+        return """
+            /// Handles `\(event)` in-place; machine remains in `\(sourceState)`.
+            public borrowing func \(event)(\(paramSig)) async {
+        \(bodyStr)
+            }
+        """
+    }
+
+    // MARK: - Always / eventless transition (US-5.9)
+
+    private func emitAlwaysMethod(
+        transitions: [TransitionStmt],
+        sourceState: String,
+        file: UrkelFile
+    ) -> String {
+        let machineT   = machineTypeName(for: file.machineName)
+        let phaseT     = phaseNamespaceName(for: file.machineName)
+        let stateEnumT = stateEnumTypeName(for: file.machineName)
+        let hasCtx     = file.contextType != nil
+        let hasGuards  = transitions.contains { $0.guard != nil }
+        let nextOrCtx  = hasCtx ? "next" : ""
+
+        if !hasGuards, let t = transitions.first, let dest = t.destination {
+            // Unconditional always — returns specific phase
+            let destT  = typeName(from: dest.name)
+            let retT   = "\(machineT)<\(phaseT).\(destT)>"
+            let propName = transitionPropName(for: t, in: file)
+            var body: [String] = []
+            for a in exitActions(for: sourceState, in: file) {
+                body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+            }
+            if hasCtx {
+                body.append("        let next = try await \(propName)(_context)")
+            }
+            for a in (t.action?.actions ?? []) {
+                body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            for a in entryActions(for: dest.name, in: file) {
+                body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 12)
+            body.append("        return \(retT)(\n\(constructArgs)\n        )")
+            let throwsKw = hasCtx ? " async throws" : ""
+            return """
+                /// Automatically transitions from `\(sourceState)` — call immediately after entering this phase.
+                public consuming func autoTransition()\(throwsKw) -> \(retT) {
+            \(body.joined(separator: "\n"))
+                }
+            """
+        } else {
+            // Guarded always — returns combined state enum
+            var branches: [String] = []
+            var hasElse = false
+            for t in transitions {
+                guard let dest = t.destination else { continue }
+                let destT    = typeName(from: dest.name)
+                let destCase = stateCaseName(for: dest.name)
+                let propName = transitionPropName(for: t, in: file)
+                var bBody: [String] = []
+                if hasCtx {
+                    bBody.append("            let next = try await \(propName)(_context)")
+                }
+                for a in (t.action?.actions ?? []) {
+                    bBody.append("            await \(actionPropertyName(for: a))(\(nextOrCtx))")
+                }
+                for a in entryActions(for: dest.name, in: file) {
+                    bBody.append("            await \(actionPropertyName(for: a))(\(nextOrCtx))")
+                }
+                let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 16)
+                let machineExpr = "\(machineT)<\(phaseT).\(destT)>(\n\(constructArgs)\n            )"
+                bBody.append("            return .\(destCase)(\(machineExpr))")
+                let branchCode = bBody.joined(separator: "\n")
+                switch t.guard {
+                case .none, .else:
+                    branches.append("        } else {\n\(branchCode)")
+                    hasElse = true
+                case .named(let n):
+                    let pred = "await \(guardPropertyName(for: n))(\(hasCtx ? "_context" : ""))"
+                    branches.append(branches.isEmpty
+                        ? "        if \(pred) {\n\(branchCode)"
+                        : "        } else if \(pred) {\n\(branchCode)")
+                case .negated(let n):
+                    let pred = "!(await \(guardPropertyName(for: n))(\(hasCtx ? "_context" : "")))"
+                    branches.append(branches.isEmpty
+                        ? "        if \(pred) {\n\(branchCode)"
+                        : "        } else if \(pred) {\n\(branchCode)")
+                }
+            }
+            if !hasElse {
+                branches.append("        } else {\n            fatalError(\"Urkel: no always guard matched in '\(sourceState)'\")")
+            }
+            let branchStr = branches.joined(separator: "\n") + "\n        }"
+            let throwsKw = hasCtx ? " async throws" : ""
+            return """
+                /// Evaluates `always` guards and transitions automatically.
+                public consuming func autoTransition()\(throwsKw) -> \(stateEnumT) {
+            \(branchStr)
+                }
+            """
+        }
     }
 
     // MARK: - Combined State Enum
@@ -259,11 +615,10 @@ public struct SwiftSyntaxEmitter {
         }
         """
 
-        // Accessors + delegating transitions
         let accessors = file.simpleStates.map { s -> String in
-            let tn   = typeName(from: s.name)
-            let c    = stateCaseName(for: s.name)
-            let mt   = "\(machineT)<\(phaseT).\(tn)>"
+            let tn = typeName(from: s.name)
+            let c  = stateCaseName(for: s.name)
+            let mt = "\(machineT)<\(phaseT).\(tn)>"
             return """
                 public borrowing func with\(tn)<R>(
                     _ body: (borrowing \(mt)) throws -> R
@@ -274,45 +629,55 @@ public struct SwiftSyntaxEmitter {
             """
         }.joined(separator: "\n\n")
 
-        let delegatingMethods = uniqueTransitionSignatures(in: file).map { sig -> String in
-            let paramSig  = sig.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
-            let callArgs  = sig.params.map { "\($0.label): \($0.label)" }.joined(separator: ", ")
-            let switchCases = file.simpleStates.map { s -> String in
-                let c_ = stateCaseName(for: s.name)
-                let t  = outgoing(from: s.name, in: file).first { t in
-                    guard case .event(let ev) = t.event else { return false }
-                    return ev.name == sig.event && t.arrow == .standard
+        // Only unguarded events get delegating methods on the combined state
+        let delegatingMethods = allTransitionClosureInfos(in: file)
+            .filter { info in
+                // Only include if this event is unguarded from at least one source
+                file.transitionStmts.contains { t in
+                    guard case .event(_) = t.event, t.arrow == .standard else { return false }
+                    let propName = transitionPropName(for: t, in: file)
+                    return propName == info.propName
                 }
-                if let t, let dest = t.destination {
-                    let dc   = stateCaseName(for: dest.name)
-                    let call = callArgs.isEmpty
-                        ? "try await m.\(sig.event)()"
-                        : "try await m.\(sig.event)(\(callArgs))"
-                    return "        case .\(c_)(let m): return .\(dc)(\(call))"
-                } else {
-                    return "        case .\(c_)(let m): return .\(c_)(m)"
-                }
-            }.joined(separator: "\n")
-
-            if hasContext {
-                return """
-                    /// Attempts `\(sig.event)` from the current state. No-ops in states where it is not defined.
-                    public consuming func \(sig.event)(\(paramSig)) async throws -> \(enumName) {
-                        switch consume self {
-                \(switchCases)
-                        }
-                    }
-                """
-            } else {
-                return """
-                    public consuming func \(sig.event)(\(paramSig)) -> \(enumName) {
-                        switch consume self {
-                \(switchCases)
-                        }
-                    }
-                """
             }
-        }.joined(separator: "\n\n")
+            .map { info -> String in
+                let paramSig  = info.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+                let callArgs  = info.params.map { "\($0.label): \($0.label)" }.joined(separator: ", ")
+                let switchCases = file.simpleStates.map { s -> String in
+                    let c_ = stateCaseName(for: s.name)
+                    let t  = outgoing(from: s.name, in: file).first { t in
+                        guard case .event(let ev) = t.event else { return false }
+                        return ev.name == info.event && t.arrow == .standard && t.guard == nil
+                    }
+                    if let t, let dest = t.destination {
+                        let dc   = stateCaseName(for: dest.name)
+                        let call = callArgs.isEmpty
+                            ? "try await m.\(info.event)()"
+                            : "try await m.\(info.event)(\(callArgs))"
+                        return "        case .\(c_)(let m): return .\(dc)(\(call))"
+                    } else {
+                        return "        case .\(c_)(let m): return .\(c_)(m)"
+                    }
+                }.joined(separator: "\n")
+
+                if hasContext {
+                    return """
+                        /// Attempts `\(info.event)` from the current state. No-ops in states where it is not defined.
+                        public consuming func \(info.event)(\(paramSig)) async throws -> \(enumName) {
+                            switch consume self {
+                    \(switchCases)
+                            }
+                        }
+                    """
+                } else {
+                    return """
+                        public consuming func \(info.event)(\(paramSig)) -> \(enumName) {
+                            switch consume self {
+                    \(switchCases)
+                            }
+                        }
+                    """
+                }
+            }.joined(separator: "\n\n")
 
         let ext = """
         extension \(enumName) {
@@ -326,18 +691,20 @@ public struct SwiftSyntaxEmitter {
         return [enumDecl, ext].joined(separator: "\n\n")
     }
 
-    // MARK: - Client Runtime
+    // MARK: - Client Runtime (US-5.3 + 5.6–5.7)
 
     func emitClientRuntime(for file: UrkelFile) -> String {
         let runtimeN    = runtimeTypeName(for: file.machineName)
         let machineTN   = typeName(from: file.machineName)
         let hasContext   = file.contextType != nil
         let ctx          = file.contextType ?? "Void"
-        let sigs         = uniqueTransitionSignatures(in: file)
+        let infos        = allTransitionClosureInfos(in: file)
+        let actionNames  = uniqueActionNames(in: file)
+        let guardNames   = uniqueGuardNames(in: file)
         let initParams   = file.initState?.params ?? []
 
         var lines: [String] = ["// MARK: - \(machineTN) Runtime Builder", ""]
-        lines.append("/// Provides individual transition hooks for constructing a \(machineTN)Client.")
+        lines.append("/// Provides individual hooks for constructing a \(machineTN)Client.")
         lines.append("public struct \(runtimeN): Sendable {")
 
         if hasContext {
@@ -347,28 +714,69 @@ public struct SwiftSyntaxEmitter {
                 : "@Sendable (\(pTypes)) -> \(ctx)"
             lines.append("    public typealias InitialContextBuilder = \(initType)")
         }
-        for sig in sigs {
-            lines.append("    public typealias \(sig.aliasName) = \(closureType(sig: sig, ctx: hasContext ? ctx : nil))")
+        for info in infos {
+            lines.append("    public typealias \(info.aliasName) = \(info.closureTypeStr(ctx: hasContext ? ctx : nil))")
         }
+        for name in actionNames {
+            let alias = typeName(from: name) + "Action"
+            let t     = hasContext ? "@Sendable (\(ctx)) async -> Void" : "@Sendable () async -> Void"
+            lines.append("    public typealias \(alias) = \(t)")
+        }
+        for name in guardNames {
+            let alias = typeName(from: name) + "Guard"
+            let t     = hasContext ? "@Sendable (\(ctx)) async -> Bool" : "@Sendable () async -> Bool"
+            lines.append("    public typealias \(alias) = \(t)")
+        }
+
         if hasContext { lines.append("    public let initialContext: InitialContextBuilder") }
-        for sig in sigs { lines.append("    public let \(sig.runtimePropName): \(sig.aliasName)") }
+        for info in infos { lines.append("    public let \(info.runtimePropName): \(info.aliasName)") }
+        for name in actionNames {
+            let alias = typeName(from: name) + "Action"
+            let prop  = variableName(from: alias)
+            lines.append("    public let \(prop): \(alias)")
+        }
+        for name in guardNames {
+            let alias = typeName(from: name) + "Guard"
+            let prop  = variableName(from: alias)
+            lines.append("    public let \(prop): \(alias)")
+        }
 
         // init
         var initArgs: [String] = []
         if hasContext { initArgs.append("        initialContext: @escaping InitialContextBuilder") }
-        initArgs += sigs.map { "        \($0.runtimePropName): @escaping \($0.aliasName)" }
+        for info in infos { initArgs.append("        \(info.runtimePropName): @escaping \(info.aliasName)") }
+        for name in actionNames {
+            let alias = typeName(from: name) + "Action"
+            let prop  = variableName(from: alias)
+            initArgs.append("        \(prop): @escaping \(alias)")
+        }
+        for name in guardNames {
+            let alias = typeName(from: name) + "Guard"
+            let prop  = variableName(from: alias)
+            initArgs.append("        \(prop): @escaping \(alias)")
+        }
         lines.append("")
         lines.append("    public init(")
         lines.append(initArgs.joined(separator: ",\n"))
         lines.append("    ) {")
         if hasContext { lines.append("        self.initialContext = initialContext") }
-        for sig in sigs { lines.append("        self.\(sig.runtimePropName) = \(sig.runtimePropName)") }
+        for info in infos { lines.append("        self.\(info.runtimePropName) = \(info.runtimePropName)") }
+        for name in actionNames {
+            let alias = typeName(from: name) + "Action"
+            let prop  = variableName(from: alias)
+            lines.append("        self.\(prop) = \(prop)")
+        }
+        for name in guardNames {
+            let alias = typeName(from: name) + "Guard"
+            let prop  = variableName(from: alias)
+            lines.append("        self.\(prop) = \(prop)")
+        }
         lines.append("    }")
         lines.append("}")
         return lines.joined(separator: "\n")
     }
 
-    // MARK: - Client Struct + Extension
+    // MARK: - Client Struct + Extension (US-5.3 + 5.6–5.7)
 
     func emitClientStruct(for file: UrkelFile) -> String {
         let clientN    = clientTypeName(for: file.machineName)
@@ -381,7 +789,11 @@ public struct SwiftSyntaxEmitter {
         let hasContext = file.contextType != nil
         let ctx        = file.contextType ?? "Void"
         let initParams = file.initState?.params ?? []
-        let sigs       = uniqueTransitionSignatures(in: file)
+        let infos      = allTransitionClosureInfos(in: file)
+        let actionNames = uniqueActionNames(in: file)
+        let guardNames  = uniqueGuardNames(in: file)
+        let sdStates    = statesWithData(in: file)
+        let hasSD       = !sdStates.isEmpty
         let keyName    = dependencyKeyName(for: file.machineName)
 
         let pTypes  = initParams.map(\.typeExpr).joined(separator: ", ")
@@ -393,42 +805,59 @@ public struct SwiftSyntaxEmitter {
             factoryT = "@Sendable (\(pTypes)) -> \(retT)"
         }
 
-        // noop machine construction
-        let noopForwards = sigs.map { sig -> String in
-            if hasContext {
-                let count = sig.params.count
+        var noopProps: [String] = []
+        if hasContext {
+            for info in infos {
+                let count   = info.params.count
                 let ignores = count == 0 ? "ctx, _ in ctx" : "ctx, " + (0..<count).map { _ in "_" }.joined(separator: ", ") + " in ctx"
-                return "            \(sig.propName): { \(ignores) }"
-            } else {
-                return "            \(sig.propName): { }"
+                noopProps.append("            \(info.propName): { \(ignores) }")
             }
-        }.joined(separator: ",\n")
-        let noopIgnore = initParams.isEmpty ? "" : "_ in\n            "
+        } else {
+            for info in infos {
+                noopProps.append("            \(info.propName): { }")
+            }
+        }
+        for name in actionNames {
+            let prop = actionPropertyName(for: name)
+            noopProps.append("            \(prop): { \(hasContext ? "_ in" : "_ in") }")
+        }
+        for name in guardNames {
+            let prop = guardPropertyName(for: name)
+            noopProps.append("            \(prop): { \(hasContext ? "_ in " : "")false }")
+        }
+
+        let noopIgnore  = initParams.isEmpty ? "" : "_ in\n            "
         let noopCtxLine = hasContext ? "let _ctx = \(ctx)()\n            " : ""
         let noopCtxArg  = hasContext ? "            _context: _ctx,\n" : ""
-        let noopMachine: String
-        if noopForwards.isEmpty {
-            noopMachine = hasContext
-                ? "\(retT)(\n            _context: _ctx\n        )"
-                : "\(retT)()"
-        } else {
-            noopMachine = "\(retT)(\n\(noopCtxArg)\(noopForwards)\n        )"
-        }
+        let noopSDLine  = hasSD ? "            _stateData: .none,\n" : ""
+        let noopPropsStr = noopProps.isEmpty ? "" : "\n" + noopProps.joined(separator: ",\n") + "\n        "
+        let noopMachine = "\(retT)(\n\(noopCtxArg)\(noopSDLine)\(noopPropsStr.isEmpty ? "        " : noopPropsStr))"
 
         // fromRuntime
         let fromRuntimePNames = initParams.map(\.label).joined(separator: ", ")
-        let fromRuntimeSig = fromRuntimePNames.isEmpty ? "" : "\(fromRuntimePNames) in\n            "
-        let fromRuntimeCtx = hasContext ? "let context = runtime.initialContext(\(fromRuntimePNames))\n            " : ""
-        let fromRuntimeForwards = sigs.map { "                \($0.propName): runtime.\($0.runtimePropName)" }.joined(separator: ",\n")
-        let fromRuntimeCtxArg = hasContext ? "                _context: context,\n" : ""
-        let fromRuntimeMachine: String
-        if fromRuntimeForwards.isEmpty {
-            fromRuntimeMachine = hasContext
-                ? "\(retT)(\n                _context: context\n            )"
-                : "\(retT)()"
-        } else {
-            fromRuntimeMachine = "\(retT)(\n\(fromRuntimeCtxArg)\(fromRuntimeForwards)\n            )"
+        let fromRuntimeSig    = fromRuntimePNames.isEmpty ? "" : "\(fromRuntimePNames) in\n            "
+        let fromRuntimeCtx    = hasContext ? "let context = runtime.initialContext(\(fromRuntimePNames))\n            " : ""
+        var fromRuntimeForwards: [String] = []
+        if hasContext { fromRuntimeForwards.append("                _context: context") }
+        if hasSD      { fromRuntimeForwards.append("                _stateData: .none") }
+        for info in infos {
+            fromRuntimeForwards.append("                \(info.propName): runtime.\(info.runtimePropName)")
         }
+        for name in actionNames {
+            let prop  = actionPropertyName(for: name)
+            let alias = typeName(from: name) + "Action"
+            let rProp = variableName(from: alias)
+            fromRuntimeForwards.append("                \(prop): runtime.\(rProp)")
+        }
+        for name in guardNames {
+            let prop  = guardPropertyName(for: name)
+            let alias = typeName(from: name) + "Guard"
+            let rProp = variableName(from: alias)
+            fromRuntimeForwards.append("                \(prop): runtime.\(rProp)")
+        }
+        let fromRuntimeMachine = fromRuntimeForwards.isEmpty
+            ? (hasContext ? "\(retT)(\n                _context: context\n            )" : "\(retT)()")
+            : "\(retT)(\n\(fromRuntimeForwards.joined(separator: ",\n"))\n            )"
 
         return """
         // MARK: - \(machineTN) Client
@@ -448,7 +877,6 @@ public struct SwiftSyntaxEmitter {
 
         extension \(clientN) {
             /// No-op client whose transitions are identity operations.
-            /// Safe for previews and unit tests that do not exercise real effects.
             public static var noop: Self {
                 Self { \(noopIgnore)\(noopCtxLine)\(noopMachine)
                 }
@@ -489,18 +917,24 @@ public struct SwiftSyntaxEmitter {
     // MARK: - Composed files
 
     private func emitStateMachineSource(for file: UrkelFile) -> String {
-        let parts: [String] = [
+        var parts: [String] = [
             fileHeader(for: file),
             emitImportsBlock(for: file),
-            "",
+            ""
+        ]
+        let dataEnum = emitStateDataEnum(for: file)
+        if !dataEnum.isEmpty { parts += [dataEnum, ""] }
+        parts += [
             emitPhaseNamespace(for: file),
             "",
             emitMachineStruct(for: file),
             "",
             emitTransitionExtensions(for: file),
-            "",
-            emitStateEnum(for: file)
+            ""
         ]
+        let dataAccessors = emitStateDataAccessors(for: file)
+        if !dataAccessors.isEmpty { parts += [dataAccessors, ""] }
+        parts.append(emitStateEnum(for: file))
         return parts.filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
@@ -528,44 +962,64 @@ public struct SwiftSyntaxEmitter {
 
     // MARK: - Internal helpers
 
-    private struct TransitionSignature: Hashable {
+    struct TransitionClosureInfo: Hashable {
         let event: String
+        let propName: String
         let params: [Parameter]
 
-        var propName: String { closurePropertyName(for: event, params: params) }
         var aliasName: String {
-            let base   = typeName(from: event)
-            let suffix = params.map { typeName(from: $0.typeExpr.components(separatedBy: .init(charactersIn: ":<>[]?,")).first ?? $0.typeExpr) }.joined()
-            return "\(base)\(suffix)Transition"
+            let base = String(propName.dropFirst())
+            return "\(typeName(from: base))Transition"
         }
         var runtimePropName: String {
             let base = aliasName.replacingOccurrences(of: "Transition", with: "")
             return variableName(from: base) + "Transition"
         }
 
-        static func == (lhs: Self, rhs: Self) -> Bool {
-            lhs.event == rhs.event &&
-            lhs.params.map { "\($0.label):\($0.typeExpr)" } ==
-            rhs.params.map { "\($0.label):\($0.typeExpr)" }
+        func closureTypeStr(ctx: String?) -> String {
+            if let ctx {
+                let inputs = ([ctx] + params.map(\.typeExpr)).joined(separator: ", ")
+                return "@Sendable (\(inputs)) async throws -> \(ctx)"
+            } else if params.isEmpty {
+                return "@Sendable () async throws -> Void"
+            } else {
+                return "@Sendable (\(params.map(\.typeExpr).joined(separator: ", "))) async throws -> Void"
+            }
         }
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(event)
-            hasher.combine(params.map { "\($0.label):\($0.typeExpr)" })
-        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool { lhs.propName == rhs.propName }
+        func hash(into hasher: inout Hasher) { hasher.combine(propName) }
     }
 
-    private func uniqueTransitionSignatures(in file: UrkelFile) -> [TransitionSignature] {
-        var seen = Set<TransitionSignature>()
-        var ordered: [TransitionSignature] = []
+    func allTransitionClosureInfos(in file: UrkelFile) -> [TransitionClosureInfo] {
+        var seen = Set<String>()
+        var result: [TransitionClosureInfo] = []
         for t in file.transitionStmts {
             guard case .event(let ev) = t.event, t.arrow == .standard else { continue }
-            let sig = TransitionSignature(
-                event: ev.name,
-                params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) }
-            )
-            if seen.insert(sig).inserted { ordered.append(sig) }
+            let propName = transitionPropName(for: t, in: file)
+            if seen.insert(propName).inserted {
+                result.append(TransitionClosureInfo(
+                    event: ev.name,
+                    propName: propName,
+                    params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) }
+                ))
+            }
         }
-        return ordered
+        return result
+    }
+
+    private func transitionPropName(for t: TransitionStmt, in file: UrkelFile) -> String {
+        guard case .event(let ev) = t.event, case .state(let ref) = t.source else { return "_unknown" }
+        let siblings = file.transitionStmts.filter { s in
+            guard case .event(let sev) = s.event, sev.name == ev.name, s.arrow == .standard else { return false }
+            guard case .state(let sref) = s.source, sref.name == ref.name else { return false }
+            return true
+        }
+        if siblings.contains(where: { $0.guard != nil }), let dest = t.destination {
+            return "_\(variableName(from: typeName(from: ev.name)))To\(typeName(from: dest.name))"
+        } else {
+            return closurePropertyName(for: ev.name, params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) })
+        }
     }
 
     private func outgoing(from state: String, in file: UrkelFile) -> [TransitionStmt] {
@@ -575,15 +1029,100 @@ public struct SwiftSyntaxEmitter {
         }
     }
 
-    private func closureType(sig: TransitionSignature, ctx: String?) -> String {
-        if let ctx {
-            let inputs = ([ctx] + sig.params.map(\.typeExpr)).joined(separator: ", ")
-            return "@Sendable (\(inputs)) async throws -> \(ctx)"
-        } else if sig.params.isEmpty {
-            return "@Sendable () async throws -> Void"
-        } else {
-            return "@Sendable (\(sig.params.map(\.typeExpr).joined(separator: ", "))) async throws -> Void"
+    // MARK: - State data helpers (US-5.4/5.5)
+
+    func statesWithData(in file: UrkelFile) -> [SimpleStateDecl] {
+        file.simpleStates.filter { !$0.params.isEmpty }
+    }
+
+    func stateDataEnumName(for machineName: String) -> String {
+        "_\(typeName(from: machineName))StateData"
+    }
+
+    private func stateDataCaseName(for stateName: String) -> String {
+        variableName(from: typeName(from: stateName))
+    }
+
+    // MARK: - Action/Guard helpers (US-5.6/5.7)
+
+    func uniqueActionNames(in file: UrkelFile) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for t in file.transitionStmts {
+            for a in (t.action?.actions ?? []) where seen.insert(a).inserted { result.append(a) }
         }
+        for hook in file.entryExitHooks {
+            for a in hook.actions where seen.insert(a).inserted { result.append(a) }
+        }
+        return result
+    }
+
+    func uniqueGuardNames(in file: UrkelFile) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for t in file.transitionStmts {
+            if let g = t.guard {
+                switch g {
+                case .named(let n), .negated(let n):
+                    if seen.insert(n).inserted { result.append(n) }
+                case .else:
+                    break
+                }
+            }
+        }
+        return result
+    }
+
+    private func entryActions(for stateName: String, in file: UrkelFile) -> [String] {
+        file.entryExitHooks
+            .filter { $0.hook == .entry && $0.state.name == stateName }
+            .flatMap(\.actions)
+    }
+
+    private func exitActions(for stateName: String, in file: UrkelFile) -> [String] {
+        file.entryExitHooks
+            .filter { $0.hook == .exit && $0.state.name == stateName }
+            .flatMap(\.actions)
+    }
+
+    // MARK: - Machine construction helper
+
+    private func machineConstructionArgs(
+        destStateName: String,
+        file: UrkelFile,
+        indent: Int = 12
+    ) -> String {
+        let pad    = String(repeating: " ", count: indent)
+        let hasCtx = file.contextType != nil
+        let sdStates = statesWithData(in: file)
+        var args: [String] = []
+
+        if hasCtx { args.append("\(pad)_context: next") }
+
+        if !sdStates.isEmpty {
+            if let destState = file.simpleStates.first(where: { $0.name == destStateName }),
+               !destState.params.isEmpty {
+                let cn     = stateDataCaseName(for: destStateName)
+                let fields = destState.params.map { "\($0.label): \($0.label)" }.joined(separator: ", ")
+                args.append("\(pad)_stateData: .\(cn)(\(fields))")
+            } else {
+                args.append("\(pad)_stateData: .none")
+            }
+        }
+
+        for info in allTransitionClosureInfos(in: file) {
+            args.append("\(pad)\(info.propName): \(info.propName)")
+        }
+        for name in uniqueActionNames(in: file) {
+            let p = actionPropertyName(for: name)
+            args.append("\(pad)\(p): \(p)")
+        }
+        for name in uniqueGuardNames(in: file) {
+            let p = guardPropertyName(for: name)
+            args.append("\(pad)\(p): \(p)")
+        }
+
+        return args.joined(separator: ",\n")
     }
 }
 
