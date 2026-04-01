@@ -61,10 +61,20 @@ public struct SwiftSyntaxEmitter {
     func emitPhaseNamespace(for file: UrkelFile) -> String {
         let machineTN = typeName(from: file.machineName)
         let ns        = phaseNamespaceName(for: file.machineName)
-        let cases = file.simpleStates.map { state -> String in
-            let tn   = typeName(from: state.name)
-            let doc  = phaseDoc(for: state.kind)
-            return "    \(doc)public enum \(tn) {}"
+        let cases = file.states.map { stateDecl -> String in
+            switch stateDecl {
+            case .simple(let state):
+                let tn  = typeName(from: state.name)
+                let doc = phaseDoc(for: state.kind)
+                return "    \(doc)public enum \(tn) {}"
+            case .compound(let compound):
+                let tn = typeName(from: compound.name)
+                let childCases = compound.children.map { child -> String in
+                    let ctn = typeName(from: child.name)
+                    return "        public enum \(ctn) {}"
+                }.joined(separator: "\n")
+                return "    public enum \(tn) {\n\(childCases)\n    }"
+            }
         }.joined(separator: "\n")
         return """
         // MARK: - \(machineTN) Phases
@@ -192,6 +202,23 @@ public struct SwiftSyntaxEmitter {
             lines.append("    fileprivate let \(prop): \(t)")
         }
 
+        // Sub-machine properties (US-5.11)
+        let subImports = subMachineImports(in: file)
+        for imp in subImports {
+            let varN   = stateCaseName(for: imp.name)
+            let stateT = stateEnumTypeName(for: imp.name)
+            let typN   = typeName(from: imp.name)
+            lines.append("    fileprivate var _\(varN)State: \(stateT)?")
+            lines.append("    fileprivate let _make\(typN): @Sendable () -> \(stateT)")
+        }
+
+        // Compound inner state properties (US-5.12)
+        for compound in compoundStates(in: file) {
+            let varN      = stateCaseName(for: compound.name)
+            let innerEnum = innerStateEnumName(for: compound.name, machineName: file.machineName)
+            lines.append("    fileprivate var _\(varN)InnerState: \(innerEnum)?")
+        }
+
         // init
         var initParts: [String] = []
         if hasContext { initParts.append("        _context: \(ctx)") }
@@ -210,6 +237,20 @@ public struct SwiftSyntaxEmitter {
             let t    = hasContext ? "@Sendable (\(ctx)) async -> Bool" : "@Sendable () async -> Bool"
             initParts.append("        \(prop): @escaping \(t)")
         }
+        // Sub-machine init params (US-5.11)
+        for imp in subImports {
+            let varN   = stateCaseName(for: imp.name)
+            let stateT = stateEnumTypeName(for: imp.name)
+            let typN   = typeName(from: imp.name)
+            initParts.append("        _\(varN)State: \(stateT)? = nil")
+            initParts.append("        _make\(typN): @escaping @Sendable () -> \(stateT)")
+        }
+        // Compound inner state init params (US-5.12)
+        for compound in compoundStates(in: file) {
+            let varN      = stateCaseName(for: compound.name)
+            let innerEnum = innerStateEnumName(for: compound.name, machineName: file.machineName)
+            initParts.append("        _\(varN)InnerState: \(innerEnum)? = nil")
+        }
 
         lines.append("")
         lines.append("    internal init(")
@@ -226,6 +267,18 @@ public struct SwiftSyntaxEmitter {
         for name in guardNames {
             let p = guardPropertyName(for: name)
             lines.append("        self.\(p) = \(p)")
+        }
+        // Sub-machine assignments (US-5.11)
+        for imp in subImports {
+            let varN = stateCaseName(for: imp.name)
+            let typN = typeName(from: imp.name)
+            lines.append("        self._\(varN)State = _\(varN)State")
+            lines.append("        self._make\(typN) = _make\(typN)")
+        }
+        // Compound inner state assignments (US-5.12)
+        for compound in compoundStates(in: file) {
+            let varN = stateCaseName(for: compound.name)
+            lines.append("        self._\(varN)InnerState = _\(varN)InnerState")
         }
         lines.append("    }")
 
@@ -333,8 +386,8 @@ public struct SwiftSyntaxEmitter {
         let machineT   = machineTypeName(for: file.machineName)
         let phaseT     = phaseNamespaceName(for: file.machineName)
         let hasCtx     = file.contextType != nil
-        let destT      = typeName(from: dest)
-        let returnT    = "\(machineT)<\(phaseT).\(destT)>"
+        let resolvedDest = resolveCompoundDest(dest, in: file)
+        let returnT    = "\(machineT)<\(phasePath(for: resolvedDest, in: file))>"
         let paramSig   = params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
         let callArgs   = params.map(\.label).joined(separator: ", ")
         let propName   = transitionPropName(for: t, in: file)
@@ -352,6 +405,13 @@ public struct SwiftSyntaxEmitter {
         // @exit hooks
         for a in exitActions(for: sourceState, in: file) {
             body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+        }
+
+        // Fork: instantiate sub-machine (US-5.11)
+        if let fork = t.fork {
+            let typN = typeName(from: fork.machine)
+            let varN = stateCaseName(for: fork.machine)
+            body.append("        let \(varN) = _make\(typN)()")
         }
 
         // transition
@@ -374,7 +434,7 @@ public struct SwiftSyntaxEmitter {
         }
 
         // return
-        let constructArgs = machineConstructionArgs(destStateName: dest, file: file, indent: 12)
+        let constructArgs = machineConstructionArgs(destStateName: dest, file: file, indent: 12, forkedMachineName: t.fork?.machine)
         body.append("        return \(returnT)(\n\(constructArgs)\n        )")
 
         let throwsKw = hasCtx ? " async throws" : ""
@@ -610,10 +670,17 @@ public struct SwiftSyntaxEmitter {
         let phaseT     = phaseNamespaceName(for: file.machineName)
         let hasContext = file.contextType != nil
 
-        let cases = file.simpleStates.map { s in
-            let tn = typeName(from: s.name)
-            let c  = stateCaseName(for: s.name)
-            return "    case \(c)(\(machineT)<\(phaseT).\(tn)>)"
+        let cases = file.states.map { stateDecl -> String in
+            switch stateDecl {
+            case .simple(let s):
+                let tn = typeName(from: s.name)
+                let c  = stateCaseName(for: s.name)
+                return "    case \(c)(\(machineT)<\(phaseT).\(tn)>)"
+            case .compound(let compound):
+                let innerEnumN = innerStateEnumName(for: compound.name, machineName: file.machineName)
+                let c = stateCaseName(for: compound.name)
+                return "    case \(c)(\(innerEnumN))"
+            }
         }.joined(separator: "\n")
 
         let initDecl: String = {
@@ -639,24 +706,39 @@ public struct SwiftSyntaxEmitter {
         }
         """
 
-        let accessors = file.simpleStates.map { s -> String in
-            let tn = typeName(from: s.name)
-            let c  = stateCaseName(for: s.name)
-            let mt = "\(machineT)<\(phaseT).\(tn)>"
-            return """
-                public borrowing func with\(tn)<R>(
-                    _ body: (borrowing \(mt)) throws -> R
-                ) rethrows -> R? {
-                    guard case .\(c)(let m) = self else { return nil }
-                    return try body(m)
-                }
-            """
+        let accessors = file.states.map { stateDecl -> String in
+            switch stateDecl {
+            case .simple(let s):
+                let tn = typeName(from: s.name)
+                let c  = stateCaseName(for: s.name)
+                let mt = "\(machineT)<\(phaseT).\(tn)>"
+                return """
+                    public borrowing func with\(tn)<R>(
+                        _ body: (borrowing \(mt)) throws -> R
+                    ) rethrows -> R? {
+                        guard case .\(c)(let m) = self else { return nil }
+                        return try body(m)
+                    }
+                """
+            case .compound(let compound):
+                let tn = typeName(from: compound.name)
+                let c  = stateCaseName(for: compound.name)
+                let innerEnumN = innerStateEnumName(for: compound.name, machineName: file.machineName)
+                return """
+                    public borrowing func with\(tn)<R>(
+                        _ body: (borrowing \(innerEnumN)) throws -> R
+                    ) rethrows -> R? {
+                        guard case .\(c)(let m) = self else { return nil }
+                        return try body(m)
+                    }
+                """
+            }
         }.joined(separator: "\n\n")
 
         // Only unguarded events get delegating methods on the combined state
         let delegatingMethods = allTransitionClosureInfos(in: file)
             .filter { info in
-                // Only include if this event is unguarded from at least one source
+                // Only include if this event is unguarded from at least one source in top-level transitions
                 file.transitionStmts.contains { t in
                     guard case .event(_) = t.event, t.arrow == .standard else { return false }
                     let propName = transitionPropName(for: t, in: file)
@@ -666,20 +748,42 @@ public struct SwiftSyntaxEmitter {
             .map { info -> String in
                 let paramSig  = info.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
                 let callArgs  = info.params.map { "\($0.label): \($0.label)" }.joined(separator: ", ")
-                let switchCases = file.simpleStates.map { s -> String in
-                    let c_ = stateCaseName(for: s.name)
-                    let t  = outgoing(from: s.name, in: file).first { t in
-                        guard case .event(let ev) = t.event else { return false }
-                        return ev.name == info.event && t.arrow == .standard && t.guard == nil
-                    }
-                    if let t, let dest = t.destination {
-                        let dc   = stateCaseName(for: dest.name)
-                        let call = callArgs.isEmpty
-                            ? "try await m.\(info.event)()"
-                            : "try await m.\(info.event)(\(callArgs))"
-                        return "        case .\(c_)(let m): return .\(dc)(\(call))"
-                    } else {
+                let switchCases = file.states.map { stateDecl -> String in
+                    switch stateDecl {
+                    case .compound(let compound):
+                        let c_ = stateCaseName(for: compound.name)
                         return "        case .\(c_)(let m): return .\(c_)(m)"
+                    case .simple(let s):
+                        let c_ = stateCaseName(for: s.name)
+                        let t  = outgoing(from: s.name, in: file).first { t in
+                            guard case .event(let ev) = t.event else { return false }
+                            return ev.name == info.event && t.arrow == .standard && t.guard == nil
+                        }
+                        if let t, let dest = t.destination {
+                            // Check if destination is a compound state
+                            if let compound = compoundStates(in: file).first(where: { $0.name == dest.name }) {
+                                let innerEnumN = innerStateEnumName(for: compound.name, machineName: file.machineName)
+                                let dc = stateCaseName(for: compound.name)
+                                let initChild = compound.children.first(where: { $0.kind == .`init` }) ?? compound.children.first
+                                if let child = initChild {
+                                    let childCaseName = stateCaseName(for: child.name)
+                                    let call = callArgs.isEmpty
+                                        ? "try await m.\(info.event)()"
+                                        : "try await m.\(info.event)(\(callArgs))"
+                                    return "        case .\(c_)(let m): return .\(dc)(\(innerEnumN).\(childCaseName)(\(call)))"
+                                } else {
+                                    return "        case .\(c_)(let m): return .\(c_)(m)"
+                                }
+                            } else {
+                                let dc   = stateCaseName(for: dest.name)
+                                let call = callArgs.isEmpty
+                                    ? "try await m.\(info.event)()"
+                                    : "try await m.\(info.event)(\(callArgs))"
+                                return "        case .\(c_)(let m): return .\(dc)(\(call))"
+                            }
+                        } else {
+                            return "        case .\(c_)(let m): return .\(c_)(m)"
+                        }
                     }
                 }.joined(separator: "\n")
 
@@ -822,11 +926,22 @@ public struct SwiftSyntaxEmitter {
 
         let pTypes  = initParams.map(\.typeExpr).joined(separator: ", ")
         let retT    = "\(machineT)<\(phaseT).\(initTN)>"
+        let subImports = subMachineImports(in: file)
         let factoryT: String
-        if pTypes.isEmpty {
-            factoryT = "@Sendable () -> \(retT)"
+        if subImports.isEmpty {
+            if pTypes.isEmpty {
+                factoryT = "@Sendable () -> \(retT)"
+            } else {
+                factoryT = "@Sendable (\(pTypes)) -> \(retT)"
+            }
         } else {
-            factoryT = "@Sendable (\(pTypes)) -> \(retT)"
+            var paramParts: [String] = []
+            if !pTypes.isEmpty { paramParts.append(pTypes) }
+            for imp in subImports {
+                let stateT = stateEnumTypeName(for: imp.name)
+                paramParts.append("@Sendable () -> \(stateT)")
+            }
+            factoryT = "@Sendable (\(paramParts.joined(separator: ", "))) -> \(retT)"
         }
 
         var noopProps: [String] = []
@@ -849,8 +964,21 @@ public struct SwiftSyntaxEmitter {
             let prop = guardPropertyName(for: name)
             noopProps.append("            \(prop): { \(hasContext ? "_ in " : "")false }")
         }
+        for imp in subImports {
+            let varN = stateCaseName(for: imp.name)
+            let typN = typeName(from: imp.name)
+            noopProps.append("            _\(varN)State: nil")
+            noopProps.append("            _make\(typN): make\(typN)")
+        }
+        for compound in compoundStates(in: file) {
+            let varN = stateCaseName(for: compound.name)
+            noopProps.append("            _\(varN)InnerState: nil")
+        }
 
-        let noopIgnore  = initParams.isEmpty ? "" : "_ in\n            "
+        let subFactoryParams = subImports.map { "make\(typeName(from: $0.name))" }.joined(separator: ", ")
+        let noopIgnoreBase  = initParams.isEmpty ? "" : "_"
+        let noopIgnoreParts = ([noopIgnoreBase].filter { !$0.isEmpty } + subImports.map { "make\(typeName(from: $0.name))" }).filter { !$0.isEmpty }
+        let noopIgnore: String = noopIgnoreParts.isEmpty ? "" : "\(noopIgnoreParts.joined(separator: ", ")) in\n            "
         let noopCtxLine = hasContext ? "let _ctx = \(ctx)()\n            " : ""
         let noopCtxArg  = hasContext ? "            _context: _ctx,\n" : ""
         let noopSDLine  = hasSD ? "            _stateData: .none,\n" : ""
@@ -859,7 +987,8 @@ public struct SwiftSyntaxEmitter {
 
         // fromRuntime
         let fromRuntimePNames = initParams.map(\.label).joined(separator: ", ")
-        let fromRuntimeSig    = fromRuntimePNames.isEmpty ? "" : "\(fromRuntimePNames) in\n            "
+        let fromRuntimePartsAll = (fromRuntimePNames.isEmpty ? [] : [fromRuntimePNames]) + subImports.map { "make\(typeName(from: $0.name))" }
+        let fromRuntimeSig    = fromRuntimePartsAll.isEmpty ? "" : "\(fromRuntimePartsAll.joined(separator: ", ")) in\n            "
         let fromRuntimeCtx    = hasContext ? "let context = runtime.initialContext(\(fromRuntimePNames))\n            " : ""
         var fromRuntimeForwards: [String] = []
         if hasContext { fromRuntimeForwards.append("                _context: context") }
@@ -878,6 +1007,16 @@ public struct SwiftSyntaxEmitter {
             let alias = typeName(from: name) + "Guard"
             let rProp = variableName(from: alias)
             fromRuntimeForwards.append("                \(prop): runtime.\(rProp)")
+        }
+        for imp in subImports {
+            let varN = stateCaseName(for: imp.name)
+            let typN = typeName(from: imp.name)
+            fromRuntimeForwards.append("                _\(varN)State: nil")
+            fromRuntimeForwards.append("                _make\(typN): make\(typN)")
+        }
+        for compound in compoundStates(in: file) {
+            let varN = stateCaseName(for: compound.name)
+            fromRuntimeForwards.append("                _\(varN)InnerState: nil")
         }
         let fromRuntimeMachine = fromRuntimeForwards.isEmpty
             ? (hasContext ? "\(retT)(\n                _context: context\n            )" : "\(retT)()")
@@ -950,15 +1089,23 @@ public struct SwiftSyntaxEmitter {
         if !dataEnum.isEmpty { parts += [dataEnum, ""] }
         parts += [
             emitPhaseNamespace(for: file),
-            "",
+            ""
+        ]
+        let compoundInnerEnums = emitCompoundInnerStateEnums(for: file)
+        if !compoundInnerEnums.isEmpty { parts += [compoundInnerEnums, ""] }
+        parts += [
             emitMachineStruct(for: file),
             "",
             emitTransitionExtensions(for: file),
             ""
         ]
+        let compoundExtensions = emitCompoundTransitionExtensions(for: file)
+        if !compoundExtensions.isEmpty { parts += [compoundExtensions, ""] }
         let dataAccessors = emitStateDataAccessors(for: file)
         if !dataAccessors.isEmpty { parts += [dataAccessors, ""] }
         parts.append(emitStateEnum(for: file))
+        let reactiveExt = emitReactiveExtension(for: file)
+        if !reactiveExt.isEmpty { parts += ["", reactiveExt] }
         return parts.filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
@@ -1018,7 +1165,8 @@ public struct SwiftSyntaxEmitter {
     func allTransitionClosureInfos(in file: UrkelFile) -> [TransitionClosureInfo] {
         var seen = Set<String>()
         var result: [TransitionClosureInfo] = []
-        for t in file.transitionStmts {
+        let allTransitions = file.transitionStmts + compoundStates(in: file).flatMap(\.innerTransitions)
+        for t in allTransitions {
             // Standard event transitions
             if case .event(let ev) = t.event, t.arrow == .standard {
                 let propName = transitionPropName(for: t, in: file)
@@ -1091,6 +1239,9 @@ public struct SwiftSyntaxEmitter {
         for hook in file.entryExitHooks {
             for a in hook.actions where seen.insert(a).inserted { result.append(a) }
         }
+        for r in file.reactiveStmts {
+            for a in (r.action?.actions ?? []) where seen.insert(a).inserted { result.append(a) }
+        }
         return result
     }
 
@@ -1127,7 +1278,8 @@ public struct SwiftSyntaxEmitter {
     private func machineConstructionArgs(
         destStateName: String,
         file: UrkelFile,
-        indent: Int = 12
+        indent: Int = 12,
+        forkedMachineName: String? = nil
     ) -> String {
         let pad    = String(repeating: " ", count: indent)
         let hasCtx = file.contextType != nil
@@ -1160,6 +1312,24 @@ public struct SwiftSyntaxEmitter {
         }
         if hasTimers(in: file) {
             args.append("\(pad)_timerTask: nil")
+        }
+
+        // Sub-machine args (US-5.11)
+        for imp in subMachineImports(in: file) {
+            let typN = typeName(from: imp.name)
+            let varN = stateCaseName(for: imp.name)
+            if forkedMachineName == imp.name {
+                args.append("\(pad)_\(varN)State: \(varN)")
+            } else {
+                args.append("\(pad)_\(varN)State: _\(varN)State")
+            }
+            args.append("\(pad)_make\(typN): _make\(typN)")
+        }
+
+        // Compound inner state args (US-5.12)
+        for compound in compoundStates(in: file) {
+            let varN = stateCaseName(for: compound.name)
+            args.append("\(pad)_\(varN)InnerState: _\(varN)InnerState")
         }
 
         return args.joined(separator: ",\n")
@@ -1248,6 +1418,306 @@ public struct SwiftSyntaxEmitter {
             """)
         }
         return result
+    }
+
+    // MARK: - Sub-machine helpers (US-5.11)
+
+    private func subMachineImports(in file: UrkelFile) -> [ImportDecl] {
+        let forkMachines = Set(file.transitionStmts.compactMap { $0.fork?.machine })
+        let reactiveMachines = Set(file.reactiveStmts.compactMap { r -> String? in
+            if case .machine(let n) = r.source.target { return n }
+            return nil
+        })
+        let referenced = forkMachines.union(reactiveMachines)
+        return file.imports.filter { referenced.contains($0.name) }
+    }
+
+    // MARK: - Compound state helpers (US-5.12)
+
+    private func compoundStates(in file: UrkelFile) -> [CompoundStateDecl] {
+        file.states.compactMap { guard case .compound(let c) = $0 else { return nil }; return c }
+    }
+
+    private func innerStateEnumName(for compoundName: String, machineName: String) -> String {
+        "\(typeName(from: machineName))\(typeName(from: compoundName))State"
+    }
+
+    private func resolveCompoundDest(_ destName: String, in file: UrkelFile) -> String {
+        if let compound = compoundStates(in: file).first(where: { $0.name == destName }) {
+            let initChild = compound.children.first(where: { $0.kind == .`init` }) ?? compound.children.first
+            if let child = initChild { return "\(destName).\(child.name)" }
+        }
+        return destName
+    }
+
+    private func phasePath(for stateName: String, in file: UrkelFile) -> String {
+        let parts = stateName.components(separatedBy: ".").map { typeName(from: $0) }
+        return "\(phaseNamespaceName(for: file.machineName)).\(parts.joined(separator: "."))"
+    }
+
+    private func emitCompoundInnerStateEnums(for file: UrkelFile) -> String {
+        let compounds = compoundStates(in: file)
+        guard !compounds.isEmpty else { return "" }
+        let machineTN = typeName(from: file.machineName)
+        let machineT  = machineTypeName(for: file.machineName)
+        let phaseT    = phaseNamespaceName(for: file.machineName)
+
+        return compounds.map { compound -> String in
+            let enumName    = innerStateEnumName(for: compound.name, machineName: file.machineName)
+            let compoundTN  = typeName(from: compound.name)
+            let cases = compound.children.map { child -> String in
+                let childTN  = typeName(from: child.name)
+                let caseName = stateCaseName(for: child.name)
+                return "    case \(caseName)(\(machineT)<\(phaseT).\(compoundTN).\(childTN)>)"
+            }.joined(separator: "\n")
+            return """
+            // MARK: - \(machineTN) \(compoundTN) Inner State
+
+            public enum \(enumName): ~Copyable {
+            \(cases)
+            }
+            """
+        }.joined(separator: "\n\n")
+    }
+
+    private func emitCompoundTransitionExtensions(for file: UrkelFile) -> String {
+        let compounds = compoundStates(in: file)
+        guard !compounds.isEmpty else { return "" }
+        let machineT = machineTypeName(for: file.machineName)
+        let phaseT   = phaseNamespaceName(for: file.machineName)
+        let hasCtx   = file.contextType != nil
+
+        var extensions: [String] = []
+
+        for compound in compounds {
+            let compoundTN = typeName(from: compound.name)
+
+            for child in compound.children {
+                guard child.kind != .final else { continue }
+                let childTN     = typeName(from: child.name)
+                let sourcePhase = "\(phaseT).\(compoundTN).\(childTN)"
+
+                var methods: [String] = []
+
+                // Inner transitions from this child
+                for t in compound.innerTransitions {
+                    guard case .state(let ref) = t.source else { continue }
+                    guard ref.name == "\(compound.name).\(child.name)" || ref.name == child.name else { continue }
+                    guard case .event(let ev) = t.event, t.arrow == .standard, let dest = t.destination else { continue }
+
+                    let resolvedDest = resolveCompoundDest(dest.name, in: file)
+                    let returnT      = "\(machineT)<\(phasePath(for: resolvedDest, in: file))>"
+                    let propName     = transitionPropName(for: t, in: file)
+                    let paramSig     = ev.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+                    let callArgs     = ev.params.map(\.label).joined(separator: ", ")
+
+                    var body: [String] = []
+                    if hasCtx {
+                        let callExpr = callArgs.isEmpty ? "_context" : "_context, \(callArgs)"
+                        body.append("        let next = try await \(propName)(\(callExpr))")
+                    } else if !ev.params.isEmpty {
+                        body.append("        try await \(propName)(\(callArgs))")
+                    }
+                    let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 12)
+                    body.append("        return \(returnT)(\n\(constructArgs)\n        )")
+
+                    let throwsKw = hasCtx ? " async throws" : ""
+                    methods.append("""
+                        /// Transitions from `\(compound.name).\(child.name)` to `\(dest.name)`.
+                        public consuming func \(ev.name)(\(paramSig))\(throwsKw) -> \(returnT) {
+                    \(body.joined(separator: "\n"))
+                        }
+                    """)
+                }
+
+                // Outer compound transitions: from compound source to outside
+                let outerTransitions = file.transitionStmts.filter { t in
+                    guard case .state(let ref) = t.source else { return false }
+                    return ref.name == compound.name
+                }
+
+                for t in outerTransitions {
+                    guard case .event(let ev) = t.event, t.arrow == .standard, let dest = t.destination else { continue }
+
+                    let resolvedDest = resolveCompoundDest(dest.name, in: file)
+                    let returnT      = "\(machineT)<\(phasePath(for: resolvedDest, in: file))>"
+                    let propName     = transitionPropName(for: t, in: file)
+                    let paramSig     = ev.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
+                    let callArgs     = ev.params.map(\.label).joined(separator: ", ")
+
+                    var body: [String] = []
+                    if hasCtx {
+                        let callExpr = callArgs.isEmpty ? "_context" : "_context, \(callArgs)"
+                        body.append("        let next = try await \(propName)(\(callExpr))")
+                    } else if !ev.params.isEmpty {
+                        body.append("        try await \(propName)(\(callArgs))")
+                    }
+                    let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 12)
+                    body.append("        return \(returnT)(\n\(constructArgs)\n        )")
+
+                    let throwsKw = hasCtx ? " async throws" : ""
+                    methods.append("""
+                        /// Transitions from `\(compound.name)` to `\(dest.name)`.
+                        public consuming func \(ev.name)(\(paramSig))\(throwsKw) -> \(returnT) {
+                    \(body.joined(separator: "\n"))
+                        }
+                    """)
+                }
+
+                guard !methods.isEmpty else { continue }
+
+                extensions.append("""
+                // MARK: - \(machineT)<\(compoundTN).\(childTN)>
+
+                extension \(machineT) where Phase == \(sourcePhase) {
+                \(methods.joined(separator: "\n\n"))
+                }
+                """)
+            }
+        }
+
+        return extensions.joined(separator: "\n\n")
+    }
+
+    private func reactiveMachineConstructionArgs(
+        destStateName: String,
+        file: UrkelFile,
+        indent: Int = 12
+    ) -> String {
+        let pad      = String(repeating: " ", count: indent)
+        let hasCtx   = file.contextType != nil
+        let sdStates = statesWithData(in: file)
+        var args: [String] = []
+        if hasCtx { args.append("\(pad)_context: m._context") }
+        if !sdStates.isEmpty { args.append("\(pad)_stateData: .none") }
+        for info in allTransitionClosureInfos(in: file) {
+            args.append("\(pad)\(info.propName): m.\(info.propName)")
+        }
+        for name in uniqueActionNames(in: file) {
+            let p = actionPropertyName(for: name)
+            args.append("\(pad)\(p): m.\(p)")
+        }
+        for name in uniqueGuardNames(in: file) {
+            let p = guardPropertyName(for: name)
+            args.append("\(pad)\(p): m.\(p)")
+        }
+        if hasTimers(in: file) { args.append("\(pad)_timerTask: nil") }
+        for imp in subMachineImports(in: file) {
+            let typN = typeName(from: imp.name)
+            let varN = stateCaseName(for: imp.name)
+            args.append("\(pad)_\(varN)State: m._\(varN)State")
+            args.append("\(pad)_make\(typN): m._make\(typN)")
+        }
+        for compound in compoundStates(in: file) {
+            let varN = stateCaseName(for: compound.name)
+            args.append("\(pad)_\(varN)InnerState: m._\(varN)InnerState")
+        }
+        return args.joined(separator: ",\n")
+    }
+
+    private func emitReactiveExtension(for file: UrkelFile) -> String {
+        let reactives = file.reactiveStmts
+        guard !reactives.isEmpty else { return "" }
+
+        let enumName   = stateEnumTypeName(for: file.machineName)
+        let machineT   = machineTypeName(for: file.machineName)
+        let phaseT     = phaseNamespaceName(for: file.machineName)
+        let hasCtx     = file.contextType != nil
+
+        var methods: [String] = []
+
+        for r in reactives {
+            guard case .machine(let sourceMachineName) = r.source.target else { continue }
+
+            let reactiveStatePart: String
+            switch r.source.state {
+            case .named(let n): reactiveStatePart = typeName(from: n)
+            case .`init`:       reactiveStatePart = "Init"
+            case .final:        reactiveStatePart = "Final"
+            case .any:          reactiveStatePart = "Any"
+            }
+            let methodName = "on\(typeName(from: sourceMachineName))\(reactiveStatePart)"
+
+            if r.arrow == .internal {
+                // Borrowing in-place handler
+                var cases: [String] = []
+                for stateDecl in file.states {
+                    guard case .simple(let s) = stateDecl else { continue }
+                    guard s.kind != .final else { continue }
+                    guard r.ownState == nil || r.ownState == s.name else { continue }
+                    let cn = stateCaseName(for: s.name)
+                    let actionCalls = (r.action?.actions ?? []).map { a -> String in
+                        "await m.\(actionPropertyName(for: a))(\(hasCtx ? "m._context" : ""))"
+                    }.joined(separator: "; ")
+                    cases.append("        case .\(cn)(let m): \(actionCalls)")
+                }
+                let switchBody = cases.isEmpty ? "        default: break" : cases.joined(separator: "\n") + "\n        default: break"
+                methods.append("""
+                    public borrowing func \(methodName)() async {
+                        switch self {
+                \(switchBody)
+                        }
+                    }
+                """)
+            } else {
+                // Consuming transition
+                let destName = r.destination?.name ?? ""
+                let resolvedDest = resolveCompoundDest(destName, in: file)
+                let returnT = enumName
+
+                var switchCases: [String] = []
+                for stateDecl in file.states {
+                    switch stateDecl {
+                    case .compound(let compound):
+                        let cn = stateCaseName(for: compound.name)
+                        switchCases.append("        case .\(cn)(let m): return .\(cn)(m)")
+                    case .simple(let s):
+                        let cn = stateCaseName(for: s.name)
+                        let shouldTransition = (r.ownState == nil || r.ownState == s.name) && s.kind != .final
+                        if shouldTransition && !destName.isEmpty {
+                            let destCaseName = stateCaseName(for: resolvedDest.components(separatedBy: ".").last ?? resolvedDest)
+                            let constructArgs = reactiveMachineConstructionArgs(destStateName: destName, file: file, indent: 16)
+                            // Check if dest is compound - wrap in inner enum
+                            if let compound = compoundStates(in: file).first(where: { $0.name == destName }) {
+                                let innerEnumN = innerStateEnumName(for: compound.name, machineName: file.machineName)
+                                let initChild = compound.children.first(where: { $0.kind == .`init` }) ?? compound.children.first
+                                if let child = initChild {
+                                    let childCaseName = stateCaseName(for: child.name)
+                                    let resolvedPhase = phasePath(for: "\(destName).\(child.name)", in: file)
+                                    let machineExpr = "\(machineT)<\(resolvedPhase)>(\n\(constructArgs)\n            )"
+                                    switchCases.append("        case .\(cn)(let m): return .\(stateCaseName(for: destName))(\(innerEnumN).\(childCaseName)(\(machineExpr)))")
+                                } else {
+                                    switchCases.append("        case .\(cn)(let m): return .\(cn)(m)")
+                                }
+                            } else {
+                                let destPhase = phasePath(for: resolvedDest, in: file)
+                                let machineExpr = "\(machineT)<\(destPhase)>(\n\(constructArgs)\n            )"
+                                switchCases.append("        case .\(cn)(let m): return .\(destCaseName)(\(machineExpr))")
+                            }
+                        } else {
+                            switchCases.append("        case .\(cn)(let m): return .\(cn)(m)")
+                        }
+                    }
+                }
+
+                let throwsKw = hasCtx ? " async throws" : " async"
+                methods.append("""
+                    public consuming func \(methodName)()\(throwsKw) -> \(returnT) {
+                        switch consume self {
+                \(switchCases.joined(separator: "\n"))
+                        }
+                    }
+                """)
+            }
+        }
+
+        guard !methods.isEmpty else { return "" }
+
+        return """
+        extension \(enumName) {
+        \(methods.joined(separator: "\n\n"))
+        }
+        """
     }
 }
 
