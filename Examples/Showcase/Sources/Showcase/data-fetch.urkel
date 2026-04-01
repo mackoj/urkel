@@ -26,3 +26,15 @@ machine DataFetch
 
   * -> cancel -> Cancelled
 
+@invariants
+  ## Every fetch resolves through one of three terminal paths
+  reachable(Loading -> Loaded)
+  reachable(Loading -> Failed)
+  reachable(Loading -> Cancelled)
+  ## Retry is bounded — the [else] branch ensures eventual termination
+  reachable(Failed -> Cancelled)
+  ## Guard pair (retriesRemaining / else) covers all branches
+  deterministic
+  noDeadlock
+  allPathsReachFinal
+

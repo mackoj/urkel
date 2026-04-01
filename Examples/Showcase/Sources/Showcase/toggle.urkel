@@ -11,3 +11,13 @@ machine Toggle
   Off -> toggle   -> On
   On  -> toggle   -> Off
   *   -> destroy  -> Destroyed
+
+@invariants
+  ## Both active states are reachable from init
+  reachable(On)
+  ## The terminal state is always reachable
+  reachable(Destroyed)
+  ## Every state has at least one outgoing transition
+  noDeadlock
+  ## No (state, event) pair routes to two unguarded destinations
+  deterministic

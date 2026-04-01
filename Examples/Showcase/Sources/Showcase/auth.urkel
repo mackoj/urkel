@@ -31,3 +31,15 @@ machine Auth
 
   * -> terminate -> Terminated
 
+@invariants
+  ## Primary success state is reachable
+  reachable(LoggedIn)
+  ## Token refresh leads back to LoggedIn or degrades to LoggedOut
+  reachable(RefreshingToken -> LoggedIn)
+  reachable(RefreshingToken -> LoggedOut)
+  ## Safety: once locked out you cannot re-authenticate — must wait for termination
+  unreachable(LockedOut -> LoggedIn)
+  ## All paths eventually terminate — no infinite loops without progress
+  allPathsReachFinal
+  deterministic
+

@@ -39,3 +39,19 @@ machine Elevator
 
   * -> shutdown -> Shutdown
 
+@invariants
+  ## Both movement directions are reachable
+  reachable(Moving.MovingUp)
+  reachable(Moving.MovingDown)
+  ## Doors can open from rest
+  reachable(DoorsOpen)
+  ## After arriving at a floor, doors can open
+  reachable(Moving -> DoorsOpen)
+  ## Emergency is always accessible
+  reachable(Emergency)
+  ## Emergency is recoverable — elevator can resume after reset
+  reachable(Emergency -> Idle)
+  ## Shutdown is always reachable
+  reachable(Shutdown)
+  noDeadlock
+

@@ -53,3 +53,19 @@ machine BLEBlender
 
   * -> emergencyStop -> TurnedOff
 
+@invariants
+  ## Core blending path is reachable
+  reachable(Blending)
+  ## Pause/resume cycle is reachable
+  reachable(Blending -> Paused)
+  reachable(Paused -> Blending)
+  ## Sub-machine: BLE must connect before blending
+  reachable(BLEPeripheral::Connected)
+  ## Error is always recoverable (reset → Off)
+  reachable(Error -> Off)
+  ## Graceful disconnect from connected-idle is possible
+  reachable(ConnectedIdle -> Off)
+  ## Emergency stop is always available
+  reachable(TurnedOff)
+  noDeadlock
+

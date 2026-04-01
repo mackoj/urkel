@@ -13,3 +13,13 @@ machine TrafficLight
   Green  -> after(25s) -> Yellow
   Yellow -> after(5s)  -> Red
   *      -> emergency  -> Emergency
+
+@invariants
+  ## The full three-colour cycle is reachable
+  reachable(Green)
+  reachable(Yellow)
+  ## Emergency stop is always accessible
+  reachable(Emergency)
+  ## Intentional: this machine cycles forever — allPathsReachFinal is NOT declared
+  noDeadlock
+  deterministic

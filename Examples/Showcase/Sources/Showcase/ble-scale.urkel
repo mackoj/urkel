@@ -54,3 +54,14 @@ machine BLEScale
 
   * -> emergencyOff -> PowerDown
 
+@invariants
+  ## Primary success path (full BIA measurement) is reachable
+  reachable(Measurement)
+  ## Weight-only shortcut is also reachable — BIA is optional
+  reachable(Stabilized -> Syncing)
+  ## Emergency off terminates from any state — even during early boot
+  reachable(WakingUp -> PowerDown)
+  ## Sub-machine: BLE must reach Connected before the scale can proceed
+  reachable(BLEPeripheral::Connected)
+  noDeadlock
+

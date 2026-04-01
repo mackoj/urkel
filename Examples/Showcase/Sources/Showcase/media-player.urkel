@@ -33,3 +33,17 @@ machine MediaPlayer
   Active -*> seek(position: Double) / doSeek          # in-place: caller seeks, no re-entry
 
   * -> shutdown -> Stopped
+
+@invariants
+  ## All three playback sub-states are reachable from init
+  reachable(Active.Playing)
+  reachable(Active.Paused)
+  reachable(Active.Buffering)
+  ## Error is always recoverable — retry restores the last active sub-state
+  reachable(Error -> Active)
+  ## Error has a non-history exit too — stop clears back to Idle
+  reachable(Error -> Idle)
+  ## Shutdown is always reachable
+  reachable(Stopped)
+  noDeadlock
+  allPathsReachFinal

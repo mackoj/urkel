@@ -25,6 +25,8 @@ UrkelFile ::= { TriviaLine }
               { EntryExitDecl TriviaLine* }
               TransitionsBlock
               { TriviaLine }
+              [ InvariantsBlock ]
+              { TriviaLine }
 
 
 /* ─── 2. Machine Declaration ────────────────────────────────── */
@@ -265,12 +267,59 @@ AnyExceptNewline ::= any character except "\n" or "\r"
    and cannot be used as state names, event names, or guard names. */
 Keywords ::= "machine" | "always" | "after" | "else"
            | "@states" | "@transitions" | "@import" | "@parallel"
-           | "@entry" | "@exit" | "@on" | "@history"
+           | "@entry" | "@exit" | "@on" | "@history" | "@invariants"
            | "init" | "state" | "final"
            | "region" | "from" | "done"
 
+/* Contextual keywords — reserved only inside the @invariants block.
+   They may be used as state names, event names, or guard names elsewhere. */
+InvariantKeywords ::= "reachable" | "unreachable"
+                    | "noDeadlock" | "deterministic" | "acyclic" | "allPathsReachFinal"
 
-/* ─── 14. Deprecations (v1 → v2 migration) ───────────────────── */
+
+/* ─── 14. Invariants Block ────────────────────────────────────── */
+
+/* Declares structural properties that must hold over the machine's
+   transition graph. Checked statically by the validator — no runtime
+   required, no generated code affected.
+
+   Position: optional, appears after @transitions, before end-of-file.
+
+   Property semantics:
+     reachable(S)       — ∃ path from init to S
+     reachable(A -> B)  — ∃ path from A to B  (liveness)
+     unreachable(S)     — ∄ path from init to S  (safety)
+     unreachable(A -> B)— ∄ path from A to B     (local safety)
+     noDeadlock         — every reachable non-final state has ≥1 outgoing transition
+     allPathsReachFinal — every reachable non-final state has a path to some final state
+     deterministic      — no (source, event) pair has two unguarded transitions
+     acyclic            — the transition graph contains no cycles
+
+   InvariantRef supports:
+     StateRef                     — local state (may use dot: Active.Playing)
+     Identifier "::" ReactiveState— sub-machine or parallel region state
+                                    (resolved via @import declarations) */
+
+InvariantsBlock ::= { Whitespace } "@invariants" { Whitespace } Newline
+                    { TriviaLine | InvariantDecl }
+
+InvariantDecl   ::= { Whitespace } InvariantExpr { Whitespace } Newline
+
+InvariantExpr   ::= "reachable"       "(" InvariantPath ")"
+                  | "unreachable"     "(" InvariantPath ")"
+                  | "noDeadlock"
+                  | "deterministic"
+                  | "acyclic"
+                  | "allPathsReachFinal"
+
+InvariantPath   ::= InvariantRef
+                  | InvariantRef { Whitespace } "->" { Whitespace } InvariantRef
+
+InvariantRef    ::= StateRef                       /* local state */
+                  | Identifier "::" ReactiveState  /* sub-machine / parallel region */
+
+
+/* ─── 15. Deprecations (v1 → v2 migration) ───────────────────── */
 
 /* The following v1 constructs are NO LONGER valid in v2:
 

@@ -34,3 +34,17 @@ machine VendingMachine
 
   * -> serviceMode -> OutOfService
 
+@invariants
+  ## Customer can always get coins back
+  reachable(AcceptingCoins -> ReturningCoins)
+  ## Item dispensing is reachable from the accepting state (via DispensingItem)
+  reachable(AcceptingCoins -> Dispensed)
+  ## Jam recovery always returns coins
+  reachable(DispensingItem -> ReturningCoins)
+  ## Service mode is always accessible
+  reachable(OutOfService)
+  ## No stuck states
+  noDeadlock
+  ## Guard pair (hasSufficientFunds / else) covers all selectItem branches
+  deterministic
+

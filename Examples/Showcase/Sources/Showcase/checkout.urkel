@@ -39,7 +39,22 @@ machine Checkout
   Error      -> retry                           -> Processing
   Error      -> editPayment                     -> Payment
 
-  *          -> cancel                          -> Cancelled
+  * -> cancel -> Cancelled
 
   Checkout   -*> stepProgress(step: Int, total: Int)         # output: wizard progress stream
+
+@invariants
+  ## The happy path completes
+  reachable(Confirmed)
+  ## Cancellation is always available (wildcard)
+  reachable(Cancelled)
+  ## Error recovery is possible — a failed payment can be retried
+  reachable(Processing -> Error)
+  reachable(Error -> Processing)
+  ## An empty cart self-loop is not a dead end — forward progress is still possible
+  reachable(Cart -> Confirmed)
+  ## Guard pairs (hasFoo / else) give exhaustive coverage
+  deterministic
+  ## Every state — including self-loops — can eventually reach a final state
+  allPathsReachFinal
 
