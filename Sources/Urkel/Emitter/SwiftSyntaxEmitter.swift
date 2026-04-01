@@ -155,6 +155,7 @@ public struct SwiftSyntaxEmitter {
         let sdStates     = statesWithData(in: file)
         let hasStateData = !sdStates.isEmpty
         let sdEnumName   = stateDataEnumName(for: file.machineName)
+        let hasTimerPhases = hasTimers(in: file)
 
         var lines: [String] = []
         lines.append("// MARK: - \(machineTN) State Machine")
@@ -174,6 +175,9 @@ public struct SwiftSyntaxEmitter {
         if hasStateData {
             lines.append("    fileprivate let _stateData: \(sdEnumName)")
         }
+        if hasTimerPhases {
+            lines.append("    nonisolated(unsafe) fileprivate var _timerTask: Task<Void, Never>?")
+        }
         for info in closureInfos {
             lines.append("    fileprivate let \(info.propName): \(info.closureTypeStr(ctx: hasContext ? ctx : nil))")
         }
@@ -192,6 +196,7 @@ public struct SwiftSyntaxEmitter {
         var initParts: [String] = []
         if hasContext { initParts.append("        _context: \(ctx)") }
         if hasStateData { initParts.append("        _stateData: \(sdEnumName) = .none") }
+        if hasTimerPhases { initParts.append("        _timerTask: Task<Void, Never>? = nil") }
         for info in closureInfos {
             initParts.append("        \(info.propName): @escaping \(info.closureTypeStr(ctx: hasContext ? ctx : nil))")
         }
@@ -212,6 +217,7 @@ public struct SwiftSyntaxEmitter {
         lines.append("    ) {")
         if hasContext { lines.append("        self._context = _context") }
         if hasStateData { lines.append("        self._stateData = _stateData") }
+        if hasTimerPhases { lines.append("        self._timerTask = _timerTask") }
         for info in closureInfos { lines.append("        self.\(info.propName) = \(info.propName)") }
         for name in actionNames {
             let p = actionPropertyName(for: name)
@@ -296,6 +302,12 @@ public struct SwiftSyntaxEmitter {
                 methods.append(emitAlwaysMethod(transitions: always, sourceState: state.name, file: file))
             }
 
+            // 4. Timer transitions (US-5.10)
+            let timerTransitions = allOut.filter { if case .timer(_) = $0.event { return true }; return false }
+            if !timerTransitions.isEmpty {
+                methods.append(contentsOf: emitTimerMethods(transitions: timerTransitions, sourceState: state.name, file: file))
+            }
+
             guard !methods.isEmpty else { return nil }
 
             return """
@@ -331,6 +343,11 @@ public struct SwiftSyntaxEmitter {
             : t.docComments.map { "    /// \($0.text)" }.joined(separator: "\n")
 
         var body: [String] = []
+
+        // Cancel timer if this source state has timer transitions (US-5.10)
+        if statesWithTimers(in: file).contains(where: { $0.name == sourceState }) {
+            body.append("        _timerTask?.cancel()")
+        }
 
         // @exit hooks
         for a in exitActions(for: sourceState, in: file) {
@@ -446,6 +463,10 @@ public struct SwiftSyntaxEmitter {
         let branchStr = branches.joined(separator: "\n") + "\n        }"
 
         var exitLines: [String] = []
+        // Cancel timer if source state has timer transitions (US-5.10)
+        if statesWithTimers(in: file).contains(where: { $0.name == sourceState }) {
+            exitLines.append("        _timerTask?.cancel()")
+        }
         for a in exitActions(for: sourceState, in: file) {
             exitLines.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
         }
@@ -499,10 +520,13 @@ public struct SwiftSyntaxEmitter {
 
         if !hasGuards, let t = transitions.first, let dest = t.destination {
             // Unconditional always — returns specific phase
-            let destT  = typeName(from: dest.name)
-            let retT   = "\(machineT)<\(phaseT).\(destT)>"
+            let destT    = typeName(from: dest.name)
+            let retT     = "\(machineT)<\(phaseT).\(destT)>"
             let propName = transitionPropName(for: t, in: file)
             var body: [String] = []
+            if statesWithTimers(in: file).contains(where: { $0.name == sourceState }) {
+                body.append("        _timerTask?.cancel()")
+            }
             for a in exitActions(for: sourceState, in: file) {
                 body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
             }
@@ -995,14 +1019,27 @@ public struct SwiftSyntaxEmitter {
         var seen = Set<String>()
         var result: [TransitionClosureInfo] = []
         for t in file.transitionStmts {
-            guard case .event(let ev) = t.event, t.arrow == .standard else { continue }
-            let propName = transitionPropName(for: t, in: file)
-            if seen.insert(propName).inserted {
-                result.append(TransitionClosureInfo(
-                    event: ev.name,
-                    propName: propName,
-                    params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) }
-                ))
+            // Standard event transitions
+            if case .event(let ev) = t.event, t.arrow == .standard {
+                let propName = transitionPropName(for: t, in: file)
+                if seen.insert(propName).inserted {
+                    result.append(TransitionClosureInfo(
+                        event: ev.name,
+                        propName: propName,
+                        params: ev.params.map { Parameter(label: $0.label, typeExpr: $0.typeExpr) }
+                    ))
+                }
+            }
+            // Timer transitions — closure takes (Ctx) -> Ctx with no event params
+            if case .timer(_) = t.event, t.arrow == .standard, let dest = t.destination {
+                let propName = "_timerTo\(typeName(from: dest.name))"
+                if seen.insert(propName).inserted {
+                    result.append(TransitionClosureInfo(
+                        event: "timerTo\(typeName(from: dest.name))",
+                        propName: propName,
+                        params: []
+                    ))
+                }
             }
         }
         return result
@@ -1121,8 +1158,96 @@ public struct SwiftSyntaxEmitter {
             let p = guardPropertyName(for: name)
             args.append("\(pad)\(p): \(p)")
         }
+        if hasTimers(in: file) {
+            args.append("\(pad)_timerTask: nil")
+        }
 
         return args.joined(separator: ",\n")
+    }
+
+    // MARK: - Timer helpers (US-5.10)
+
+    func statesWithTimers(in file: UrkelFile) -> [SimpleStateDecl] {
+        file.simpleStates.filter { state in
+            file.transitionStmts.contains { t in
+                guard case .timer(_) = t.event, t.arrow == .standard else { return false }
+                guard case .state(let ref) = t.source else { return false }
+                return ref.name == state.name
+            }
+        }
+    }
+
+    func hasTimers(in file: UrkelFile) -> Bool {
+        !statesWithTimers(in: file).isEmpty
+    }
+
+    private func emitTimerMethods(
+        transitions: [TransitionStmt],
+        sourceState: String,
+        file: UrkelFile
+    ) -> [String] {
+        let machineT = machineTypeName(for: file.machineName)
+        let phaseT   = phaseNamespaceName(for: file.machineName)
+        let stateT   = typeName(from: sourceState)
+        let hasCtx   = file.contextType != nil
+        let nextOrCtx = hasCtx ? "next" : ""
+        var result: [String] = []
+
+        // startTimer(onFire:) — one per source phase (uses first timer's duration)
+        if let first = transitions.first, case .timer(let td) = first.event, let firstDest = first.destination {
+            let secs    = td.duration.seconds
+            let secsLit = secs == Double(Int(secs)) ? "\(Int(secs))" : "\(secs)"
+            let destT   = typeName(from: firstDest.name)
+            result.append("""
+                /// Starts the \(secsLit)-second timer for `\(sourceState) → \(firstDest.name)`.
+                /// Call immediately after entering `\(sourceState)`. The machine is consumed
+                /// by the returned value — do not use `self` after calling this.
+                public consuming func startTimer(
+                    onFire: @escaping @Sendable (consuming \(machineT)<\(phaseT).\(stateT)>) async -> Void
+                ) -> \(machineT)<\(phaseT).\(stateT)> {
+                    var m = self
+                    m._timerTask = Task {
+                        try? await Task.sleep(for: .seconds(\(secsLit)))
+                        guard !Task.isCancelled else { return }
+                        await onFire(consume m)
+                    }
+                    return m
+                }
+            """)
+        }
+
+        // to<Dest>() consuming method for each timer destination
+        for t in transitions {
+            guard case .timer(_) = t.event, let dest = t.destination else { continue }
+            let destT    = typeName(from: dest.name)
+            let retT     = "\(machineT)<\(phaseT).\(destT)>"
+            let propName = "_timerTo\(destT)"
+            var body: [String] = []
+            body.append("        _timerTask?.cancel()")
+            for a in exitActions(for: sourceState, in: file) {
+                body.append("        await \(actionPropertyName(for: a))(\(hasCtx ? "_context" : ""))")
+            }
+            if hasCtx {
+                body.append("        let next = try await \(propName)(_context)")
+            }
+            for a in (t.action?.actions ?? []) {
+                body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            for a in entryActions(for: dest.name, in: file) {
+                body.append("        await \(actionPropertyName(for: a))(\(nextOrCtx))")
+            }
+            let constructArgs = machineConstructionArgs(destStateName: dest.name, file: file, indent: 12)
+            body.append("        return \(retT)(\n\(constructArgs)\n        )")
+            let throwsKw = hasCtx ? " async throws" : ""
+            result.append("""
+                /// Performs the timer-fired transition `\(sourceState) → \(dest.name)`.
+                /// Called inside the `onFire` callback supplied to `startTimer(onFire:)`.
+                public consuming func to\(destT)()\(throwsKw) -> \(retT) {
+            \(body.joined(separator: "\n"))
+                }
+            """)
+        }
+        return result
     }
 }
 

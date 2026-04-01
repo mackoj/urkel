@@ -110,6 +110,25 @@ public extension UrkelFile {
                 ]
             }
 
+        // groupedTransitions: group transitionRows by source state for templates
+        let groupedTransitions: [[String: Any]] = {
+            var groups: [(source: String, rows: [[String: Any]])] = []
+            for row in transitionRows {
+                guard let src = row["fromTypeName"] as? String else { continue }
+                if let idx = groups.firstIndex(where: { $0.source == src }) {
+                    groups[idx].rows.append(row)
+                } else {
+                    groups.append((source: src, rows: [row]))
+                }
+            }
+            return groups.map { g -> [String: Any] in
+                var rows = g.rows
+                // mark isLast on the inner list
+                for i in rows.indices { rows[i]["isLast"] = i == rows.count - 1 }
+                return ["sourceStateTypeName": g.source, "transitions": rows] as [String: Any]
+            }
+        }()
+
         return [
             "machineName":         machineName,
             "machineTypeName":     machineTN,
@@ -122,6 +141,7 @@ public extension UrkelFile {
             },
             "states":              stateRows,
             "transitions":         transitionRows,
+            "groupedTransitions":  groupedTransitions,
             "actions":             allActionNames,
             "guards":              allGuardNames,
             "outputEvents":        outputEvents,
@@ -129,7 +149,7 @@ public extension UrkelFile {
                 ["name": imp.name, "typeName": typeName(from: imp.name), "isLast": idx == imports.count - 1] as [String: Any]
             },
             "initialState":        initState?.name as Any,
-            "initialStateTypeName": initState.map { typeName(from: $0.name) } as Any,
+            "initialStateTypeName": initState.map { typeName(from: $0.name) } ?? "",
         ]
     }
 

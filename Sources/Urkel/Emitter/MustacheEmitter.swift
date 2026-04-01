@@ -20,17 +20,47 @@ public struct MustacheEmitter {
             throw MustacheEmitterError.invalidTemplate(String(describing: error))
         }
     }
+
+    /// Renders using the bundled template for `language` (e.g. `"swift"`, `"kotlin"`).
+    ///
+    /// The template must exist at `Sources/Urkel/Templates/<language>.mustache`.
+    public func render(file: UrkelFile, language: String) throws -> String {
+        let templateString = try loadBundledTemplate(language: language)
+        return try render(file: file, templateString: templateString)
+    }
+
+    // MARK: - Private
+
+    private func loadBundledTemplate(language: String) throws -> String {
+        // 1. Try Bundle.module (SPM resource bundle, for production use)
+        if let url = Bundle.module.url(forResource: language, withExtension: "mustache") {
+            return try String(contentsOf: url, encoding: .utf8)
+        }
+        // 2. Fallback: relative path from the source file (useful in tests without bundle)
+        let sourceRoot = URL(fileURLWithPath: #file)
+            .deletingLastPathComponent()   // Emitter/
+            .deletingLastPathComponent()   // Urkel/
+            .appendingPathComponent("Templates")
+            .appendingPathComponent("\(language).mustache")
+        if FileManager.default.fileExists(atPath: sourceRoot.path) {
+            return try String(contentsOf: sourceRoot, encoding: .utf8)
+        }
+        throw MustacheEmitterError.templateNotFound(language)
+    }
 }
 
 // MARK: - Errors
 
 public enum MustacheEmitterError: Error, LocalizedError, Sendable {
     case invalidTemplate(String)
+    case templateNotFound(String)
 
     public var errorDescription: String? {
         switch self {
         case .invalidTemplate(let detail):
             return "Invalid Mustache template: \(detail)"
+        case .templateNotFound(let lang):
+            return "Bundled Mustache template not found for language: \(lang)"
         }
     }
 }
