@@ -1,0 +1,47 @@
+## Network request with retry, exponential backoff, and circuit breaker.
+## Demonstrates: history states with compound, guards, timers, multiple finals,
+##               state-carried data threading across retries.
+machine NetworkRequest: RequestContext
+
+@states
+  init(url: URL, maxRetries: Int) Idle
+  state(attempt: Int) Connecting
+  state(attempt: Int) Waiting        # exponential backoff hold
+  state(attempt: Int, response: HTTPResponse) Processing
+  state Playing @history {           # compound: remembers last sub-state after reconnect
+    init Parsing
+    state Decoding
+    state Validating
+  }
+  final(data: Data)         Success
+  final(attempt: Int)       Exhausted
+  final(statusCode: Int)    ServerError
+  final                     Cancelled
+
+@transitions
+  Idle -> start -> Connecting
+
+  Connecting -> connected(response: HTTPResponse) -> Processing
+  Connecting -> timeout                           -> Waiting
+  Connecting -> serverError(code: Int)            -> ServerError
+
+  ## Exponential backoff timer — duration set in context
+  Waiting -> after(5s) [shouldRetry]  -> Connecting
+  Waiting -> after(5s) [else]         -> Exhausted
+
+  Processing -> dataReady -> Playing       # descend to Playing.Parsing
+  Processing -> emptyBody -> Success       # 204 No Content — immediate success
+
+  Playing.Parsing   -> chunkParsed   -> Playing.Decoding
+  Playing.Decoding  -> decoded       -> Playing.Validating
+  Playing.Validating -> valid        -> Success
+  Playing.Validating -> invalid      -> ServerError
+
+  Playing -> reconnected -*>             # resume from history — in-place
+
+  * -> cancel -> Cancelled
+
+@invariants
+  reachable(Success)
+  reachable(Exhausted)
+  reachable(Cancelled)

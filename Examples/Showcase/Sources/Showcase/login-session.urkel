@@ -1,0 +1,55 @@
+## OAuth 2.0 + biometric login with sub-machine token refresh.
+## Demonstrates: @import sub-machine + fork, @on reactive to sub-machine state,
+##               compound state for the authenticated session, multiple finals.
+machine LoginSession: SessionContext
+
+@import TokenRefresher
+
+@states
+  init Unauthenticated
+  state Authenticating
+  state(userId: String) BiometricChallenge
+  state(userId: String, token: AuthToken) Authenticated @history {
+    init Active
+    state Idle
+    state TokenExpiring
+  }
+  final(userId: String, token: AuthToken) LoggedIn
+  final                                   LoggedOut
+  final(reason: String)                   Locked
+
+@entry Authenticating     / showSpinner
+@exit  Authenticating     / hideSpinner
+@entry BiometricChallenge / promptBiometric
+
+@transitions
+  Unauthenticated -> login(email: String, password: String) -> Authenticating
+
+  Authenticating -> credentialsValid(userId: String, token: AuthToken) -> BiometricChallenge
+  Authenticating -> credentialsInvalid                                 -> Unauthenticated
+  Authenticating -> accountLocked(reason: String)                      -> Locked
+
+  BiometricChallenge -> biometricPassed -> Authenticated => TokenRefresher.init
+  BiometricChallenge -> biometricFailed -> Unauthenticated
+  BiometricChallenge -> skipBiometric   -> Authenticated => TokenRefresher.init
+
+  ## Authenticated sub-states
+  Authenticated.Active    -> idle            -> Authenticated.Idle
+  Authenticated.Idle      -> activity        -> Authenticated.Active
+  Authenticated.Active    -> tokenWarning    -> Authenticated.TokenExpiring
+  Authenticated.Idle      -> tokenWarning    -> Authenticated.TokenExpiring
+
+  ## React to TokenRefresher sub-machine
+  @on TokenRefresher::Refreshed, Authenticated -*> / applyNewToken
+  @on TokenRefresher::Failed,    Authenticated    -> Unauthenticated
+
+  ## Session-level transitions (apply to all Authenticated sub-states)
+  Authenticated -> logout  -> LoggedOut
+  Authenticated -> timeout -> LoggedOut
+  Authenticated -> confirm -> LoggedIn
+
+  * -> forceLogout -> LoggedOut
+
+@invariants
+  reachable(LoggedIn)
+  reachable(LoggedOut)

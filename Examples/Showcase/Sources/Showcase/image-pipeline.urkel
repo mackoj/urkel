@@ -1,0 +1,55 @@
+## Parallel image pipeline: thumbnail generation and metadata extraction run concurrently.
+## Demonstrates: @parallel with two independent regions, @on Parallel::done,
+##               @on Parallel.Region::State for per-region progress,
+##               multiple final states (ready vs failed).
+machine ImagePipeline: PipelineContext
+
+@parallel Processing
+  region Thumbnail
+    @states
+      init Pending
+      state Resizing
+      state Encoding
+      final Done
+      final Failed
+
+    @transitions
+      Pending  -> startResize(source: URL)    -> Resizing
+      Resizing -> resizeDone                  -> Encoding
+      Resizing -> resizeError(reason: String) -> Failed
+      Encoding -> encodeDone(url: URL)        -> Done
+      Encoding -> encodeError(reason: String) -> Failed
+
+  region Metadata
+    @states
+      init Pending
+      state Extracting
+      final Done
+      final Failed
+
+    @transitions
+      Pending    -> startExtract(source: URL)      -> Extracting
+      Extracting -> extractDone(data: MetaData)    -> Done
+      Extracting -> extractError(reason: String)   -> Failed
+
+@states
+  init(source: URL) Idle
+  state Processing      # the @parallel block
+  final(thumbnailURL: URL, metadata: MetaData) Ready
+  final(reason: String) Failed
+
+@transitions
+  Idle -> process -> Processing
+
+  @on Processing::done                           -> Ready    # both regions succeeded
+  @on Processing.Thumbnail::Failed               -> Failed   # thumbnail failed
+  @on Processing.Metadata::Failed                -> Failed   # metadata failed
+
+  @on Processing.Thumbnail::Encoding, Processing -*> / reportThumbnailProgress
+  @on Processing.Metadata::Extracting, Processing -*> / reportMetadataProgress
+
+  * -> cancel -> Failed
+
+@invariants
+  reachable(Ready)
+  reachable(Failed)

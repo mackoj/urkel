@@ -1,0 +1,32 @@
+## Wizard-style multi-step form with eventless (always) transitions.
+## Demonstrates: always/eventless transitions, guards on always, state-carried data,
+##               multiple final states (submitted vs abandoned).
+machine Wizard: WizardContext
+
+@states
+  init(steps: [WizardStep]) Idle
+  state(currentStep: WizardStep, completed: [WizardStep]) Step
+  state(completed: [WizardStep]) Validating
+  state(completed: [WizardStep]) Review
+  final(completed: [WizardStep]) Submitted
+  final Abandoned
+
+@transitions
+  ## Start: always transition into first step once steps are loaded
+  Idle -> always [hasSteps] -> Step
+  Idle -> always [else]     -> Abandoned   # no steps configured
+
+  Step -> next(answer: String) -> Validating
+
+  ## After validation, always-branch: more steps or go to review
+  Validating -> always [hasMoreSteps] -> Step
+  Validating -> always [else]         -> Review
+
+  Review -> submit    -> Submitted
+  Review -> back      -> Step
+  Review -> abandon   -> Abandoned
+
+  ## In-place: live validation feedback while on a step
+  Step -*> validate(input: String)
+
+  * -> timeout -> Abandoned
