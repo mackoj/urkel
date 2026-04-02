@@ -1,6 +1,10 @@
 import Testing
 import Foundation
 @testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelEmitterSwift
+@testable import UrkelEmitterMustache
 
 // MARK: - US-5.10 fixture
 
@@ -113,7 +117,7 @@ struct MustacheSwiftTemplateTests {
     private var swiftTemplate: String {
         get throws {
             let root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            let url  = root.appendingPathComponent("Sources/Urkel/Templates/swift.mustache")
+            let url  = root.appendingPathComponent("Sources/UrkelEmitterMustache/Templates/swift.mustache")
             return try String(contentsOf: url, encoding: .utf8)
         }
     }

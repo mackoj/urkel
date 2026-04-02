@@ -1,5 +1,6 @@
 import Testing
-@testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
 
 @Suite("US 2.2 + 2.3 - Parser")
 struct UrkelParserTests {

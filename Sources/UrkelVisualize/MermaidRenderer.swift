@@ -1,5 +1,5 @@
 import Foundation
-import Urkel
+import UrkelAST
 
 /// Renders a `UrkelFile` to Mermaid.js `stateDiagram-v2` format.
 public struct MermaidRenderer {

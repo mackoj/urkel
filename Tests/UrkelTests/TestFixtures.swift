@@ -1,5 +1,8 @@
 import Foundation
-@testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelValidation
+@testable import UrkelEmitterSwift
 
 // MARK: - v2 test helpers
 

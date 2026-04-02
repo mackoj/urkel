@@ -1,6 +1,7 @@
 import Testing
 import Foundation
-import Urkel
+import UrkelAST
+import UrkelParser
 @testable import UrkelVisualize
 @testable import UrkelCLI
 

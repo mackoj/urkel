@@ -1,5 +1,7 @@
 import Testing
-@testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelValidation
 
 @Suite("US 3.1 + 3.2 - Validator")
 struct UrkelValidatorTests {

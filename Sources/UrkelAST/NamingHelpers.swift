@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Naming helpers
-
 /// Converts a raw DSL identifier to PascalCase.
 ///
 ///     "folderWatch"  → "FolderWatch"

@@ -1,5 +1,5 @@
 import Foundation
-import Urkel
+import UrkelAST
 
 public struct GraphNode: Sendable, Codable {
     public let id: String

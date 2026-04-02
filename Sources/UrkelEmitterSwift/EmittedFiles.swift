@@ -1,3 +1,5 @@
+import UrkelAST
+
 /// The three Swift source files produced for a single `.urkel` machine.
 ///
 /// Each field is a complete, ready-to-write Swift source string.

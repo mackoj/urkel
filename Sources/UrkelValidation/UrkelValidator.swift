@@ -1,6 +1,5 @@
 import Foundation
-
-// MARK: - Validation Error
+import UrkelAST
 
 /// Thrown by `UrkelValidator.validateThrowing` when error-severity diagnostics exist.
 public struct UrkelValidationError: Error, LocalizedError, Sendable {

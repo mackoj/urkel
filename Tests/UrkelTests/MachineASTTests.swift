@@ -1,5 +1,5 @@
 import Testing
-@testable import Urkel
+@testable import UrkelAST
 
 @Suite("US 2.1 - AST")
 struct MachineASTTests {

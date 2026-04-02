@@ -1,3 +1,5 @@
+import UrkelAST
+
 /// Mustache template context model for v2 `UrkelFile`.
 ///
 /// Mirrors the shape expected by `swift.mustache` and any user-supplied

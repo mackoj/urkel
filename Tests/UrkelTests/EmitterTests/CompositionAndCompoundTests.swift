@@ -1,6 +1,9 @@
 import Testing
 import Foundation
 @testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelEmitterSwift
 
 // MARK: - US-5.11 Fixture
 

@@ -1,4 +1,7 @@
 import Foundation
+import UrkelAST
+import UrkelParser
+import UrkelValidation
 import LanguageServerProtocol
 
 // Use explicit qualification to distinguish our Diagnostic from LanguageServerProtocol.Diagnostic
@@ -288,7 +291,7 @@ private extension UrkelLanguageServer {
         }
     }
 
-    func toLSPDiagnostic(_ d: Diagnostic, source: String) -> LSPDiagnostic {
+    func toLSPDiagnostic(_ d: UrkelValidation.Diagnostic, source: String) -> LSPDiagnostic {
         let r: LSPRange
         if let dr = d.range {
             r = LSPRange(

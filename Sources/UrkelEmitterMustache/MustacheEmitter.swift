@@ -1,5 +1,6 @@
 import Foundation
 import Mustache
+import UrkelAST
 
 // MARK: - MustacheEmitter
 
@@ -37,9 +38,9 @@ public struct MustacheEmitter {
             return try String(contentsOf: url, encoding: .utf8)
         }
         // 2. Fallback: relative path from the source file (useful in tests without bundle)
+        // #file resolves to Sources/UrkelEmitterMustache/MustacheEmitter.swift
         let sourceRoot = URL(fileURLWithPath: #file)
-            .deletingLastPathComponent()   // Emitter/
-            .deletingLastPathComponent()   // Urkel/
+            .deletingLastPathComponent()   // UrkelEmitterMustache/
             .appendingPathComponent("Templates")
             .appendingPathComponent("\(language).mustache")
         if FileManager.default.fileExists(atPath: sourceRoot.path) {

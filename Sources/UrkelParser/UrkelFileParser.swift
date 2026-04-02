@@ -1,6 +1,5 @@
 import Foundation
-
-// MARK: - Parse Error
+import UrkelAST
 
 /// Parse error produced by the v2 Urkel parser.
 public struct UrkelParseError: Error, LocalizedError, Sendable, Equatable {

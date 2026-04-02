@@ -1,3 +1,8 @@
+import UrkelAST
+import UrkelParser
+import UrkelValidation
+import UrkelEmitterSwift
+import UrkelEmitterMustache
 import Foundation
 
 public enum UrkelGeneratorError: Error, LocalizedError {
@@ -172,7 +177,6 @@ public struct UrkelGenerator {
             try body.write(to: generatedURL, atomically: true, encoding: .utf8)
             return [generatedURL]
         } else if let lang = resolvedConfiguration.language {
-            let templateString = try loadBundledTemplate(language: lang)
             var renderFile = file
             if let tplImports = resolvedConfiguration.templateImports, !tplImports.isEmpty {
                 renderFile = UrkelFile(
@@ -187,7 +191,7 @@ public struct UrkelGenerator {
                     invariants: file.invariants
                 )
             }
-            let body = try MustacheEmitter().render(file: renderFile, templateString: templateString)
+            let body = try MustacheEmitter().render(file: renderFile, language: lang)
             let fileExtension = resolvedConfiguration.outputExtension ?? defaultExtension(forLanguage: lang)
             let generatedURL = Self.generatedURL(for: fallbackName, outputExtension: fileExtension, relativeTo: outputURL)
             try body.write(to: generatedURL, atomically: true, encoding: .utf8)
@@ -283,11 +287,7 @@ public struct UrkelGenerator {
     }
 
     private func loadBundledTemplate(language: String) throws -> String {
-        let lowered = language.lowercased()
-        guard lowered == "kotlin" else { throw UrkelGeneratorError.unsupportedLanguage(language) }
-        guard let url = Bundle.module.url(forResource: lowered, withExtension: "mustache") else {
-            throw UrkelGeneratorError.languageTemplateMissing(language)
-        }
-        return try String(contentsOf: url, encoding: .utf8)
+        // Delegate to MustacheEmitter which owns the template bundle
+        try MustacheEmitter().render(file: UrkelFile(machineName: "", contextType: nil, docComments: [], imports: [], parallels: [], states: [], entryExitHooks: [], transitions: [], invariants: []), language: language)
     }
 }

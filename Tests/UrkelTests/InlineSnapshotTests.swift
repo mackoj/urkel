@@ -1,7 +1,9 @@
 import Testing
 import InlineSnapshotTesting
 import SnapshotTesting
-@testable import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelEmitterSwift
 
 @Suite("Inline snapshots")
 struct InlineSnapshotTests {

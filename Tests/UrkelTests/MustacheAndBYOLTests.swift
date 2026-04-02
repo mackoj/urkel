@@ -1,6 +1,9 @@
 import Foundation
 import Testing
-@testable import Urkel
+import Urkel
+@testable import UrkelAST
+@testable import UrkelParser
+@testable import UrkelEmitterMustache
 
 @Suite("US 7.1 + 7.2 + 7.3 - Template emitter + BYOL")
 struct TemplateEmitterAndBYOLTests {

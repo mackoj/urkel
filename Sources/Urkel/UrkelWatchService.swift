@@ -1,4 +1,9 @@
 import Foundation
+import UrkelAST
+import UrkelParser
+import UrkelValidation
+import UrkelEmitterSwift
+import UrkelEmitterMustache
 
 public struct UrkelWatchService {
     public init() {}

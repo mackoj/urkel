@@ -1,5 +1,5 @@
 import Foundation
-import Urkel
+import UrkelAST
 
 public struct MachineStep: Sendable, Codable {
     public let from: String
