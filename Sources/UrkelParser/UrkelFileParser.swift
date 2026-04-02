@@ -90,21 +90,28 @@ public struct UrkelParser {
     private func printStateDecl(_ decl: StateDecl, indent: String) -> String {
         switch decl {
         case .simple(let s):
-            return indent + printSimpleState(s)
+            let docs = s.docComments.map { "\(indent)## \($0.text)" }.joined(separator: "\n")
+            let stateLine = indent + printSimpleState(s)
+            return docs.isEmpty ? stateLine : docs + "\n" + stateLine
         case .compound(let c):
-            var ls = ["\(indent)state \(c.name) {"]
-            for child in c.children { ls.append("\(indent)  \(printSimpleState(child))") }
+            let docs = c.docComments.map { "\(indent)## \($0.text)" }.joined(separator: "\n")
+            let hist = c.history == nil ? "" : c.history == .deep ? " @history(deep)" : " @history"
+            var ls = ["\(indent)state \(c.name)\(hist) {"]
+            for child in c.children { ls.append(printStateDecl(.simple(child), indent: indent + "  ")) }
+            for t in c.innerTransitions { ls.append("\(indent)  \(printTransitionStmt(t))") }
             ls.append("\(indent)}")
-            return ls.joined(separator: "\n")
+            let block = ls.joined(separator: "\n")
+            return docs.isEmpty ? block : docs + "\n" + block
         }
     }
 
     private func printSimpleState(_ s: SimpleStateDecl) -> String {
-        if s.params.isEmpty { return "\(s.kind.rawValue) \(s.name)" }
+        let hist = s.history == nil ? "" : s.history == .deep ? " @history(deep)" : " @history"
+        if s.params.isEmpty { return "\(s.kind.rawValue) \(s.name)\(hist)" }
         let ps = s.params.map { "\($0.label): \($0.typeExpr)" }.joined(separator: ", ")
         switch s.kind {
-        case .state:         return "state \(s.name)(\(ps))"
-        case .`init`, .final: return "\(s.kind.rawValue)(\(ps)) \(s.name)"
+        case .state:          return "state \(s.name)(\(ps))\(hist)"
+        case .`init`, .final: return "\(s.kind.rawValue)(\(ps)) \(s.name)\(hist)"
         }
     }
 
@@ -763,21 +770,31 @@ private struct LineOrientedParser {
         guard s.hasPrefix("(") else { return ([], s) }
         var params: [Parameter] = []
         var i = s.index(after: s.startIndex)
-        var depth = 1
+        // Use a stack so that '>' only closes a matching '<', never a '->'
+        var stack: [Character] = ["("]
         var current = ""
 
-        while i < s.endIndex && depth > 0 {
+        while i < s.endIndex {
             let c = s[i]
             switch c {
-            case "(", "<", "[", "{": depth += 1
-            case ")", ">", "]", "}":
-                depth -= 1
-                if depth == 0 {
+            case "(": stack.append("(")
+            case "[": stack.append("[")
+            case "{": stack.append("{")
+            case "<": stack.append("<")
+            case ")":
+                if stack.last == "(" { stack.removeLast() }
+                if stack.isEmpty {
                     let t = current.trimmingCharacters(in: .whitespaces)
                     if !t.isEmpty { params.append(try parseParam(t, line: line)) }
                     return (params, String(s[s.index(after: i)...]))
                 }
-            case "," where depth == 1:
+            case ">":
+                if stack.last == "<" { stack.removeLast() }
+            case "]":
+                if stack.last == "[" { stack.removeLast() }
+            case "}":
+                if stack.last == "{" { stack.removeLast() }
+            case "," where stack.count == 1:
                 let t = current.trimmingCharacters(in: .whitespaces)
                 if !t.isEmpty { params.append(try parseParam(t, line: line)) }
                 current = ""
@@ -853,8 +870,16 @@ private struct LineOrientedParser {
             throw UrkelParseError(message: "Unbalanced '(' in after()", line: line)
         }
         let content = String(rest[cs..<ce]).trimmingCharacters(in: .whitespaces)
-        let duration = parseDurationLiteral(content) ?? Duration(value: 1, unit: .s)
-        return (.timer(TimerDecl(duration: duration)), String(rest[afterIdx...]).trimmingCharacters(in: .whitespaces))
+        // Split duration from optional extra params: after(100ms, label: Type)
+        let commaIdx = content.firstIndex(of: ",")
+        let durationStr = commaIdx.map { String(content[..<$0]).trimmingCharacters(in: .whitespaces) } ?? content
+        let duration = parseDurationLiteral(durationStr) ?? Duration(value: 1, unit: .s)
+        var timerParams: [Parameter] = []
+        if let ci = commaIdx {
+            let paramStr = "(" + String(content[content.index(after: ci)...]).trimmingCharacters(in: .whitespaces) + ")"
+            timerParams = (try? parseParamList(paramStr, line: line).0) ?? []
+        }
+        return (.timer(TimerDecl(duration: duration, params: timerParams)), String(rest[afterIdx...]).trimmingCharacters(in: .whitespaces))
     }
 
     func parseDurationLiteral(_ s: String) -> Duration? {
