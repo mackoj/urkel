@@ -239,7 +239,7 @@ extension UrkelCLI {
             let fallback = url.deletingPathExtension().lastPathComponent
             let file = try UrkelParser().parse(source: source, machineNameFallback: fallback)
             let graph = GraphJSON.from(file)
-            let html = generateVisualizerHTML(graph: graph, machineName: file.machineName)
+            let html = try generateVisualizerHTML(graph: graph, machineName: file.machineName)
             let outPath = output ?? url.deletingPathExtension().appendingPathExtension("html").path
             try html.write(toFile: outPath, atomically: true, encoding: .utf8)
             print("✓ Visualizer written to \(outPath)")

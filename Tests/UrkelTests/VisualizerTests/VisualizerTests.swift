@@ -87,21 +87,21 @@ struct VisualizerTests {
 
     @Test("generates valid HTML for simple machine")
     func generatesHTML() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
-        #expect(html.hasPrefix("<!DOCTYPE html>") || html.hasPrefix("\n    <!DOCTYPE html>"))
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        #expect(html.hasPrefix("<!DOCTYPE html>"))
         #expect(html.contains("</html>"))
     }
 
     @Test("HTML contains machine name in title")
     func containsMachineName() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         #expect(html.contains("<title>FolderWatch"))
         #expect(html.contains("FolderWatch"))
     }
 
     @Test("HTML contains all state node IDs")
     func containsAllNodes() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         #expect(html.contains("\"Idle\""))
         #expect(html.contains("\"Running\""))
         #expect(html.contains("\"Stopped\""))
@@ -109,14 +109,14 @@ struct VisualizerTests {
 
     @Test("HTML contains init and final markers")
     func containsStateKindMarkers() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         #expect(html.contains("\"init\""))
         #expect(html.contains("\"final\""))
     }
 
     @Test("HTML is standalone — no external script or link tags")
     func isStandalone() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         let lower = html.lowercased()
         #expect(!lower.contains("<script src="))
         #expect(!lower.contains("<link href="))
@@ -127,7 +127,7 @@ struct VisualizerTests {
 
     @Test("HTML contains graph JSON data")
     func containsGraphJSON() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         #expect(html.contains("const GRAPH ="))
         #expect(html.contains("\"machine\""))
         #expect(html.contains("\"nodes\""))
@@ -198,7 +198,7 @@ struct VisualizerTests {
     func htmlContainsSwimlane() throws {
         let file = try UrkelParser.parse(printJobSource)
         let graph = GraphJSON.from(file)
-        let html = generateVisualizerHTML(graph: graph, machineName: "PrintJob")
+        let html = try generateVisualizerHTML(graph: graph, machineName: "PrintJob")
         // The JS should reference regionsByParallel (container data)
         #expect(html.contains("regionsByParallel"))
         #expect(html.contains("\"regions\""))
@@ -212,7 +212,7 @@ struct VisualizerTests {
     func htmlContainsCompound() throws {
         let file = try UrkelParser.parse(mediaPlayerSource)
         let graph = GraphJSON.from(file)
-        let html = generateVisualizerHTML(graph: graph, machineName: "MediaPlayer")
+        let html = try generateVisualizerHTML(graph: graph, machineName: "MediaPlayer")
         #expect(html.contains("compoundByState"))
         #expect(html.contains("\"compounds\""))
         #expect(html.contains("\"parentState\""))
@@ -222,7 +222,7 @@ struct VisualizerTests {
 
     @Test("HTML backward compat: simple graph unchanged structure")
     func htmlSimpleGraphBackwardCompat() throws {
-        let html = generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
+        let html = try generateVisualizerHTML(graph: makeSimpleGraph(), machineName: "FolderWatch")
         #expect(html.contains("\"regions\":[]"))
         #expect(html.contains("\"compounds\":[]"))
     }

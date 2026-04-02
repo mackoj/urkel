@@ -24,15 +24,38 @@ public struct MustacheEmitter {
 
     /// Renders using the bundled template for `language` (e.g. `"swift"`, `"kotlin"`).
     ///
-    /// The template must exist at `Sources/Urkel/Templates/<language>.mustache`.
+    /// The template must exist at `Sources/UrkelEmitterMustache/Templates/<language>.mustache`.
     public func render(file: UrkelFile, language: String) throws -> String {
         let templateString = try loadBundledTemplate(language: language)
         return try render(file: file, templateString: templateString)
     }
 
+    /// Renders the given Mustache template against an arbitrary context dictionary.
+    ///
+    /// Use this when the context is not a `UrkelFile` — for example, an HTML visualizer
+    /// that takes pre-serialised JSON alongside other scalar values.
+    public func render(context: Any, templateString: String) throws -> String {
+        do {
+            let template = try MustacheTemplate(string: templateString)
+            return template.render(context)
+        } catch {
+            throw MustacheEmitterError.invalidTemplate(String(describing: error))
+        }
+    }
+
+    /// Renders using a bundled template with an arbitrary context dictionary.
+    ///
+    /// - Parameters:
+    ///   - context: Any value accepted by the Mustache library (e.g. `[String: Any]`).
+    ///   - language: Template name without extension (e.g. `"visualizer.html"`).
+    public func render(context: Any, language: String) throws -> String {
+        let templateString = try loadBundledTemplate(language: language)
+        return try render(context: context, templateString: templateString)
+    }
+
     // MARK: - Private
 
-    private func loadBundledTemplate(language: String) throws -> String {
+    func loadBundledTemplate(language: String) throws -> String {
         // 1. Try Bundle.module (SPM resource bundle, for production use)
         if let url = Bundle.module.url(forResource: language, withExtension: "mustache") {
             return try String(contentsOf: url, encoding: .utf8)
