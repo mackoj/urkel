@@ -72,7 +72,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         .edge-path.timer-edge    { stroke: #f59e0b; stroke-width: 1.5; }
         .edge-path.reactive-edge { stroke: #06b6d4; stroke-width: 1.5; stroke-dasharray: 6 2; }
         .edge-path.active-edge   { stroke: var(--active); stroke-width: 2; }
-
         .edge-label { fill: #64748b; font-size: 11px;
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
         .edge-label.always-label   { fill: #a78bfa; font-style: italic; }
@@ -86,7 +85,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
         .edge-guard  { fill: #7c3aed; font-size: 10.5px; font-weight: 600;
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-
         .node-rect { transition: fill 0.18s, stroke 0.18s, stroke-width 0.18s; }
         .node-rect.active-state { fill: #2d1900 !important; stroke: var(--active) !important;
           stroke-width: 2.5 !important; }
@@ -113,7 +111,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         .events-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; }
         .events-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
           letter-spacing: 0.09em; color: var(--text-muted); margin-bottom: 10px; }
-
         .state-display { background: var(--surface); border: 1px solid var(--border-light);
           border-radius: 8px; padding: 14px 12px; text-align: center; }
         .state-display.final-state { border-color: var(--success); }
@@ -130,21 +127,19 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           justify-content: center; }
         .sd-action  { font-size: 9px; padding: 2px 6px; border-radius: 3px;
           font-family: 'SF Mono', monospace; }
-        .sd-entry   { background: rgba(52,211,153,0.15); color: #34d399;
+        .sd-entry { background: rgba(52,211,153,0.15); color: #34d399;
           border: 1px solid rgba(52,211,153,0.3); }
-        .sd-exit    { background: rgba(248,113,113,0.15); color: #f87171;
+        .sd-exit  { background: rgba(248,113,113,0.15); color: #f87171;
           border: 1px solid rgba(248,113,113,0.3); }
-        .placeholder { color: var(--text-muted); font-size: 13px;
-          text-align: center; padding: 18px 0; }
-
-        .event-btn { display: block; width: 100%; text-align: left; background: var(--surface);
-          border: 1px solid var(--border); color: var(--text); border-radius: 7px;
-          padding: 9px 12px; margin-bottom: 7px; font-size: 13px; transition: all 0.14s;
-          font-family: inherit; }
+        .placeholder { color: var(--text-muted); font-size: 13px; text-align: center;
+          padding: 18px 0; }
+        .event-btn { display: block; width: 100%; text-align: left;
+          background: var(--surface); border: 1px solid var(--border); color: var(--text);
+          border-radius: 7px; padding: 9px 12px; margin-bottom: 7px; font-size: 13px;
+          transition: all 0.14s; font-family: inherit; }
         .event-btn:hover { background: rgba(59,130,246,0.12); border-color: var(--accent);
           color: #fff; box-shadow: 0 0 0 1px rgba(59,130,246,0.2); }
-        .event-btn-inner { display: flex; align-items: baseline;
-          justify-content: space-between; }
+        .event-btn-inner { display: flex; align-items: baseline; justify-content: space-between; }
         .event-name   { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
           font-size: 12px; font-weight: 500; }
         .event-guard  { font-size: 10px; color: var(--text-muted); font-style: italic;
@@ -161,7 +156,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           font-family: 'SF Mono', monospace; padding: 5px 0;
           border-bottom: 1px solid #111827; }
         .output-event-item:last-child { border-bottom: none; }
-
         .history-section { padding: 14px 16px; border-top: 1px solid var(--border);
           max-height: 180px; overflow-y: auto; }
         .history-list { list-style: none; }
@@ -176,9 +170,8 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         /* ── Legend ──────────────────────────────────────────────────────── */
         .legend-section { padding: 10px 16px; border-top: 1px solid var(--border); }
-        .legend-toggle  { display: flex; align-items: center;
-          justify-content: space-between; cursor: pointer; user-select: none;
-          padding-bottom: 6px; }
+        .legend-toggle  { display: flex; align-items: center; justify-content: space-between;
+          cursor: pointer; user-select: none; padding-bottom: 6px; }
         .legend-toggle:hover .sb-title { color: var(--text-dim); }
         .legend-content { margin-top: 2px; }
         .legend-item  { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
@@ -201,9 +194,9 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         </div>
         <div class="header-right">
           <span class="node-count" id="nodeCount"></span>
-          <button class="btn-fit"   id="fitBtn">⊡ Fit</button>
-          <button class="btn-reset" id="resetBtn" style="display:none">↺ Reset</button>
-          <button class="btn-sim"   id="simBtn">▶ Simulate</button>
+          <button class="btn-fit"   id="fitBtn">&#x229F; Fit</button>
+          <button class="btn-reset" id="resetBtn" style="display:none">&#x21BA; Reset</button>
+          <button class="btn-sim"   id="simBtn">&#x25B6; Simulate</button>
         </div>
       </header>
       <div id="app">
@@ -221,7 +214,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             </defs>
             <g id="scene"></g>
           </svg>
-          <div class="zoom-hint">⌥ scroll to zoom · drag to pan · click Simulate to explore</div>
+          <div class="zoom-hint">scroll to zoom &middot; drag to pan &middot; click Simulate to explore</div>
         </div>
         <aside id="sidebar">
           <div class="sb-section" id="stateSection">
@@ -231,7 +224,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           </div>
           <div class="events-wrap" id="eventsWrap">
             <div class="events-title">Available Events</div>
-            <div id="eventButtons"><div class="placeholder">—</div></div>
+            <div id="eventButtons"><div class="placeholder">&mdash;</div></div>
           </div>
           <div class="history-section">
             <div class="sb-title">History</div>
@@ -244,7 +237,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           <div class="legend-section">
             <div class="legend-toggle" onclick="toggleLegend()">
               <span class="sb-title" style="margin-bottom:0">Legend</span>
-              <span id="legendArrow" style="color:var(--text-muted);font-size:10px">▾</span>
+              <span id="legendArrow" style="color:var(--text-muted);font-size:10px">&#9660;</span>
             </div>
             <div id="legendContent" class="legend-content">
               <div class="legend-item">
@@ -252,7 +245,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
                   <line x1="0" y1="6" x2="22" y2="6" stroke="#2d3f5c" stroke-width="1.5"/>
                   <polygon points="16,2 22,6 16,10" fill="#3b4c6b"/>
                 </svg>
-                <span class="legend-label">Normal →</span>
+                <span class="legend-label">Normal</span>
               </div>
               <div class="legend-item">
                 <svg width="28" height="12" style="flex-shrink:0">
@@ -260,7 +253,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
                         stroke-dasharray="4 2"/>
                   <polygon points="16,2 22,6 16,10" fill="#0d9488"/>
                 </svg>
-                <span class="legend-label">Internal -⁎></span>
+                <span class="legend-label">Internal -*&gt;</span>
               </div>
               <div class="legend-item">
                 <svg width="28" height="12" style="flex-shrink:0">
@@ -308,7 +301,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         function nodeHeight(n) { return (n && n.params) ? NH + 14 : NH; }
 
-        // ── Node height lookup map ────────────────────────────────────────────
+        // Build a height lookup for all nodes including container children.
         const nodeHeightMap = {};
         const _allNodes = [
           ...GRAPH.nodes,
@@ -317,7 +310,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         ];
         _allNodes.forEach(n => { nodeHeightMap[n.id] = nodeHeight(n); });
 
-        // ── Container data (parallel regions and compound states) ─────────────
+        // ── Container data ───────────────────────────────────────────────────
         const regionsByParallel = {};
         (GRAPH.regions || []).forEach(r => {
           if (!regionsByParallel[r.parallelState]) regionsByParallel[r.parallelState] = [];
@@ -347,7 +340,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           return { w: NW, h: nodeHeightMap[id] || NH };
         }
 
-        // ── Find a node anywhere in the graph ────────────────────────────────
+        // Find a node by id in all node collections.
         function findNode(id) {
           let n = GRAPH.nodes.find(n => n.id === id);
           if (n) return n;
@@ -370,7 +363,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             if (e.source !== e.target && adj[e.source] && !adj[e.source].includes(e.target))
               adj[e.source].push(e.target);
           });
-
           const init = g.nodes.find(n => n.kind === 'init') || g.nodes[0];
           const layer = {};
           const q = [init.id];
@@ -384,32 +376,26 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           }
           const maxL = Math.max(0, ...Object.values(layer));
           g.nodes.forEach(n => { if (!(n.id in layer)) layer[n.id] = maxL + 1; });
-
           const byLayer = {};
           g.nodes.forEach(n => {
             const l = layer[n.id];
             if (!byLayer[l]) byLayer[l] = [];
             byLayer[l].push(n.id);
           });
-
           const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
           const pos = {};
-
           const colWidths = layers.map(l =>
-            Math.max(NW, ...byLayer[l].map(id => containerSize(id).w))
-          );
+            Math.max(NW, ...byLayer[l].map(id => containerSize(id).w)));
           const colHeights = layers.map(l => {
             const ids = byLayer[l];
             return ids.reduce((sum, id, i) =>
               sum + containerSize(id).h + (i < ids.length - 1 ? VGAP : 0), 0);
           });
           const svgH = Math.max(...colHeights) + PAD * 2;
-
           const colX = [];
           let curX = PAD;
           colWidths.forEach(w => { colX.push(curX); curX += w + HGAP; });
           const svgW = curX - HGAP + PAD;
-
           layers.forEach((l, li) => {
             const ids = byLayer[l];
             const totalH = ids.reduce((sum, id, i) =>
@@ -421,7 +407,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
               curY += containerSize(id).h + VGAP;
             });
           });
-
           return { pos, svgW, svgH };
         }
 
@@ -442,75 +427,56 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         function edgePath(sp, tp, spSz, tpSz, idx, total) {
           const offset = (idx - (total - 1) / 2) * 20;
           if (sp === tp) {
-            const cx = sp.x + spSz.w / 2;
-            const cy = sp.y;
-            const r = 30 + idx * 12;
+            const cx = sp.x + spSz.w / 2, cy = sp.y, r = 30 + idx * 12;
             return {
               d: `M ${cx - 22} ${cy} C ${cx - 22} ${cy - r * 2.4} ${cx + 22} ${cy - r * 2.4} ${cx + 22} ${cy}`,
               lx: cx, ly: cy - r * 2.4 - 6, gly: cy - r * 2.4 + 9
             };
           }
           const forward = tp.x >= sp.x + spSz.w - 4;
-          const sx = forward ? sp.x + spSz.w : sp.x;
-          const sy = sp.y + spSz.h / 2;
-          const tx = forward ? tp.x : tp.x + tpSz.w;
-          const ty = tp.y + tpSz.h / 2;
+          const sx = forward ? sp.x + spSz.w : sp.x, sy = sp.y + spSz.h / 2;
+          const tx = forward ? tp.x : tp.x + tpSz.w, ty = tp.y + tpSz.h / 2;
           if (forward) {
-            const mx = (sx + tx) / 2;
-            const my = (sy + ty) / 2 + offset;
-            const lx = (sx + mx + mx + tx) / 4;
-            const ly = (sy + my + my + ty) / 4 - 10;
+            const mx = (sx + tx) / 2, my = (sy + ty) / 2 + offset;
+            const lx = (sx + mx + mx + tx) / 4, ly = (sy + my + my + ty) / 4 - 10;
             return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
-          } else {
-            const drop = Math.max(sp.y + spSz.h, tp.y + tpSz.h) + 40 +
-              Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
-            const mx = (sx + tx) / 2;
-            return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
-              lx: mx, ly: drop + 6, gly: drop + 19 };
           }
+          const drop = Math.max(sp.y + spSz.h, tp.y + tpSz.h) + 40 +
+            Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
+          return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
+            lx: (sx + tx) / 2, ly: drop + 6, gly: drop + 19 };
         }
 
-        // Output event self-loop — loops to the right side of the node.
+        // Output-event self-loop loops to the right of the node.
         function outputLoopPath(pos, sz, idx) {
-          const x = pos.x + sz.w;
-          const cy = pos.y + sz.h / 2;
-          const r = 22 + idx * 8;
+          const x = pos.x + sz.w, cy = pos.y + sz.h / 2, r = 22 + idx * 8;
           return {
             d: `M ${x} ${cy - 10} C ${x + r * 2} ${cy - r} ${x + r * 2} ${cy + r} ${x} ${cy + 10}`,
             lx: x + r * 2 + 12, ly: cy - 4, gly: cy + 10
           };
         }
 
-        // Inner edge path — uses NW/NH for inner child nodes.
         function innerEdgePath(sp, tp, isSelf, idx, total) {
           const offset = (idx - (total - 1) / 2) * 20;
           if (isSelf) {
-            const cx = sp.x + NW / 2;
-            const cy = sp.y;
-            const r = 30 + idx * 12;
+            const cx = sp.x + NW / 2, cy = sp.y, r = 30 + idx * 12;
             return {
               d: `M ${cx - 22} ${cy} C ${cx - 22} ${cy - r * 2.4} ${cx + 22} ${cy - r * 2.4} ${cx + 22} ${cy}`,
               lx: cx, ly: cy - r * 2.4 - 6, gly: cy - r * 2.4 + 9
             };
           }
           const forward = tp.x >= sp.x + NW - 4;
-          const sx = forward ? sp.x + NW : sp.x;
-          const sy = sp.y + NH / 2;
-          const tx = forward ? tp.x : tp.x + NW;
-          const ty = tp.y + NH / 2;
+          const sx = forward ? sp.x + NW : sp.x, sy = sp.y + NH / 2;
+          const tx = forward ? tp.x : tp.x + NW, ty = tp.y + NH / 2;
           if (forward) {
-            const mx = (sx + tx) / 2;
-            const my = (sy + ty) / 2 + offset;
-            const lx = (sx + mx + mx + tx) / 4;
-            const ly = (sy + my + my + ty) / 4 - 10;
+            const mx = (sx + tx) / 2, my = (sy + ty) / 2 + offset;
+            const lx = (sx + mx + mx + tx) / 4, ly = (sy + my + my + ty) / 4 - 10;
             return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
-          } else {
-            const drop = Math.max(sp.y, tp.y) + NH + 40 +
-              Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
-            const mx = (sx + tx) / 2;
-            return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
-              lx: mx, ly: drop + 6, gly: drop + 19 };
           }
+          const drop = Math.max(sp.y, tp.y) + NH + 40 +
+            Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
+          return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
+            lx: (sx + tx) / 2, ly: drop + 6, gly: drop + 19 };
         }
 
         // ── Edge kind helpers ────────────────────────────────────────────────
@@ -534,7 +500,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           }
         }
 
-        // Append /action and ⇒fork annotations below the edge label/guard.
+        // Append /action and fork annotations below label/guard.
         function appendEdgeAnnotations(eg, e, lx, ly, gly) {
           let y = (e.guardLabel ? gly : ly) + 14;
           if (e.action) {
@@ -542,24 +508,44 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             y += 11;
           }
           if (e.fork) {
-            eg.appendChild(txt('⇒ ' + e.fork, lx, y, 'edge-fork', { 'text-anchor': 'middle' }));
+            eg.appendChild(txt('\u21d2 ' + e.fork, lx, y, 'edge-fork', { 'text-anchor': 'middle' }));
           }
         }
 
         // ── Render ───────────────────────────────────────────────────────────
-        let nodeEls = {}, edgeEls = {};
-        let layoutCache = null;
+        let nodeEls = {}, edgeEls = {}, layoutCache = null;
 
-        // Render edges into group g; containerPos offsets absolute→relative coords.
-        function renderInnerEdges(innerEdgeList, g, layout, containerPos) {
+        function renderEdgeGroup(eg, e, ep) {
+          const path = s('path', { d: ep.d, class: edgePathClass(e),
+            'marker-end': 'url(#arrowhead)' });
+          eg.appendChild(path);
+          const displayLabel = (e.edgeKind === 'always') ? null : e.label;
+          if (displayLabel) {
+            eg.appendChild(txt(displayLabel, ep.lx, ep.ly, edgeLabelClass(e),
+              { 'text-anchor': 'middle' }));
+          }
+          if (e.guardLabel) {
+            const gt = '[' + e.guardLabel + ']';
+            const gy = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
+            const bw = gt.length * 6.5 + 10, bh = 15;
+            eg.appendChild(s('rect', { x: ep.lx - bw / 2, y: gy - bh + 3, width: bw, height: bh,
+              rx: 4, ry: 4, fill: 'rgba(124,58,237,0.18)',
+              stroke: 'rgba(124,58,237,0.35)', 'stroke-width': '0.8' }));
+            eg.appendChild(txt(gt, ep.lx, gy, 'edge-guard', { 'text-anchor': 'middle' }));
+          }
+          appendEdgeAnnotations(eg, e, ep.lx, ep.ly, ep.gly);
+          return path;
+        }
+
+        function renderInnerEdges(edgeList, g, layout, containerPos) {
           const pairCount = {}, pairSeen = {};
-          innerEdgeList.forEach(e => {
+          edgeList.forEach(e => {
             const k = e.source + '|' + e.target;
             pairCount[k] = (pairCount[k] || 0) + 1;
           });
           const edgesG = s('g');
           g.insertBefore(edgesG, g.firstChild);
-          innerEdgeList.forEach(e => {
+          edgeList.forEach(e => {
             const ap = layout.pos[e.source], bp = layout.pos[e.target];
             if (!ap || !bp) return;
             const sp = { x: ap.x - containerPos.x, y: ap.y - containerPos.y };
@@ -567,40 +553,16 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const k = e.source + '|' + e.target;
             const idx = pairSeen[k] = (pairSeen[k] || 0);
             pairSeen[k]++;
-            const total = pairCount[k] || 1;
-            const isSelf = e.source === e.target;
-            const ep = (isSelf && e.edgeKind === 'output')
+            const ep = (e.source === e.target && e.edgeKind === 'output')
               ? outputLoopPath(sp, { w: NW, h: NH }, idx)
-              : innerEdgePath(sp, tp, isSelf, idx, total);
-
+              : innerEdgePath(sp, tp, e.source === e.target, idx, pairCount[k] || 1);
             const eg = s('g', { 'data-id': e.id, class: 'edge-group' });
-            const path = s('path', { d: ep.d, class: edgePathClass(e),
-              'marker-end': 'url(#arrowhead)' });
-            eg.appendChild(path);
-
-            const displayLabel = (e.edgeKind === 'always') ? null : e.label;
-            if (displayLabel) {
-              eg.appendChild(txt(displayLabel, ep.lx, ep.ly, edgeLabelClass(e),
-                { 'text-anchor': 'middle' }));
-            }
-            if (e.guardLabel) {
-              const guardText = '[' + e.guardLabel + ']';
-              const guardY = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
-              const bgW = guardText.length * 6.5 + 10, bgH = 15;
-              eg.appendChild(s('rect', { x: ep.lx - bgW / 2, y: guardY - bgH + 3,
-                width: bgW, height: bgH, rx: 4, ry: 4,
-                fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)',
-                'stroke-width': '0.8' }));
-              eg.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard',
-                { 'text-anchor': 'middle' }));
-            }
-            appendEdgeAnnotations(eg, e, ep.lx, ep.ly, ep.gly);
+            const path = renderEdgeGroup(eg, e, ep);
             edgesG.appendChild(eg);
             edgeEls[e.id] = { group: eg, path };
           });
         }
 
-        // Render a simple state node into SVG group g; returns the rect element.
         function renderSimpleNode(n, g) {
           const nh = nodeHeight(n);
           const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
@@ -608,49 +570,40 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             fill: '#1a2332', stroke, 'stroke-width': n.kind === 'state' ? '1.5' : '2',
             class: 'node-rect' });
           g.appendChild(rect);
-
           const hasParams = !!n.params;
           const hasEntry  = n.entryActions && n.entryActions.length > 0;
           const hasExit   = n.exitActions  && n.exitActions.length  > 0;
-
           if (n.kind !== 'state') {
             const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
             g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
             g.appendChild(txt(n.label, NW / 2, hasParams ? nh / 2 - 2 : nh / 2 + 6,
               'node-text', { 'font-size': '12' }));
           } else {
-            g.appendChild(txt(n.label, NW / 2, hasParams ? nh / 2 - 6 : nh / 2 + 1,
-              'node-text'));
+            g.appendChild(txt(n.label, NW / 2, hasParams ? nh / 2 - 6 : nh / 2 + 1, 'node-text'));
           }
-
           if (hasParams) {
-            const truncated = n.params.length > 24 ? n.params.slice(0, 23) + '…' : n.params;
-            const paramsY = n.kind !== 'state' ? nh / 2 + 12 : nh / 2 + 8;
-            g.appendChild(txt('(' + truncated + ')', NW / 2, paramsY, 'node-params'));
+            const trunc = n.params.length > 24 ? n.params.slice(0, 23) + '\u2026' : n.params;
+            g.appendChild(txt('(' + trunc + ')', NW / 2,
+              n.kind !== 'state' ? nh / 2 + 12 : nh / 2 + 8, 'node-params'));
           }
-
-          // Entry/exit action badges at bottom (max 1 each)
           let badgeY = nh - 4;
           if (hasExit) {
-            g.appendChild(txt('◀ ' + n.exitActions[0], NW / 2, badgeY,
-              'action-badge exit-badge'));
+            g.appendChild(txt('\u25c4 ' + n.exitActions[0], NW / 2, badgeY, 'action-badge exit-badge'));
             badgeY -= 11;
           }
           if (hasEntry) {
-            g.appendChild(txt('▶ ' + n.entryActions[0], NW / 2, badgeY,
-              'action-badge entry-badge'));
+            g.appendChild(txt('\u25ba ' + n.entryActions[0], NW / 2, badgeY, 'action-badge entry-badge'));
           }
           return rect;
         }
 
-        // Render @parallel swimlane container.
         function renderParallel(n, p, g, layout) {
           const regs = regionsByParallel[n.id];
           const { w, h } = containerSize(n.id);
           const rect = s('rect', { width: w, height: h, rx: 10, ry: 10,
             fill: '#071020', stroke: '#3b4c6b', 'stroke-width': 1.5, class: 'node-rect' });
           g.appendChild(rect);
-          g.appendChild(txt('⫴ ' + n.label, w / 2, 15, 'node-badge',
+          g.appendChild(txt('\u2af4 ' + n.label, w / 2, 15, 'node-badge',
             { fill: '#60a5fa', 'font-size': '10', 'font-weight': '700' }));
           regs.forEach((reg, ri) => {
             const regX = INNER_PAD + ri * (NW + INNER_HGAP);
@@ -663,8 +616,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
                 'stroke-dasharray': '4,3' }));
             }
             reg.nodes.forEach((rn, ni) => {
-              const nx = regX;
-              const ny = REGION_HEADER + INNER_PAD + ni * (NH + INNER_VGAP);
+              const nx = regX, ny = REGION_HEADER + INNER_PAD + ni * (NH + INNER_VGAP);
               const rg = s('g', { transform: `translate(${nx},${ny})`, 'data-id': rn.id });
               const rrect = renderSimpleNode(rn, rg);
               g.appendChild(rg);
@@ -676,7 +628,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           return rect;
         }
 
-        // Render compound (hierarchical) state container.
         function renderCompound(n, p, g, layout) {
           const c = compoundByState[n.id];
           const { w, h } = containerSize(n.id);
@@ -686,12 +637,11 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           g.appendChild(txt(n.label, w / 2, 16, 'node-badge',
             { fill: '#94a3b8', 'font-size': '10', 'font-weight': '700' }));
           if (c.hasHistory) {
-            g.appendChild(txt('↺', w - 14, 16, 'node-badge',
+            g.appendChild(txt('\u21ba', w - 14, 16, 'node-badge',
               { fill: '#f59e0b', 'font-size': '11', 'font-weight': '700' }));
           }
           c.childNodes.forEach((cn, ci) => {
-            const cx = INNER_PAD + ci * (NW + INNER_HGAP);
-            const cy = COMPOUND_HEADER + INNER_PAD;
+            const cx = INNER_PAD + ci * (NW + INNER_HGAP), cy = COMPOUND_HEADER + INNER_PAD;
             const cg = s('g', { transform: `translate(${cx},${cy})`, 'data-id': cn.id });
             const crect = renderSimpleNode(cn, cg);
             g.appendChild(cg);
@@ -707,7 +657,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const scene = document.getElementById('scene');
           scene.innerHTML = '';
           nodeEls = {}; edgeEls = {};
-
           const edgesG = s('g'); scene.appendChild(edgesG);
           const nodesG = s('g'); scene.appendChild(nodesG);
 
@@ -716,41 +665,19 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const k = e.source + '|' + e.target;
             pairCount[k] = (pairCount[k] || 0) + 1;
           });
-
           GRAPH.edges.forEach(e => {
             const sp = layout.pos[e.source], tp = layout.pos[e.target];
             if (!sp || !tp) return;
             const k = e.source + '|' + e.target;
             const idx = pairSeen[k] = (pairSeen[k] || 0);
             pairSeen[k]++;
-            const total = pairCount[k] || 1;
             const isSelf = e.source === e.target;
             const ep = (isSelf && e.edgeKind === 'output')
               ? outputLoopPath(sp, containerSize(e.source), idx)
-              : edgePath(sp, tp, containerSize(e.source), containerSize(e.target), idx, total);
-
+              : edgePath(sp, tp, containerSize(e.source), containerSize(e.target),
+                  idx, pairCount[k] || 1);
             const g = s('g', { 'data-id': e.id, class: 'edge-group' });
-            const path = s('path', { d: ep.d, class: edgePathClass(e),
-              'marker-end': 'url(#arrowhead)' });
-            g.appendChild(path);
-
-            const displayLabel = (e.edgeKind === 'always') ? null : e.label;
-            if (displayLabel) {
-              g.appendChild(txt(displayLabel, ep.lx, ep.ly, edgeLabelClass(e),
-                { 'text-anchor': 'middle' }));
-            }
-            if (e.guardLabel) {
-              const guardText = '[' + e.guardLabel + ']';
-              const guardY = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
-              const bgW = guardText.length * 6.5 + 10, bgH = 15;
-              g.appendChild(s('rect', { x: ep.lx - bgW / 2, y: guardY - bgH + 3,
-                width: bgW, height: bgH, rx: 4, ry: 4,
-                fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)',
-                'stroke-width': '0.8' }));
-              g.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard',
-                { 'text-anchor': 'middle' }));
-            }
-            appendEdgeAnnotations(g, e, ep.lx, ep.ly, ep.gly);
+            const path = renderEdgeGroup(g, e, ep);
             edgesG.appendChild(g);
             edgeEls[e.id] = { group: g, path };
           });
@@ -760,13 +687,9 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             if (!p) return;
             const g = s('g', { transform: `translate(${p.x},${p.y})`, 'data-id': n.id });
             let rect;
-            if (regionsByParallel[n.id]) {
-              rect = renderParallel(n, p, g, layout);
-            } else if (compoundByState[n.id]) {
-              rect = renderCompound(n, p, g, layout);
-            } else {
-              rect = renderSimpleNode(n, g);
-            }
+            if      (regionsByParallel[n.id]) rect = renderParallel(n, p, g, layout);
+            else if (compoundByState[n.id])   rect = renderCompound(n, p, g, layout);
+            else                              rect = renderSimpleNode(n, g);
             nodesG.appendChild(g);
             nodeEls[n.id] = { group: g, rect };
           });
@@ -774,9 +697,8 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const totalInner =
             (GRAPH.regions   || []).reduce((s, r) => s + r.nodes.length, 0) +
             (GRAPH.compounds || []).reduce((s, c) => s + c.childNodes.length, 0);
-          const totalNodes = GRAPH.nodes.length + totalInner;
           document.getElementById('nodeCount').textContent =
-            totalNodes + ' states · ' + GRAPH.edges.length + ' transitions';
+            (GRAPH.nodes.length + totalInner) + ' states \u00b7 ' + GRAPH.edges.length + ' transitions';
           fitView(layout);
         }
 
@@ -787,18 +709,15 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           document.getElementById('scene').setAttribute('transform',
             `translate(${tx},${ty}) scale(${sc})`);
         }
-
         function fitView(layout) {
           const svg = document.getElementById('graph');
           const r = svg.getBoundingClientRect();
-          const sx = (r.width - 80) / layout.svgW;
-          const sy = (r.height - 80) / layout.svgH;
+          const sx = (r.width - 80) / layout.svgW, sy = (r.height - 80) / layout.svgH;
           sc = Math.min(sx, sy, 1.15);
           tx = (r.width - layout.svgW * sc) / 2;
           ty = (r.height - layout.svgH * sc) / 2;
           applyXform();
         }
-
         function setupZoomPan() {
           const svg = document.getElementById('graph');
           svg.addEventListener('wheel', e => {
@@ -834,18 +753,17 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           return null;
         }
 
-        // Returns triggerable edges for id, inheriting parent compound edges.
         function outEdges(id) {
           const parent = getParentCompound(id);
           if (parent) {
-            const inner  = parent.innerEdges.filter(e => e.source === id);
-            const outer  = GRAPH.edges.filter(e => e.source === parent.parentState);
-            return [...inner, ...outer];
+            return [
+              ...parent.innerEdges.filter(e => e.source === id),
+              ...GRAPH.edges.filter(e => e.source === parent.parentState)
+            ];
           }
           return GRAPH.edges.filter(e => e.source === id);
         }
 
-        // If state is a compound, step into its init child.
         function advanceIntoCompound(stateId) {
           const c = compoundByState[stateId];
           if (c) {
@@ -860,21 +778,18 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const init = GRAPH.nodes.find(n => n.kind === 'init') || GRAPH.nodes[0];
           curState = advanceIntoCompound(init.id);
           history = [];
-          document.getElementById('simBtn').textContent = '■ Stop';
+          document.getElementById('simBtn').textContent = '\u25a0 Stop';
           document.getElementById('simBtn').className = 'btn-stop';
           document.getElementById('resetBtn').style.display = '';
-          highlightNode(curState);
-          updateSidebar();
+          highlightNode(curState); updateSidebar();
         }
-
         function stopSim() {
           simActive = false; curState = null;
-          document.getElementById('simBtn').textContent = '▶ Simulate';
+          document.getElementById('simBtn').textContent = '\u25b6 Simulate';
           document.getElementById('simBtn').className = 'btn-sim';
           document.getElementById('resetBtn').style.display = 'none';
           clearHighlights(); updateSidebar();
         }
-
         function resetSim() {
           history = [];
           const init = GRAPH.nodes.find(n => n.kind === 'init') || GRAPH.nodes[0];
@@ -883,7 +798,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         }
 
         function fireEdge(edgeId) {
-          // Search outer edges then compound inner edges
           let edge = GRAPH.edges.find(e => e.id === edgeId);
           if (!edge) {
             for (const c of (GRAPH.compounds || [])) {
@@ -914,26 +828,18 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         }
 
         function clearHighlights() {
-          const clearNode = n => {
-            const el = nodeEls[n.id];
-            if (el) el.rect.classList.remove('active-state');
-          };
-          const clearEdge = e => {
-            const eg = edgeEls[e.id];
-            if (!eg) return;
+          const cn = n => { const el = nodeEls[n.id]; if (el) el.rect.classList.remove('active-state'); };
+          const ce = e => {
+            const eg = edgeEls[e.id]; if (!eg) return;
             eg.path.classList.remove('active-edge');
             eg.path.setAttribute('marker-end', 'url(#arrowhead)');
             const lbl = eg.group.querySelector('.edge-label');
             if (lbl) lbl.classList.remove('active-edge-label');
           };
-          GRAPH.nodes.forEach(clearNode);
-          (GRAPH.regions   || []).forEach(r => r.nodes.forEach(clearNode));
-          (GRAPH.compounds || []).forEach(c => {
-            c.childNodes.forEach(clearNode);
-            c.innerEdges.forEach(clearEdge);
-          });
-          GRAPH.edges.forEach(clearEdge);
-          (GRAPH.regions || []).forEach(r => r.edges.forEach(clearEdge));
+          GRAPH.nodes.forEach(cn);
+          (GRAPH.regions   || []).forEach(r => { r.nodes.forEach(cn); r.edges.forEach(ce); });
+          (GRAPH.compounds || []).forEach(c => { c.childNodes.forEach(cn); c.innerEdges.forEach(ce); });
+          GRAPH.edges.forEach(ce);
         }
 
         function esc(s) {
@@ -946,89 +852,62 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const sd = document.getElementById('stateDisplay');
           const eb = document.getElementById('eventButtons');
           const hl = document.getElementById('historyList');
-
           if (!simActive || !curState) {
             ph.style.display = ''; sd.style.display = 'none';
-            eb.innerHTML = '<div class="placeholder">—</div>';
-            hl.innerHTML = '<li style="border:none"><span class="placeholder" ' +
-              'style="padding:8px 0">No transitions yet</span></li>';
+            eb.innerHTML = '<div class="placeholder">\u2014</div>';
+            hl.innerHTML = '<li style="border:none"><span class="placeholder" style="padding:8px 0">No transitions yet</span></li>';
             return;
           }
-
           ph.style.display = 'none'; sd.style.display = '';
           const node = findNode(curState);
           const kind = node ? node.kind : 'state';
           const entryActs = (node && node.entryActions) || [];
           const exitActs  = (node && node.exitActions)  || [];
-
-          let displayHtml =
-            '<div class="state-display' + (kind === 'final' ? ' final-state' : '') + '">' +
+          let dh = '<div class="state-display' + (kind === 'final' ? ' final-state' : '') + '">' +
             '<div class="sd-name">' + esc(curState) + '</div>' +
             '<div class="sd-kind ' + esc(kind) + '">' + esc(kind) + '</div>';
-          if (node && node.params) {
-            displayHtml += '<div class="sd-params">(' + esc(node.params) + ')</div>';
+          if (node && node.params) dh += '<div class="sd-params">(' + esc(node.params) + ')</div>';
+          if (entryActs.length || exitActs.length) {
+            dh += '<div class="sd-actions">';
+            entryActs.forEach(a => { dh += '<span class="sd-action sd-entry">\u25ba ' + esc(a) + '</span>'; });
+            exitActs.forEach( a => { dh += '<span class="sd-action sd-exit">\u25c4 '  + esc(a) + '</span>'; });
+            dh += '</div>';
           }
-          if (entryActs.length > 0 || exitActs.length > 0) {
-            displayHtml += '<div class="sd-actions">';
-            entryActs.forEach(a => {
-              displayHtml += '<span class="sd-action sd-entry">▶ ' + esc(a) + '</span>';
-            });
-            exitActs.forEach(a => {
-              displayHtml += '<span class="sd-action sd-exit">◀ ' + esc(a) + '</span>';
-            });
-            displayHtml += '</div>';
-          }
-          displayHtml += '</div>';
-          sd.innerHTML = displayHtml;
+          dh += '</div>';
+          sd.innerHTML = dh;
 
           const allOuts    = outEdges(curState);
           const outs       = allOuts.filter(e => e.edgeKind !== 'output');
           const outputEvts = allOuts.filter(e => e.edgeKind === 'output');
 
           if (kind === 'final') {
-            eb.innerHTML = '<div class="placeholder" style="color:#34d399;padding:14px 0">' +
-              '✓ Final state reached</div>';
-          } else if (outs.length === 0 && outputEvts.length === 0) {
-            eb.innerHTML = '<div class="placeholder">No outgoing transitions</div>';
+            eb.innerHTML = '<div class="placeholder" style="color:#34d399;padding:14px 0">\u2713 Final state reached</div>';
           } else {
-            let html = '';
-            html += outs.map(e => {
-              let inner =
-                '<div class="event-btn-inner">' +
-                '<span><span class="event-name">' + esc(e.label) + '</span>' +
+            let html = outs.map(e => {
+              let inner = '<div class="event-btn-inner"><span><span class="event-name">' + esc(e.label) + '</span>' +
                 (e.guardLabel ? '<span class="event-guard">[' + esc(e.guardLabel) + ']</span>' : '') +
-                '</span>' +
-                '<span class="event-target">→ ' + esc(e.target) + '</span>' +
-                '</div>';
+                '</span><span class="event-target">\u2192 ' + esc(e.target) + '</span></div>';
               if (e.action) inner += '<div class="event-action">/' + esc(e.action) + '</div>';
-              if (e.fork)   inner += '<div class="event-fork">⇒ ' + esc(e.fork) + '</div>';
-              return '<button class="event-btn" onclick="fireEdge(\'' + esc(e.id) + '\')">' +
-                inner + '</button>';
+              if (e.fork)   inner += '<div class="event-fork">\u21d2 ' + esc(e.fork) + '</div>';
+              return '<button class="event-btn" onclick="fireEdge(\'' + esc(e.id) + '\')">' + inner + '</button>';
             }).join('');
-            if (outputEvts.length > 0) {
-              html += '<div class="output-events-title">Output Events</div>';
-              html += outputEvts.map(e =>
-                '<div class="output-event-item">' + esc(e.label) + '</div>'
-              ).join('');
+            if (outputEvts.length) {
+              html += '<div class="output-events-title">Output Events</div>' +
+                outputEvts.map(e => '<div class="output-event-item">' + esc(e.label) + '</div>').join('');
             }
-            if (!html) html = '<div class="placeholder">No triggerable events</div>';
-            eb.innerHTML = html;
+            eb.innerHTML = html || '<div class="placeholder">No outgoing transitions</div>';
           }
 
-          hl.innerHTML = history.length === 0
-            ? '<li style="border:none"><span class="placeholder" style="padding:8px 0">' +
-              'No transitions yet</span></li>'
+          hl.innerHTML = !history.length
+            ? '<li style="border:none"><span class="placeholder" style="padding:8px 0">No transitions yet</span></li>'
             : history.map(h =>
-                '<li>' +
-                '<span class="h-from">' + esc(h.from) + '</span>' +
-                '<span class="h-arr">›</span>' +
+                '<li><span class="h-from">' + esc(h.from) + '</span>' +
+                '<span class="h-arr">\u203a</span>' +
                 '<span class="h-event">' + esc(h.event) + '</span>' +
-                '<span class="h-arr">›</span>' +
+                '<span class="h-arr">\u203a</span>' +
                 '<span class="h-to">' + esc(h.to) + '</span>' +
-                (h.guard ? '<span style="color:#374151;font-size:10px">[' +
-                  esc(h.guard) + ']</span>' : '') +
-                '</li>'
-              ).join('');
+                (h.guard ? '<span style="color:#374151;font-size:10px">[' + esc(h.guard) + ']</span>' : '') +
+                '</li>').join('');
         }
 
         // ── Legend toggle ─────────────────────────────────────────────────────
@@ -1036,7 +915,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         function toggleLegend() {
           legendOpen = !legendOpen;
           document.getElementById('legendContent').style.display = legendOpen ? '' : 'none';
-          document.getElementById('legendArrow').textContent = legendOpen ? '▾' : '▸';
+          document.getElementById('legendArrow').textContent = legendOpen ? '\u25be' : '\u25b8';
         }
 
         // ── Boot ─────────────────────────────────────────────────────────────
