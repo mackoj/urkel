@@ -20,34 +20,22 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
       <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
-          --bg: #0f1117;
-          --canvas-bg: #0b0f17;
-          --surface: #1a2332;
-          --surface-hover: #1e2a3c;
-          --border: #2d3f5c;
-          --border-light: #3b4c6b;
-          --text: #e2e8f0;
-          --text-muted: #64748b;
-          --text-dim: #94a3b8;
-          --accent: #3b82f6;
-          --accent-dim: #1d4ed8;
-          --success: #10b981;
-          --active: #f59e0b;
-          --sidebar-w: 288px;
-          --header-h: 52px;
+          --bg: #0f1117; --canvas-bg: #0b0f17; --surface: #1a2332;
+          --surface-hover: #1e2a3c; --border: #2d3f5c; --border-light: #3b4c6b;
+          --text: #e2e8f0; --text-muted: #64748b; --text-dim: #94a3b8;
+          --accent: #3b82f6; --accent-dim: #1d4ed8; --success: #10b981;
+          --active: #f59e0b; --sidebar-w: 288px; --header-h: 52px;
         }
         html, body { height: 100%; background: var(--bg); color: var(--text);
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
           font-size: 14px; overflow: hidden; }
 
         /* ── Header ─────────────────────────────────────────────────────── */
-        header {
-          height: var(--header-h); background: #0a0e15;
+        header { height: var(--header-h); background: #0a0e15;
           border-bottom: 1px solid var(--border);
           display: flex; align-items: center; padding: 0 18px; gap: 12px;
           position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-          box-shadow: 0 1px 0 #1a2332;
-        }
+          box-shadow: 0 1px 0 #1a2332; }
         .logo { display: flex; align-items: center; gap: 8px; }
         .logo-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
           box-shadow: 0 0 8px rgba(59,130,246,0.6); }
@@ -60,13 +48,13 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         /* ── Buttons ─────────────────────────────────────────────────────── */
         button { cursor: pointer; border: none; border-radius: 6px; font-size: 13px;
           font-weight: 500; padding: 7px 14px; transition: background 0.15s, box-shadow 0.15s; }
-        .btn-sim { background: var(--accent); color: #fff; }
-        .btn-sim:hover { background: #2563eb; box-shadow: 0 0 12px rgba(59,130,246,0.35); }
+        .btn-sim  { background: var(--accent); color: #fff; }
+        .btn-sim:hover  { background: #2563eb; box-shadow: 0 0 12px rgba(59,130,246,0.35); }
         .btn-stop { background: #7f1d1d; color: #fca5a5; border: 1px solid #991b1b; }
         .btn-stop:hover { background: #991b1b; }
-        .btn-reset { background: var(--surface); color: var(--text-dim);
+        .btn-reset, .btn-fit { background: var(--surface); color: var(--text-dim);
           border: 1px solid var(--border); }
-        .btn-reset:hover { background: var(--surface-hover); color: var(--text); }
+        .btn-reset:hover, .btn-fit:hover { background: var(--surface-hover); color: var(--text); }
 
         /* ── Layout ──────────────────────────────────────────────────────── */
         #app { display: flex; position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 0; }
@@ -78,79 +66,127 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         /* ── SVG Styles ───────────────────────────────────────────────────── */
         .edge-path { fill: none; stroke: #2d3f5c; stroke-width: 1.5; }
-        .edge-path.always-edge { stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 6 3; }
-        .edge-path.internal-edge { stroke: #1e4d3a; stroke-width: 1.5; stroke-dasharray: 3 3; }
-        .edge-path.active-edge { stroke: var(--active); stroke-width: 2; }
+        .edge-path.always-edge   { stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 6 3; }
+        .edge-path.internal-edge { stroke: #0d9488; stroke-width: 1.5; stroke-dasharray: 4 2; }
+        .edge-path.output-edge   { stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 5 3; }
+        .edge-path.timer-edge    { stroke: #f59e0b; stroke-width: 1.5; }
+        .edge-path.reactive-edge { stroke: #06b6d4; stroke-width: 1.5; stroke-dasharray: 6 2; }
+        .edge-path.active-edge   { stroke: var(--active); stroke-width: 2; }
+
         .edge-label { fill: #64748b; font-size: 11px;
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-        .edge-label.always-label { fill: #a78bfa; font-style: italic; }
+        .edge-label.always-label   { fill: #a78bfa; font-style: italic; }
+        .edge-label.output-label   { fill: #a78bfa; font-style: italic; }
+        .edge-label.timer-label    { fill: #fbbf24; }
+        .edge-label.reactive-label { fill: #67e8f9; }
         .edge-label.active-edge-label { fill: #fbbf24; }
-        .edge-guard { fill: #7c3aed; font-size: 10.5px; font-weight: 600;
+        .edge-action { fill: #6b7280; font-size: 9px; font-style: italic;
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-        .edge-guard-bg { fill: rgba(124,58,237,0.15); rx: 3; }
+        .edge-fork   { fill: #f59e0b; font-size: 9px;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+        .edge-guard  { fill: #7c3aed; font-size: 10.5px; font-weight: 600;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+
         .node-rect { transition: fill 0.18s, stroke 0.18s, stroke-width 0.18s; }
-        .node-rect.active-state { fill: #2d1900 !important; stroke: var(--active) !important; stroke-width: 2.5 !important; }
+        .node-rect.active-state { fill: #2d1900 !important; stroke: var(--active) !important;
+          stroke-width: 2.5 !important; }
         .node-text { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
           font-size: 13px; font-weight: 500; fill: #e2e8f0; text-anchor: middle;
           dominant-baseline: middle; pointer-events: none; }
         .node-badge { font-size: 8.5px; font-weight: 700; letter-spacing: 0.1em;
           text-anchor: middle; pointer-events: none; }
+        .node-params { font-size: 9px; fill: #64748b; font-style: italic;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+          text-anchor: middle; pointer-events: none; }
+        .action-badge { font-size: 8px; font-weight: 600;
+          font-family: 'SF Mono', monospace; text-anchor: middle; pointer-events: none; }
+        .entry-badge { fill: #34d399; }
+        .exit-badge  { fill: #f87171; }
 
         /* ── Sidebar ─────────────────────────────────────────────────────── */
-        #sidebar { width: var(--sidebar-w); background: #0a0e15; border-left: 1px solid var(--border);
-          display: flex; flex-direction: column; overflow: hidden; }
-        .sb-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
-        .sb-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
+        #sidebar { width: var(--sidebar-w); background: #0a0e15;
+          border-left: 1px solid var(--border); display: flex; flex-direction: column;
+          overflow: hidden; }
+        .sb-section  { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        .sb-title    { font-size: 10px; font-weight: 700; text-transform: uppercase;
           letter-spacing: 0.09em; color: var(--text-muted); margin-bottom: 10px; }
         .events-wrap { flex: 1; overflow-y: auto; padding: 14px 16px; }
         .events-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
           letter-spacing: 0.09em; color: var(--text-muted); margin-bottom: 10px; }
 
-        /* State display */
         .state-display { background: var(--surface); border: 1px solid var(--border-light);
           border-radius: 8px; padding: 14px 12px; text-align: center; }
         .state-display.final-state { border-color: var(--success); }
-        .sd-name { font-size: 17px; font-weight: 700; color: var(--active);
+        .sd-name   { font-size: 17px; font-weight: 700; color: var(--active);
           font-family: 'SF Mono', monospace; word-break: break-all; }
-        .sd-kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+        .sd-kind   { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
           margin-top: 5px; }
-        .sd-kind.init { color: #60a5fa; }
+        .sd-kind.init  { color: #60a5fa; }
         .sd-kind.state { color: var(--text-muted); }
         .sd-kind.final { color: var(--success); }
-        .placeholder { color: var(--text-muted); font-size: 13px; text-align: center; padding: 18px 0; }
+        .sd-params { font-size: 10px; color: var(--text-muted); font-style: italic;
+          font-family: 'SF Mono', monospace; margin-top: 6px; word-break: break-all; }
+        .sd-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;
+          justify-content: center; }
+        .sd-action  { font-size: 9px; padding: 2px 6px; border-radius: 3px;
+          font-family: 'SF Mono', monospace; }
+        .sd-entry   { background: rgba(52,211,153,0.15); color: #34d399;
+          border: 1px solid rgba(52,211,153,0.3); }
+        .sd-exit    { background: rgba(248,113,113,0.15); color: #f87171;
+          border: 1px solid rgba(248,113,113,0.3); }
+        .placeholder { color: var(--text-muted); font-size: 13px;
+          text-align: center; padding: 18px 0; }
 
-        /* Event buttons */
         .event-btn { display: block; width: 100%; text-align: left; background: var(--surface);
           border: 1px solid var(--border); color: var(--text); border-radius: 7px;
           padding: 9px 12px; margin-bottom: 7px; font-size: 13px; transition: all 0.14s;
           font-family: inherit; }
         .event-btn:hover { background: rgba(59,130,246,0.12); border-color: var(--accent);
           color: #fff; box-shadow: 0 0 0 1px rgba(59,130,246,0.2); }
-        .event-btn-inner { display: flex; align-items: baseline; justify-content: space-between; }
-        .event-name { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        .event-btn-inner { display: flex; align-items: baseline;
+          justify-content: space-between; }
+        .event-name   { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
           font-size: 12px; font-weight: 500; }
-        .event-guard { font-size: 10px; color: var(--text-muted); font-style: italic; margin-left: 5px; }
+        .event-guard  { font-size: 10px; color: var(--text-muted); font-style: italic;
+          margin-left: 5px; }
         .event-target { font-size: 11px; color: var(--text-muted); }
         .event-btn:hover .event-target { color: #93c5fd; }
+        .event-action { font-size: 10px; color: #6b7280; font-style: italic;
+          font-family: 'SF Mono', monospace; margin-top: 2px; }
+        .event-fork   { font-size: 10px; color: #f59e0b;
+          font-family: 'SF Mono', monospace; margin-top: 2px; }
+        .output-events-title { font-size: 10px; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.09em; color: #a78bfa; margin-bottom: 8px; margin-top: 12px; }
+        .output-event-item { font-size: 12px; color: #a78bfa; font-style: italic;
+          font-family: 'SF Mono', monospace; padding: 5px 0;
+          border-bottom: 1px solid #111827; }
+        .output-event-item:last-child { border-bottom: none; }
 
-        /* History */
         .history-section { padding: 14px 16px; border-top: 1px solid var(--border);
-          max-height: 200px; overflow-y: auto; }
+          max-height: 180px; overflow-y: auto; }
         .history-list { list-style: none; }
         .history-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
           padding: 5px 0; font-size: 11px; border-bottom: 1px solid #111827; }
         .history-list li:last-child { border-bottom: none; }
-        .h-from { color: var(--text-muted); font-family: monospace; }
+        .h-from  { color: var(--text-muted); font-family: monospace; }
         .h-event { color: #60a5fa; font-family: monospace; background: rgba(59,130,246,0.1);
           padding: 1px 5px; border-radius: 3px; font-size: 10px; }
-        .h-to { color: var(--text); font-weight: 600; font-family: monospace; }
+        .h-to  { color: var(--text); font-weight: 600; font-family: monospace; }
         .h-arr { color: #374151; font-size: 9px; }
 
-        /* Zoom hint */
+        /* ── Legend ──────────────────────────────────────────────────────── */
+        .legend-section { padding: 10px 16px; border-top: 1px solid var(--border); }
+        .legend-toggle  { display: flex; align-items: center;
+          justify-content: space-between; cursor: pointer; user-select: none;
+          padding-bottom: 6px; }
+        .legend-toggle:hover .sb-title { color: var(--text-dim); }
+        .legend-content { margin-top: 2px; }
+        .legend-item  { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+        .legend-label { font-size: 10.5px; color: var(--text-dim); }
+
+        /* ── Zoom hint ───────────────────────────────────────────────────── */
         .zoom-hint { position: absolute; bottom: 14px; left: 14px; color: #374151;
           font-size: 11px; pointer-events: none; user-select: none; }
-
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -165,8 +201,9 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         </div>
         <div class="header-right">
           <span class="node-count" id="nodeCount"></span>
+          <button class="btn-fit"   id="fitBtn">⊡ Fit</button>
           <button class="btn-reset" id="resetBtn" style="display:none">↺ Reset</button>
-          <button class="btn-sim" id="simBtn">▶ Simulate</button>
+          <button class="btn-sim"   id="simBtn">▶ Simulate</button>
         </div>
       </header>
       <div id="app">
@@ -199,8 +236,64 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           <div class="history-section">
             <div class="sb-title">History</div>
             <ul class="history-list" id="historyList">
-              <li style="border:none"><span class="placeholder" style="padding:8px 0">No transitions yet</span></li>
+              <li style="border:none">
+                <span class="placeholder" style="padding:8px 0">No transitions yet</span>
+              </li>
             </ul>
+          </div>
+          <div class="legend-section">
+            <div class="legend-toggle" onclick="toggleLegend()">
+              <span class="sb-title" style="margin-bottom:0">Legend</span>
+              <span id="legendArrow" style="color:var(--text-muted);font-size:10px">▾</span>
+            </div>
+            <div id="legendContent" class="legend-content">
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#2d3f5c" stroke-width="1.5"/>
+                  <polygon points="16,2 22,6 16,10" fill="#3b4c6b"/>
+                </svg>
+                <span class="legend-label">Normal →</span>
+              </div>
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#0d9488" stroke-width="1.5"
+                        stroke-dasharray="4 2"/>
+                  <polygon points="16,2 22,6 16,10" fill="#0d9488"/>
+                </svg>
+                <span class="legend-label">Internal -⁎></span>
+              </div>
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#7c3aed" stroke-width="1.5"
+                        stroke-dasharray="5 3"/>
+                  <polygon points="16,2 22,6 16,10" fill="#7c3aed"/>
+                </svg>
+                <span class="legend-label">Output event</span>
+              </div>
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#f59e0b" stroke-width="1.5"/>
+                  <polygon points="16,2 22,6 16,10" fill="#f59e0b"/>
+                </svg>
+                <span class="legend-label">Timer after()</span>
+              </div>
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#06b6d4" stroke-width="1.5"
+                        stroke-dasharray="6 2"/>
+                  <polygon points="16,2 22,6 16,10" fill="#06b6d4"/>
+                </svg>
+                <span class="legend-label">Reactive @on</span>
+              </div>
+              <div class="legend-item">
+                <svg width="28" height="12" style="flex-shrink:0">
+                  <line x1="0" y1="6" x2="22" y2="6" stroke="#7c3aed" stroke-width="1.5"
+                        stroke-dasharray="6 3"/>
+                  <polygon points="16,2 22,6 16,10" fill="#7c3aed"/>
+                </svg>
+                <span class="legend-label">Always (auto)</span>
+              </div>
+            </div>
           </div>
         </aside>
       </div>
@@ -209,9 +302,20 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         const GRAPH = \#(graphJSON);
 
         // ── Constants ────────────────────────────────────────────────────────
-        const NW = 152, NH = 46, HGAP = 108, VGAP = 52, PAD = 56;
+        const NW = 152, NH = 56, HGAP = 108, VGAP = 52, PAD = 56;
         const INNER_PAD = 16, INNER_HGAP = 60, INNER_VGAP = 30;
         const REGION_HEADER = 26, COMPOUND_HEADER = 28;
+
+        function nodeHeight(n) { return (n && n.params) ? NH + 14 : NH; }
+
+        // ── Node height lookup map ────────────────────────────────────────────
+        const nodeHeightMap = {};
+        const _allNodes = [
+          ...GRAPH.nodes,
+          ...(GRAPH.regions   || []).flatMap(r => r.nodes),
+          ...(GRAPH.compounds || []).flatMap(c => c.childNodes)
+        ];
+        _allNodes.forEach(n => { nodeHeightMap[n.id] = nodeHeight(n); });
 
         // ── Container data (parallel regions and compound states) ─────────────
         const regionsByParallel = {};
@@ -226,18 +330,36 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           if (regionsByParallel[id]) {
             const regs = regionsByParallel[id];
             const maxN = Math.max(...regs.map(r => r.nodes.length), 1);
+            const maxNodeH = Math.max(NH, ...regs.flatMap(r => r.nodes)
+              .map(n => nodeHeightMap[n.id] || NH));
             const w = regs.length * NW + (regs.length - 1) * INNER_HGAP + INNER_PAD * 2;
-            const h = maxN * (NH + INNER_VGAP) - INNER_VGAP + REGION_HEADER + INNER_PAD * 2;
+            const h = maxN * (maxNodeH + INNER_VGAP) - INNER_VGAP + REGION_HEADER + INNER_PAD * 2;
             return { w, h };
           }
           if (compoundByState[id]) {
             const c = compoundByState[id];
             const n = Math.max(1, c.childNodes.length);
+            const maxChildH = Math.max(NH, ...c.childNodes.map(cn => nodeHeightMap[cn.id] || NH));
             const w = n * NW + (n - 1) * INNER_HGAP + INNER_PAD * 2;
-            const h = NH + COMPOUND_HEADER + INNER_PAD * 2;
+            const h = maxChildH + COMPOUND_HEADER + INNER_PAD * 2;
             return { w, h };
           }
-          return { w: NW, h: NH };
+          return { w: NW, h: nodeHeightMap[id] || NH };
+        }
+
+        // ── Find a node anywhere in the graph ────────────────────────────────
+        function findNode(id) {
+          let n = GRAPH.nodes.find(n => n.id === id);
+          if (n) return n;
+          for (const r of (GRAPH.regions || [])) {
+            n = r.nodes.find(n => n.id === id);
+            if (n) return n;
+          }
+          for (const c of (GRAPH.compounds || [])) {
+            n = c.childNodes.find(n => n.id === id);
+            if (n) return n;
+          }
+          return null;
         }
 
         // ── Layout ───────────────────────────────────────────────────────────
@@ -273,7 +395,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
           const pos = {};
 
-          // Use actual container sizes for width and height accounting
           const colWidths = layers.map(l =>
             Math.max(NW, ...byLayer[l].map(id => containerSize(id).w))
           );
@@ -320,7 +441,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         // ── Edge path computation ────────────────────────────────────────────
         function edgePath(sp, tp, spSz, tpSz, idx, total) {
           const offset = (idx - (total - 1) / 2) * 20;
-          if (sp === tp) { // self-loop (same position object = same source+target)
+          if (sp === tp) {
             const cx = sp.x + spSz.w / 2;
             const cy = sp.y;
             const r = 30 + idx * 12;
@@ -334,7 +455,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const sy = sp.y + spSz.h / 2;
           const tx = forward ? tp.x : tp.x + tpSz.w;
           const ty = tp.y + tpSz.h / 2;
-
           if (forward) {
             const mx = (sx + tx) / 2;
             const my = (sy + ty) / 2 + offset;
@@ -342,15 +462,26 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const ly = (sy + my + my + ty) / 4 - 10;
             return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
           } else {
-            // backward edge: route below nodes
-            const drop = Math.max(sp.y + spSz.h, tp.y + tpSz.h) + 40 + Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
+            const drop = Math.max(sp.y + spSz.h, tp.y + tpSz.h) + 40 +
+              Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
             const mx = (sx + tx) / 2;
-            const d = `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`;
-            return { d, lx: mx, ly: drop + 6, gly: drop + 19 };
+            return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
+              lx: mx, ly: drop + 6, gly: drop + 19 };
           }
         }
 
-        // Inner edge path — always uses NW/NH for inner child nodes.
+        // Output event self-loop — loops to the right side of the node.
+        function outputLoopPath(pos, sz, idx) {
+          const x = pos.x + sz.w;
+          const cy = pos.y + sz.h / 2;
+          const r = 22 + idx * 8;
+          return {
+            d: `M ${x} ${cy - 10} C ${x + r * 2} ${cy - r} ${x + r * 2} ${cy + r} ${x} ${cy + 10}`,
+            lx: x + r * 2 + 12, ly: cy - 4, gly: cy + 10
+          };
+        }
+
+        // Inner edge path — uses NW/NH for inner child nodes.
         function innerEdgePath(sp, tp, isSelf, idx, total) {
           const offset = (idx - (total - 1) / 2) * 20;
           if (isSelf) {
@@ -374,10 +505,44 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const ly = (sy + my + my + ty) / 4 - 10;
             return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
           } else {
-            const drop = Math.max(sp.y, tp.y) + NH + 40 + Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
+            const drop = Math.max(sp.y, tp.y) + NH + 40 +
+              Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
             const mx = (sx + tx) / 2;
-            const d = `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`;
-            return { d, lx: mx, ly: drop + 6, gly: drop + 19 };
+            return { d: `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`,
+              lx: mx, ly: drop + 6, gly: drop + 19 };
+          }
+        }
+
+        // ── Edge kind helpers ────────────────────────────────────────────────
+        function edgePathClass(e) {
+          switch (e.edgeKind) {
+            case 'always':   return 'edge-path always-edge';
+            case 'internal': return 'edge-path internal-edge';
+            case 'output':   return 'edge-path output-edge';
+            case 'timer':    return 'edge-path timer-edge';
+            case 'reactive': return 'edge-path reactive-edge';
+            default:         return 'edge-path';
+          }
+        }
+        function edgeLabelClass(e) {
+          switch (e.edgeKind) {
+            case 'always':   return 'edge-label always-label';
+            case 'output':   return 'edge-label output-label';
+            case 'timer':    return 'edge-label timer-label';
+            case 'reactive': return 'edge-label reactive-label';
+            default:         return 'edge-label';
+          }
+        }
+
+        // Append /action and ⇒fork annotations below the edge label/guard.
+        function appendEdgeAnnotations(eg, e, lx, ly, gly) {
+          let y = (e.guardLabel ? gly : ly) + 14;
+          if (e.action) {
+            eg.appendChild(txt('/' + e.action, lx, y, 'edge-action', { 'text-anchor': 'middle' }));
+            y += 11;
+          }
+          if (e.fork) {
+            eg.appendChild(txt('⇒ ' + e.fork, lx, y, 'edge-fork', { 'text-anchor': 'middle' }));
           }
         }
 
@@ -385,7 +550,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         let nodeEls = {}, edgeEls = {};
         let layoutCache = null;
 
-        // Render inner edges (relative coords) shared by parallel and compound containers.
+        // Render edges into group g; containerPos offsets absolute→relative coords.
         function renderInnerEdges(innerEdgeList, g, layout, containerPos) {
           const pairCount = {}, pairSeen = {};
           innerEdgeList.forEach(e => {
@@ -403,30 +568,77 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const idx = pairSeen[k] = (pairSeen[k] || 0);
             pairSeen[k]++;
             const total = pairCount[k] || 1;
-            const ep = innerEdgePath(sp, tp, e.source === e.target, idx, total);
+            const isSelf = e.source === e.target;
+            const ep = (isSelf && e.edgeKind === 'output')
+              ? outputLoopPath(sp, { w: NW, h: NH }, idx)
+              : innerEdgePath(sp, tp, isSelf, idx, total);
+
             const eg = s('g', { 'data-id': e.id, class: 'edge-group' });
-            const path = s('path', { d: ep.d, class: 'edge-path', 'marker-end': 'url(#arrowhead)' });
+            const path = s('path', { d: ep.d, class: edgePathClass(e),
+              'marker-end': 'url(#arrowhead)' });
             eg.appendChild(path);
-            if (e.label) eg.appendChild(txt(e.label, ep.lx, ep.ly, 'edge-label', { 'text-anchor': 'middle' }));
-            if (e.guardLabel) eg.appendChild(txt('[' + e.guardLabel + ']', ep.lx, ep.gly, 'edge-guard', { 'text-anchor': 'middle' }));
+
+            const displayLabel = (e.edgeKind === 'always') ? null : e.label;
+            if (displayLabel) {
+              eg.appendChild(txt(displayLabel, ep.lx, ep.ly, edgeLabelClass(e),
+                { 'text-anchor': 'middle' }));
+            }
+            if (e.guardLabel) {
+              const guardText = '[' + e.guardLabel + ']';
+              const guardY = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
+              const bgW = guardText.length * 6.5 + 10, bgH = 15;
+              eg.appendChild(s('rect', { x: ep.lx - bgW / 2, y: guardY - bgH + 3,
+                width: bgW, height: bgH, rx: 4, ry: 4,
+                fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)',
+                'stroke-width': '0.8' }));
+              eg.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard',
+                { 'text-anchor': 'middle' }));
+            }
+            appendEdgeAnnotations(eg, e, ep.lx, ep.ly, ep.gly);
             edgesG.appendChild(eg);
             edgeEls[e.id] = { group: eg, path };
           });
         }
 
-        // Render a simple state node (shared helper).
+        // Render a simple state node into SVG group g; returns the rect element.
         function renderSimpleNode(n, g) {
+          const nh = nodeHeight(n);
           const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
-          const sw = n.kind === 'state' ? '1.5' : '2';
-          const rect = s('rect', { width: NW, height: NH, rx: 8, ry: 8,
-            fill: '#1a2332', stroke, 'stroke-width': sw, class: 'node-rect' });
+          const rect = s('rect', { width: NW, height: nh, rx: 8, ry: 8,
+            fill: '#1a2332', stroke, 'stroke-width': n.kind === 'state' ? '1.5' : '2',
+            class: 'node-rect' });
           g.appendChild(rect);
+
+          const hasParams = !!n.params;
+          const hasEntry  = n.entryActions && n.entryActions.length > 0;
+          const hasExit   = n.exitActions  && n.exitActions.length  > 0;
+
           if (n.kind !== 'state') {
             const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
             g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
-            g.appendChild(txt(n.label, NW / 2, NH / 2 + 7, 'node-text', { 'font-size': '12' }));
+            g.appendChild(txt(n.label, NW / 2, hasParams ? nh / 2 - 2 : nh / 2 + 6,
+              'node-text', { 'font-size': '12' }));
           } else {
-            g.appendChild(txt(n.label, NW / 2, NH / 2 + 1, 'node-text'));
+            g.appendChild(txt(n.label, NW / 2, hasParams ? nh / 2 - 6 : nh / 2 + 1,
+              'node-text'));
+          }
+
+          if (hasParams) {
+            const truncated = n.params.length > 24 ? n.params.slice(0, 23) + '…' : n.params;
+            const paramsY = n.kind !== 'state' ? nh / 2 + 12 : nh / 2 + 8;
+            g.appendChild(txt('(' + truncated + ')', NW / 2, paramsY, 'node-params'));
+          }
+
+          // Entry/exit action badges at bottom (max 1 each)
+          let badgeY = nh - 4;
+          if (hasExit) {
+            g.appendChild(txt('◀ ' + n.exitActions[0], NW / 2, badgeY,
+              'action-badge exit-badge'));
+            badgeY -= 11;
+          }
+          if (hasEntry) {
+            g.appendChild(txt('▶ ' + n.entryActions[0], NW / 2, badgeY,
+              'action-badge entry-badge'));
           }
           return rect;
         }
@@ -435,39 +647,32 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         function renderParallel(n, p, g, layout) {
           const regs = regionsByParallel[n.id];
           const { w, h } = containerSize(n.id);
-          // Outer container box
           const rect = s('rect', { width: w, height: h, rx: 10, ry: 10,
             fill: '#071020', stroke: '#3b4c6b', 'stroke-width': 1.5, class: 'node-rect' });
           g.appendChild(rect);
-          // Parallel label strip at top
           g.appendChild(txt('⫴ ' + n.label, w / 2, 15, 'node-badge',
             { fill: '#60a5fa', 'font-size': '10', 'font-weight': '700' }));
-
           regs.forEach((reg, ri) => {
             const regX = INNER_PAD + ri * (NW + INNER_HGAP);
-            // Region header label
             g.appendChild(txt(reg.regionName, regX + NW / 2, REGION_HEADER + 8, 'edge-label',
               { 'text-anchor': 'middle', fill: '#94a3b8', 'font-size': '10' }));
-            // Vertical divider between regions
             if (ri < regs.length - 1) {
               const divX = regX + NW + INNER_HGAP / 2;
-              g.appendChild(s('line', { x1: divX, y1: REGION_HEADER, x2: divX, y2: h - INNER_PAD / 2,
-                stroke: '#2d3f5c', 'stroke-width': 1, 'stroke-dasharray': '4,3' }));
+              g.appendChild(s('line', { x1: divX, y1: REGION_HEADER, x2: divX,
+                y2: h - INNER_PAD / 2, stroke: '#2d3f5c', 'stroke-width': 1,
+                'stroke-dasharray': '4,3' }));
             }
-            // Region nodes
             reg.nodes.forEach((rn, ni) => {
               const nx = regX;
               const ny = REGION_HEADER + INNER_PAD + ni * (NH + INNER_VGAP);
-              const rg = s('g', { transform: 'translate(' + nx + ',' + ny + ')', 'data-id': rn.id });
+              const rg = s('g', { transform: `translate(${nx},${ny})`, 'data-id': rn.id });
               const rrect = renderSimpleNode(rn, rg);
               g.appendChild(rg);
               nodeEls[rn.id] = { group: rg, rect: rrect };
               layout.pos[rn.id] = { x: p.x + nx, y: p.y + ny };
             });
           });
-          // Inner edges (drawn after positions are set)
-          const allRegionEdges = regs.flatMap(r => r.edges);
-          renderInnerEdges(allRegionEdges, g, layout, p);
+          renderInnerEdges(regs.flatMap(r => r.edges), g, layout, p);
           return rect;
         }
 
@@ -475,29 +680,24 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         function renderCompound(n, p, g, layout) {
           const c = compoundByState[n.id];
           const { w, h } = containerSize(n.id);
-          // Outer container box
           const rect = s('rect', { width: w, height: h, rx: 10, ry: 10,
             fill: '#0c1520', stroke: '#2d3f5c', 'stroke-width': 1.5, class: 'node-rect' });
           g.appendChild(rect);
-          // State name label at top
           g.appendChild(txt(n.label, w / 2, 16, 'node-badge',
             { fill: '#94a3b8', 'font-size': '10', 'font-weight': '700' }));
-          // History marker in top-right corner
           if (c.hasHistory) {
             g.appendChild(txt('↺', w - 14, 16, 'node-badge',
               { fill: '#f59e0b', 'font-size': '11', 'font-weight': '700' }));
           }
-          // Child nodes in a horizontal row
           c.childNodes.forEach((cn, ci) => {
             const cx = INNER_PAD + ci * (NW + INNER_HGAP);
             const cy = COMPOUND_HEADER + INNER_PAD;
-            const cg = s('g', { transform: 'translate(' + cx + ',' + cy + ')', 'data-id': cn.id });
+            const cg = s('g', { transform: `translate(${cx},${cy})`, 'data-id': cn.id });
             const crect = renderSimpleNode(cn, cg);
             g.appendChild(cg);
             nodeEls[cn.id] = { group: cg, rect: crect };
             layout.pos[cn.id] = { x: p.x + cx, y: p.y + cy };
           });
-          // Inner edges (drawn after positions are set)
           renderInnerEdges(c.innerEdges, g, layout, p);
           return rect;
         }
@@ -511,7 +711,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const edgesG = s('g'); scene.appendChild(edgesG);
           const nodesG = s('g'); scene.appendChild(nodesG);
 
-          // Count parallel edges per ordered pair
           const pairCount = {}, pairSeen = {};
           GRAPH.edges.forEach(e => {
             const k = e.source + '|' + e.target;
@@ -525,34 +724,33 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const idx = pairSeen[k] = (pairSeen[k] || 0);
             pairSeen[k]++;
             const total = pairCount[k] || 1;
-            const ep = edgePath(sp, tp, containerSize(e.source), containerSize(e.target), idx, total);
-
-            const isAlways   = e.label === 'always';
-            const isSelfLoop = e.source === e.target;
-            const isInternal = isSelfLoop && e.label !== 'always';
-            const edgeClass  = isAlways ? 'edge-path always-edge' : isInternal ? 'edge-path internal-edge' : 'edge-path';
-            const labelClass = isAlways ? 'edge-label always-label' : 'edge-label';
+            const isSelf = e.source === e.target;
+            const ep = (isSelf && e.edgeKind === 'output')
+              ? outputLoopPath(sp, containerSize(e.source), idx)
+              : edgePath(sp, tp, containerSize(e.source), containerSize(e.target), idx, total);
 
             const g = s('g', { 'data-id': e.id, class: 'edge-group' });
-            const path = s('path', { d: ep.d, class: edgeClass, 'marker-end': 'url(#arrowhead)' });
+            const path = s('path', { d: ep.d, class: edgePathClass(e),
+              'marker-end': 'url(#arrowhead)' });
             g.appendChild(path);
 
-            // For always edges show only the guard (not the "always" word) — cleaner
-            const displayLabel = isAlways ? null : e.label;
+            const displayLabel = (e.edgeKind === 'always') ? null : e.label;
             if (displayLabel) {
-              g.appendChild(txt(displayLabel, ep.lx, ep.ly, labelClass, { 'text-anchor': 'middle' }));
+              g.appendChild(txt(displayLabel, ep.lx, ep.ly, edgeLabelClass(e),
+                { 'text-anchor': 'middle' }));
             }
             if (e.guardLabel) {
               const guardText = '[' + e.guardLabel + ']';
-              // Background pill for guard labels
               const guardY = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
-              const bgW = guardText.length * 6.5 + 10;
-              const bgH = 15;
-              const bg = s('rect', { x: ep.lx - bgW/2, y: guardY - bgH + 3, width: bgW, height: bgH,
-                rx: 4, ry: 4, fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)', 'stroke-width': '0.8' });
-              g.appendChild(bg);
-              g.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard', { 'text-anchor': 'middle' }));
+              const bgW = guardText.length * 6.5 + 10, bgH = 15;
+              g.appendChild(s('rect', { x: ep.lx - bgW / 2, y: guardY - bgH + 3,
+                width: bgW, height: bgH, rx: 4, ry: 4,
+                fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)',
+                'stroke-width': '0.8' }));
+              g.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard',
+                { 'text-anchor': 'middle' }));
             }
+            appendEdgeAnnotations(g, e, ep.lx, ep.ly, ep.gly);
             edgesG.appendChild(g);
             edgeEls[e.id] = { group: g, path };
           });
@@ -560,32 +758,21 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           GRAPH.nodes.forEach(n => {
             const p = layout.pos[n.id];
             if (!p) return;
-            const g = s('g', { transform: 'translate(' + p.x + ',' + p.y + ')', 'data-id': n.id });
+            const g = s('g', { transform: `translate(${p.x},${p.y})`, 'data-id': n.id });
             let rect;
             if (regionsByParallel[n.id]) {
               rect = renderParallel(n, p, g, layout);
             } else if (compoundByState[n.id]) {
               rect = renderCompound(n, p, g, layout);
             } else {
-              const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
-              const sw = n.kind === 'state' ? '1.5' : '2';
-              rect = s('rect', { width: NW, height: NH, rx: 10, ry: 10,
-                fill: '#1a2332', stroke, 'stroke-width': sw, class: 'node-rect' });
-              g.appendChild(rect);
-              if (n.kind !== 'state') {
-                const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
-                g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
-                g.appendChild(txt(n.label, NW / 2, NH / 2 + 7, 'node-text', { 'font-size': '12' }));
-              } else {
-                g.appendChild(txt(n.label, NW / 2, NH / 2 + 1, 'node-text'));
-              }
+              rect = renderSimpleNode(n, g);
             }
             nodesG.appendChild(g);
             nodeEls[n.id] = { group: g, rect };
           });
 
           const totalInner =
-            (GRAPH.regions || []).reduce((s, r) => s + r.nodes.length, 0) +
+            (GRAPH.regions   || []).reduce((s, r) => s + r.nodes.length, 0) +
             (GRAPH.compounds || []).reduce((s, c) => s + c.childNodes.length, 0);
           const totalNodes = GRAPH.nodes.length + totalInner;
           document.getElementById('nodeCount').textContent =
@@ -598,7 +785,7 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         function applyXform() {
           document.getElementById('scene').setAttribute('transform',
-            'translate(' + tx + ',' + ty + ') scale(' + sc + ')');
+            `translate(${tx},${ty}) scale(${sc})`);
         }
 
         function fitView(layout) {
@@ -640,12 +827,39 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         // ── Simulation ───────────────────────────────────────────────────────
         let simActive = false, curState = null, history = [];
 
-        function outEdges(id) { return GRAPH.edges.filter(e => e.source === id); }
+        function getParentCompound(childId) {
+          for (const c of (GRAPH.compounds || [])) {
+            if (c.childNodes.some(n => n.id === childId)) return c;
+          }
+          return null;
+        }
+
+        // Returns triggerable edges for id, inheriting parent compound edges.
+        function outEdges(id) {
+          const parent = getParentCompound(id);
+          if (parent) {
+            const inner  = parent.innerEdges.filter(e => e.source === id);
+            const outer  = GRAPH.edges.filter(e => e.source === parent.parentState);
+            return [...inner, ...outer];
+          }
+          return GRAPH.edges.filter(e => e.source === id);
+        }
+
+        // If state is a compound, step into its init child.
+        function advanceIntoCompound(stateId) {
+          const c = compoundByState[stateId];
+          if (c) {
+            const init = c.childNodes.find(n => n.kind === 'init');
+            if (init) return init.id;
+          }
+          return stateId;
+        }
 
         function startSim() {
           simActive = true;
           const init = GRAPH.nodes.find(n => n.kind === 'init') || GRAPH.nodes[0];
-          curState = init.id; history = [];
+          curState = advanceIntoCompound(init.id);
+          history = [];
           document.getElementById('simBtn').textContent = '■ Stop';
           document.getElementById('simBtn').className = 'btn-stop';
           document.getElementById('resetBtn').style.display = '';
@@ -664,23 +878,30 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         function resetSim() {
           history = [];
           const init = GRAPH.nodes.find(n => n.kind === 'init') || GRAPH.nodes[0];
-          curState = init.id;
+          curState = advanceIntoCompound(init.id);
           clearHighlights(); highlightNode(curState); updateSidebar();
         }
 
         function fireEdge(edgeId) {
-          const edge = GRAPH.edges.find(e => e.id === edgeId);
+          // Search outer edges then compound inner edges
+          let edge = GRAPH.edges.find(e => e.id === edgeId);
+          if (!edge) {
+            for (const c of (GRAPH.compounds || [])) {
+              edge = c.innerEdges.find(e => e.id === edgeId);
+              if (edge) break;
+            }
+          }
           if (!edge) return;
-          history.unshift({ from: curState, event: edge.label, to: edge.target, guard: edge.guardLabel });
+          history.unshift({ from: curState, event: edge.label, to: edge.target,
+            guard: edge.guardLabel });
           if (history.length > 12) history.pop();
-          curState = edge.target;
+          curState = advanceIntoCompound(edge.target);
           clearHighlights(); highlightNode(curState); updateSidebar();
         }
 
         function highlightNode(id) {
           const n = nodeEls[id];
           if (n) n.rect.classList.add('active-state');
-          // Highlight outgoing edges
           (outEdges(id) || []).forEach(e => {
             const eg = edgeEls[e.id];
             if (eg) {
@@ -693,31 +914,31 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         }
 
         function clearHighlights() {
-          GRAPH.nodes.forEach(n => {
+          const clearNode = n => {
             const el = nodeEls[n.id];
             if (el) el.rect.classList.remove('active-state');
-          });
-          (GRAPH.regions || []).forEach(r => r.nodes.forEach(n => {
-            const el = nodeEls[n.id];
-            if (el) el.rect.classList.remove('active-state');
-          }));
-          (GRAPH.compounds || []).forEach(c => c.childNodes.forEach(n => {
-            const el = nodeEls[n.id];
-            if (el) el.rect.classList.remove('active-state');
-          }));
-          GRAPH.edges.forEach(e => {
+          };
+          const clearEdge = e => {
             const eg = edgeEls[e.id];
             if (!eg) return;
             eg.path.classList.remove('active-edge');
             eg.path.setAttribute('marker-end', 'url(#arrowhead)');
             const lbl = eg.group.querySelector('.edge-label');
             if (lbl) lbl.classList.remove('active-edge-label');
+          };
+          GRAPH.nodes.forEach(clearNode);
+          (GRAPH.regions   || []).forEach(r => r.nodes.forEach(clearNode));
+          (GRAPH.compounds || []).forEach(c => {
+            c.childNodes.forEach(clearNode);
+            c.innerEdges.forEach(clearEdge);
           });
+          GRAPH.edges.forEach(clearEdge);
+          (GRAPH.regions || []).forEach(r => r.edges.forEach(clearEdge));
         }
 
         function esc(s) {
-          return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
-            .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+          return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function updateSidebar() {
@@ -729,50 +950,93 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           if (!simActive || !curState) {
             ph.style.display = ''; sd.style.display = 'none';
             eb.innerHTML = '<div class="placeholder">—</div>';
-            hl.innerHTML = '<li style="border:none"><span class="placeholder" style="padding:8px 0">No transitions yet</span></li>';
+            hl.innerHTML = '<li style="border:none"><span class="placeholder" ' +
+              'style="padding:8px 0">No transitions yet</span></li>';
             return;
           }
 
           ph.style.display = 'none'; sd.style.display = '';
-          const node = GRAPH.nodes.find(n => n.id === curState);
+          const node = findNode(curState);
           const kind = node ? node.kind : 'state';
-          sd.innerHTML =
+          const entryActs = (node && node.entryActions) || [];
+          const exitActs  = (node && node.exitActions)  || [];
+
+          let displayHtml =
             '<div class="state-display' + (kind === 'final' ? ' final-state' : '') + '">' +
             '<div class="sd-name">' + esc(curState) + '</div>' +
-            '<div class="sd-kind ' + esc(kind) + '">' + esc(kind) + '</div>' +
-            '</div>';
+            '<div class="sd-kind ' + esc(kind) + '">' + esc(kind) + '</div>';
+          if (node && node.params) {
+            displayHtml += '<div class="sd-params">(' + esc(node.params) + ')</div>';
+          }
+          if (entryActs.length > 0 || exitActs.length > 0) {
+            displayHtml += '<div class="sd-actions">';
+            entryActs.forEach(a => {
+              displayHtml += '<span class="sd-action sd-entry">▶ ' + esc(a) + '</span>';
+            });
+            exitActs.forEach(a => {
+              displayHtml += '<span class="sd-action sd-exit">◀ ' + esc(a) + '</span>';
+            });
+            displayHtml += '</div>';
+          }
+          displayHtml += '</div>';
+          sd.innerHTML = displayHtml;
 
-          const outs = outEdges(curState);
+          const allOuts    = outEdges(curState);
+          const outs       = allOuts.filter(e => e.edgeKind !== 'output');
+          const outputEvts = allOuts.filter(e => e.edgeKind === 'output');
+
           if (kind === 'final') {
-            eb.innerHTML = '<div class="placeholder" style="color:#34d399;padding:14px 0">✓ Final state reached</div>';
-          } else if (outs.length === 0) {
+            eb.innerHTML = '<div class="placeholder" style="color:#34d399;padding:14px 0">' +
+              '✓ Final state reached</div>';
+          } else if (outs.length === 0 && outputEvts.length === 0) {
             eb.innerHTML = '<div class="placeholder">No outgoing transitions</div>';
           } else {
-            eb.innerHTML = outs.map(e =>
-              '<button class="event-btn" onclick="fireEdge(\'' + esc(e.id) + '\')">' +
-              '<div class="event-btn-inner">' +
-              '<span>' +
-              '<span class="event-name">' + esc(e.label) + '</span>' +
-              (e.guardLabel ? '<span class="event-guard">[' + esc(e.guardLabel) + ']</span>' : '') +
-              '</span>' +
-              '<span class="event-target">→ ' + esc(e.target) + '</span>' +
-              '</div></button>'
-            ).join('');
+            let html = '';
+            html += outs.map(e => {
+              let inner =
+                '<div class="event-btn-inner">' +
+                '<span><span class="event-name">' + esc(e.label) + '</span>' +
+                (e.guardLabel ? '<span class="event-guard">[' + esc(e.guardLabel) + ']</span>' : '') +
+                '</span>' +
+                '<span class="event-target">→ ' + esc(e.target) + '</span>' +
+                '</div>';
+              if (e.action) inner += '<div class="event-action">/' + esc(e.action) + '</div>';
+              if (e.fork)   inner += '<div class="event-fork">⇒ ' + esc(e.fork) + '</div>';
+              return '<button class="event-btn" onclick="fireEdge(\'' + esc(e.id) + '\')">' +
+                inner + '</button>';
+            }).join('');
+            if (outputEvts.length > 0) {
+              html += '<div class="output-events-title">Output Events</div>';
+              html += outputEvts.map(e =>
+                '<div class="output-event-item">' + esc(e.label) + '</div>'
+              ).join('');
+            }
+            if (!html) html = '<div class="placeholder">No triggerable events</div>';
+            eb.innerHTML = html;
           }
 
-          if (history.length === 0) {
-            hl.innerHTML = '<li style="border:none"><span class="placeholder" style="padding:8px 0">No transitions yet</span></li>';
-          } else {
-            hl.innerHTML = history.map(h =>
-              '<li><span class="h-from">' + esc(h.from) + '</span>' +
-              '<span class="h-arr">›</span>' +
-              '<span class="h-event">' + esc(h.event) + '</span>' +
-              '<span class="h-arr">›</span>' +
-              '<span class="h-to">' + esc(h.to) + '</span>' +
-              (h.guard ? '<span style="color:#374151;font-size:10px">[' + esc(h.guard) + ']</span>' : '') +
-              '</li>'
-            ).join('');
-          }
+          hl.innerHTML = history.length === 0
+            ? '<li style="border:none"><span class="placeholder" style="padding:8px 0">' +
+              'No transitions yet</span></li>'
+            : history.map(h =>
+                '<li>' +
+                '<span class="h-from">' + esc(h.from) + '</span>' +
+                '<span class="h-arr">›</span>' +
+                '<span class="h-event">' + esc(h.event) + '</span>' +
+                '<span class="h-arr">›</span>' +
+                '<span class="h-to">' + esc(h.to) + '</span>' +
+                (h.guard ? '<span style="color:#374151;font-size:10px">[' +
+                  esc(h.guard) + ']</span>' : '') +
+                '</li>'
+              ).join('');
+        }
+
+        // ── Legend toggle ─────────────────────────────────────────────────────
+        let legendOpen = true;
+        function toggleLegend() {
+          legendOpen = !legendOpen;
+          document.getElementById('legendContent').style.display = legendOpen ? '' : 'none';
+          document.getElementById('legendArrow').textContent = legendOpen ? '▾' : '▸';
         }
 
         // ── Boot ─────────────────────────────────────────────────────────────
@@ -784,6 +1048,9 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             simActive ? stopSim() : startSim();
           });
           document.getElementById('resetBtn').addEventListener('click', resetSim);
+          document.getElementById('fitBtn').addEventListener('click', () => {
+            if (layoutCache) fitView(layoutCache);
+          });
         });
       </script>
     </body>
