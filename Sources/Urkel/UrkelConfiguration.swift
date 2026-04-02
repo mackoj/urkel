@@ -201,7 +201,7 @@ public enum UrkelConfigurationResolver {
     }
 }
 
-private extension UrkelConfigurationResolver {
+extension UrkelConfigurationResolver {
     struct RawConfiguration: Decodable {
         var sourceExtensions: [String]? = nil
         var outputFolder: String? = nil

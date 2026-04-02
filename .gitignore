@@ -20,5 +20,6 @@ output/
 .vscode/
 **/.build/
 **/.swiftpm/
+
 # Generated visualizer HTML
-Examples/**/*.html
+#Examples/**/*.html
