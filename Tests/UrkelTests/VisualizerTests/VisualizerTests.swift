@@ -53,9 +53,9 @@ machine MediaPlayer
     state Playing
     state Paused
 
-    Buffering -> bufferReady    -> Playing
-    Playing   -> pause          -> Paused
-    Paused    -> resume         -> Playing
+    Buffering -> bufferReady -> Playing
+    Playing   -> pause       -> Paused
+    Paused    -> resume      -> Playing
   }
   final Stopped
 
