@@ -1,6 +1,0 @@
-{
-  "outputFolder": "Sources/BluetoohBlender",
-  "imports": {
-    "swift": ["CoreBluetooth", "Dependencies"]
-  }
-}

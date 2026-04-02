@@ -1,6 +1,0 @@
-{
-  "outputFolder": "Sources/BluetoohScale",
-  "imports": {
-    "swift": ["Foundation", "Dependencies"]
-  }
-}
