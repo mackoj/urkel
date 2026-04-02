@@ -603,18 +603,16 @@ swift run UrkelCLI generate ./Sources --output ./Generated
 swift run UrkelCLI watch ./Sources --output ./Generated
 ```
 
-### 4. Generation Architecture (for contributors)
+### 4. Package Architecture (for contributors)
 
-Urkel parses `.urkel` files once into `MachineAST`, then emits code through one of two paths:
+Urkel v2 is split into fine-grained library targets so you can import only what you need.
+The key rule: **Swift typestate code** goes through `UrkelEmitterSwift` (SwiftSyntax-based);
+**everything else** (Kotlin, HTML visualizer, custom languages) goes through `UrkelEmitterMustache`
+by dropping a `.mustache` template into `Sources/UrkelEmitterMustache/Templates/`.
 
-* `SwiftCodeEmitter` for native Swift generation
-* `TemplateCodeEmitter` for template-based generation (`--template` and `--lang kotlin`)
+For the full module dependency graph, pipeline diagram, and developer entry-point map, see:
 
-Kotlin currently uses the template emitter with the bundled `kotlin.mustache` template.
-
-For deeper internals (CLI/plugins/watch/LSP, module map, and diagrams), see:
-
-* `Sources/Urkel/Urkel.docc/Codebase-Architecture.md`
+* `Sources/Urkel/Urkel.docc/Package-Architecture.md`
 
 ### 5. User Stories and Roadmap
 
