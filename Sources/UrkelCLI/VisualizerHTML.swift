@@ -78,11 +78,16 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         /* ── SVG Styles ───────────────────────────────────────────────────── */
         .edge-path { fill: none; stroke: #2d3f5c; stroke-width: 1.5; }
+        .edge-path.always-edge { stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 6 3; }
+        .edge-path.internal-edge { stroke: #1e4d3a; stroke-width: 1.5; stroke-dasharray: 3 3; }
         .edge-path.active-edge { stroke: var(--active); stroke-width: 2; }
         .edge-label { fill: #64748b; font-size: 11px;
           font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+        .edge-label.always-label { fill: #a78bfa; font-style: italic; }
         .edge-label.active-edge-label { fill: #fbbf24; }
-        .edge-guard { fill: #475569; font-size: 10px; font-style: italic; }
+        .edge-guard { fill: #7c3aed; font-size: 10.5px; font-weight: 600;
+          font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+        .edge-guard-bg { fill: rgba(124,58,237,0.15); rx: 3; }
         .node-rect { transition: fill 0.18s, stroke 0.18s, stroke-width 0.18s; }
         .node-rect.active-state { fill: #2d1900 !important; stroke: var(--active) !important; stroke-width: 2.5 !important; }
         .node-text { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
@@ -205,6 +210,35 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
 
         // ── Constants ────────────────────────────────────────────────────────
         const NW = 152, NH = 46, HGAP = 108, VGAP = 52, PAD = 56;
+        const INNER_PAD = 16, INNER_HGAP = 60, INNER_VGAP = 30;
+        const REGION_HEADER = 26, COMPOUND_HEADER = 28;
+
+        // ── Container data (parallel regions and compound states) ─────────────
+        const regionsByParallel = {};
+        (GRAPH.regions || []).forEach(r => {
+          if (!regionsByParallel[r.parallelState]) regionsByParallel[r.parallelState] = [];
+          regionsByParallel[r.parallelState].push(r);
+        });
+        const compoundByState = {};
+        (GRAPH.compounds || []).forEach(c => { compoundByState[c.parentState] = c; });
+
+        function containerSize(id) {
+          if (regionsByParallel[id]) {
+            const regs = regionsByParallel[id];
+            const maxN = Math.max(...regs.map(r => r.nodes.length), 1);
+            const w = regs.length * NW + (regs.length - 1) * INNER_HGAP + INNER_PAD * 2;
+            const h = maxN * (NH + INNER_VGAP) - INNER_VGAP + REGION_HEADER + INNER_PAD * 2;
+            return { w, h };
+          }
+          if (compoundByState[id]) {
+            const c = compoundByState[id];
+            const n = Math.max(1, c.childNodes.length);
+            const w = n * NW + (n - 1) * INNER_HGAP + INNER_PAD * 2;
+            const h = NH + COMPOUND_HEADER + INNER_PAD * 2;
+            return { w, h };
+          }
+          return { w: NW, h: NH };
+        }
 
         // ── Layout ───────────────────────────────────────────────────────────
         function computeLayout(g) {
@@ -239,18 +273,34 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
           const pos = {};
 
-          // First pass: raw vertical positions
-          const svgH = Math.max(...layers.map(l => byLayer[l].length)) * (NH + VGAP) - VGAP + PAD * 2;
+          // Use actual container sizes for width and height accounting
+          const colWidths = layers.map(l =>
+            Math.max(NW, ...byLayer[l].map(id => containerSize(id).w))
+          );
+          const colHeights = layers.map(l => {
+            const ids = byLayer[l];
+            return ids.reduce((sum, id, i) =>
+              sum + containerSize(id).h + (i < ids.length - 1 ? VGAP : 0), 0);
+          });
+          const svgH = Math.max(...colHeights) + PAD * 2;
+
+          const colX = [];
+          let curX = PAD;
+          colWidths.forEach(w => { colX.push(curX); curX += w + HGAP; });
+          const svgW = curX - HGAP + PAD;
+
           layers.forEach((l, li) => {
             const ids = byLayer[l];
-            const totalH = ids.length * NH + (ids.length - 1) * VGAP;
+            const totalH = ids.reduce((sum, id, i) =>
+              sum + containerSize(id).h + (i < ids.length - 1 ? VGAP : 0), 0);
             const startY = (svgH - totalH) / 2;
-            ids.forEach((id, i) => {
-              pos[id] = { x: PAD + li * (NW + HGAP), y: startY + i * (NH + VGAP) };
+            let curY = startY;
+            ids.forEach(id => {
+              pos[id] = { x: colX[li], y: curY };
+              curY += containerSize(id).h + VGAP;
             });
           });
 
-          const svgW = PAD + layers.length * (NW + HGAP) - HGAP + PAD;
           return { pos, svgW, svgH };
         }
 
@@ -268,9 +318,42 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         }
 
         // ── Edge path computation ────────────────────────────────────────────
-        function edgePath(sp, tp, idx, total) {
+        function edgePath(sp, tp, spSz, tpSz, idx, total) {
           const offset = (idx - (total - 1) / 2) * 20;
-          if (sp === tp) { // self-loop
+          if (sp === tp) { // self-loop (same position object = same source+target)
+            const cx = sp.x + spSz.w / 2;
+            const cy = sp.y;
+            const r = 30 + idx * 12;
+            return {
+              d: `M ${cx - 22} ${cy} C ${cx - 22} ${cy - r * 2.4} ${cx + 22} ${cy - r * 2.4} ${cx + 22} ${cy}`,
+              lx: cx, ly: cy - r * 2.4 - 6, gly: cy - r * 2.4 + 9
+            };
+          }
+          const forward = tp.x >= sp.x + spSz.w - 4;
+          const sx = forward ? sp.x + spSz.w : sp.x;
+          const sy = sp.y + spSz.h / 2;
+          const tx = forward ? tp.x : tp.x + tpSz.w;
+          const ty = tp.y + tpSz.h / 2;
+
+          if (forward) {
+            const mx = (sx + tx) / 2;
+            const my = (sy + ty) / 2 + offset;
+            const lx = (sx + mx + mx + tx) / 4;
+            const ly = (sy + my + my + ty) / 4 - 10;
+            return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
+          } else {
+            // backward edge: route below nodes
+            const drop = Math.max(sp.y + spSz.h, tp.y + tpSz.h) + 40 + Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
+            const mx = (sx + tx) / 2;
+            const d = `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`;
+            return { d, lx: mx, ly: drop + 6, gly: drop + 19 };
+          }
+        }
+
+        // Inner edge path — always uses NW/NH for inner child nodes.
+        function innerEdgePath(sp, tp, isSelf, idx, total) {
+          const offset = (idx - (total - 1) / 2) * 20;
+          if (isSelf) {
             const cx = sp.x + NW / 2;
             const cy = sp.y;
             const r = 30 + idx * 12;
@@ -284,7 +367,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
           const sy = sp.y + NH / 2;
           const tx = forward ? tp.x : tp.x + NW;
           const ty = tp.y + NH / 2;
-
           if (forward) {
             const mx = (sx + tx) / 2;
             const my = (sy + ty) / 2 + offset;
@@ -292,7 +374,6 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const ly = (sy + my + my + ty) / 4 - 10;
             return { d: `M ${sx} ${sy} Q ${mx} ${my} ${tx} ${ty}`, lx, ly, gly: ly + 13 };
           } else {
-            // backward edge: route below nodes
             const drop = Math.max(sp.y, tp.y) + NH + 40 + Math.abs(tx - sx) * 0.15 + Math.abs(idx) * 16;
             const mx = (sx + tx) / 2;
             const d = `M ${sx} ${sy} C ${sx} ${drop} ${tx} ${drop} ${tx} ${ty}`;
@@ -303,6 +384,123 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
         // ── Render ───────────────────────────────────────────────────────────
         let nodeEls = {}, edgeEls = {};
         let layoutCache = null;
+
+        // Render inner edges (relative coords) shared by parallel and compound containers.
+        function renderInnerEdges(innerEdgeList, g, layout, containerPos) {
+          const pairCount = {}, pairSeen = {};
+          innerEdgeList.forEach(e => {
+            const k = e.source + '|' + e.target;
+            pairCount[k] = (pairCount[k] || 0) + 1;
+          });
+          const edgesG = s('g');
+          g.insertBefore(edgesG, g.firstChild);
+          innerEdgeList.forEach(e => {
+            const ap = layout.pos[e.source], bp = layout.pos[e.target];
+            if (!ap || !bp) return;
+            const sp = { x: ap.x - containerPos.x, y: ap.y - containerPos.y };
+            const tp = { x: bp.x - containerPos.x, y: bp.y - containerPos.y };
+            const k = e.source + '|' + e.target;
+            const idx = pairSeen[k] = (pairSeen[k] || 0);
+            pairSeen[k]++;
+            const total = pairCount[k] || 1;
+            const ep = innerEdgePath(sp, tp, e.source === e.target, idx, total);
+            const eg = s('g', { 'data-id': e.id, class: 'edge-group' });
+            const path = s('path', { d: ep.d, class: 'edge-path', 'marker-end': 'url(#arrowhead)' });
+            eg.appendChild(path);
+            if (e.label) eg.appendChild(txt(e.label, ep.lx, ep.ly, 'edge-label', { 'text-anchor': 'middle' }));
+            if (e.guardLabel) eg.appendChild(txt('[' + e.guardLabel + ']', ep.lx, ep.gly, 'edge-guard', { 'text-anchor': 'middle' }));
+            edgesG.appendChild(eg);
+            edgeEls[e.id] = { group: eg, path };
+          });
+        }
+
+        // Render a simple state node (shared helper).
+        function renderSimpleNode(n, g) {
+          const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
+          const sw = n.kind === 'state' ? '1.5' : '2';
+          const rect = s('rect', { width: NW, height: NH, rx: 8, ry: 8,
+            fill: '#1a2332', stroke, 'stroke-width': sw, class: 'node-rect' });
+          g.appendChild(rect);
+          if (n.kind !== 'state') {
+            const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
+            g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
+            g.appendChild(txt(n.label, NW / 2, NH / 2 + 7, 'node-text', { 'font-size': '12' }));
+          } else {
+            g.appendChild(txt(n.label, NW / 2, NH / 2 + 1, 'node-text'));
+          }
+          return rect;
+        }
+
+        // Render @parallel swimlane container.
+        function renderParallel(n, p, g, layout) {
+          const regs = regionsByParallel[n.id];
+          const { w, h } = containerSize(n.id);
+          // Outer container box
+          const rect = s('rect', { width: w, height: h, rx: 10, ry: 10,
+            fill: '#071020', stroke: '#3b4c6b', 'stroke-width': 1.5, class: 'node-rect' });
+          g.appendChild(rect);
+          // Parallel label strip at top
+          g.appendChild(txt('⫴ ' + n.label, w / 2, 15, 'node-badge',
+            { fill: '#60a5fa', 'font-size': '10', 'font-weight': '700' }));
+
+          regs.forEach((reg, ri) => {
+            const regX = INNER_PAD + ri * (NW + INNER_HGAP);
+            // Region header label
+            g.appendChild(txt(reg.regionName, regX + NW / 2, REGION_HEADER + 8, 'edge-label',
+              { 'text-anchor': 'middle', fill: '#94a3b8', 'font-size': '10' }));
+            // Vertical divider between regions
+            if (ri < regs.length - 1) {
+              const divX = regX + NW + INNER_HGAP / 2;
+              g.appendChild(s('line', { x1: divX, y1: REGION_HEADER, x2: divX, y2: h - INNER_PAD / 2,
+                stroke: '#2d3f5c', 'stroke-width': 1, 'stroke-dasharray': '4,3' }));
+            }
+            // Region nodes
+            reg.nodes.forEach((rn, ni) => {
+              const nx = regX;
+              const ny = REGION_HEADER + INNER_PAD + ni * (NH + INNER_VGAP);
+              const rg = s('g', { transform: 'translate(' + nx + ',' + ny + ')', 'data-id': rn.id });
+              const rrect = renderSimpleNode(rn, rg);
+              g.appendChild(rg);
+              nodeEls[rn.id] = { group: rg, rect: rrect };
+              layout.pos[rn.id] = { x: p.x + nx, y: p.y + ny };
+            });
+          });
+          // Inner edges (drawn after positions are set)
+          const allRegionEdges = regs.flatMap(r => r.edges);
+          renderInnerEdges(allRegionEdges, g, layout, p);
+          return rect;
+        }
+
+        // Render compound (hierarchical) state container.
+        function renderCompound(n, p, g, layout) {
+          const c = compoundByState[n.id];
+          const { w, h } = containerSize(n.id);
+          // Outer container box
+          const rect = s('rect', { width: w, height: h, rx: 10, ry: 10,
+            fill: '#0c1520', stroke: '#2d3f5c', 'stroke-width': 1.5, class: 'node-rect' });
+          g.appendChild(rect);
+          // State name label at top
+          g.appendChild(txt(n.label, w / 2, 16, 'node-badge',
+            { fill: '#94a3b8', 'font-size': '10', 'font-weight': '700' }));
+          // History marker in top-right corner
+          if (c.hasHistory) {
+            g.appendChild(txt('↺', w - 14, 16, 'node-badge',
+              { fill: '#f59e0b', 'font-size': '11', 'font-weight': '700' }));
+          }
+          // Child nodes in a horizontal row
+          c.childNodes.forEach((cn, ci) => {
+            const cx = INNER_PAD + ci * (NW + INNER_HGAP);
+            const cy = COMPOUND_HEADER + INNER_PAD;
+            const cg = s('g', { transform: 'translate(' + cx + ',' + cy + ')', 'data-id': cn.id });
+            const crect = renderSimpleNode(cn, cg);
+            g.appendChild(cg);
+            nodeEls[cn.id] = { group: cg, rect: crect };
+            layout.pos[cn.id] = { x: p.x + cx, y: p.y + cy };
+          });
+          // Inner edges (drawn after positions are set)
+          renderInnerEdges(c.innerEdges, g, layout, p);
+          return rect;
+        }
 
         function render(layout) {
           layoutCache = layout;
@@ -327,16 +525,33 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const idx = pairSeen[k] = (pairSeen[k] || 0);
             pairSeen[k]++;
             const total = pairCount[k] || 1;
-            const ep = edgePath(sp, tp, idx, total);
+            const ep = edgePath(sp, tp, containerSize(e.source), containerSize(e.target), idx, total);
+
+            const isAlways   = e.label === 'always';
+            const isSelfLoop = e.source === e.target;
+            const isInternal = isSelfLoop && e.label !== 'always';
+            const edgeClass  = isAlways ? 'edge-path always-edge' : isInternal ? 'edge-path internal-edge' : 'edge-path';
+            const labelClass = isAlways ? 'edge-label always-label' : 'edge-label';
 
             const g = s('g', { 'data-id': e.id, class: 'edge-group' });
-            const path = s('path', { d: ep.d, class: 'edge-path', 'marker-end': 'url(#arrowhead)' });
+            const path = s('path', { d: ep.d, class: edgeClass, 'marker-end': 'url(#arrowhead)' });
             g.appendChild(path);
-            if (e.label) {
-              g.appendChild(txt(e.label, ep.lx, ep.ly, 'edge-label', { 'text-anchor': 'middle' }));
+
+            // For always edges show only the guard (not the "always" word) — cleaner
+            const displayLabel = isAlways ? null : e.label;
+            if (displayLabel) {
+              g.appendChild(txt(displayLabel, ep.lx, ep.ly, labelClass, { 'text-anchor': 'middle' }));
             }
             if (e.guardLabel) {
-              g.appendChild(txt('[' + e.guardLabel + ']', ep.lx, ep.gly, 'edge-guard', { 'text-anchor': 'middle' }));
+              const guardText = '[' + e.guardLabel + ']';
+              // Background pill for guard labels
+              const guardY = displayLabel ? ep.gly : (ep.ly + ep.gly) / 2;
+              const bgW = guardText.length * 6.5 + 10;
+              const bgH = 15;
+              const bg = s('rect', { x: ep.lx - bgW/2, y: guardY - bgH + 3, width: bgW, height: bgH,
+                rx: 4, ry: 4, fill: 'rgba(124,58,237,0.18)', stroke: 'rgba(124,58,237,0.35)', 'stroke-width': '0.8' });
+              g.appendChild(bg);
+              g.appendChild(txt(guardText, ep.lx, guardY, 'edge-guard', { 'text-anchor': 'middle' }));
             }
             edgesG.appendChild(g);
             edgeEls[e.id] = { group: g, path };
@@ -346,24 +561,35 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const p = layout.pos[n.id];
             if (!p) return;
             const g = s('g', { transform: 'translate(' + p.x + ',' + p.y + ')', 'data-id': n.id });
-            const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
-            const sw = n.kind === 'state' ? '1.5' : '2';
-            const rect = s('rect', { width: NW, height: NH, rx: 10, ry: 10,
-              fill: '#1a2332', stroke, 'stroke-width': sw, class: 'node-rect' });
-            g.appendChild(rect);
-            if (n.kind !== 'state') {
-              const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
-              g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
-              g.appendChild(txt(n.label, NW / 2, NH / 2 + 7, 'node-text', { 'font-size': '12' }));
+            let rect;
+            if (regionsByParallel[n.id]) {
+              rect = renderParallel(n, p, g, layout);
+            } else if (compoundByState[n.id]) {
+              rect = renderCompound(n, p, g, layout);
             } else {
-              g.appendChild(txt(n.label, NW / 2, NH / 2 + 1, 'node-text'));
+              const stroke = n.kind === 'init' ? '#3b82f6' : n.kind === 'final' ? '#10b981' : '#2d3f5c';
+              const sw = n.kind === 'state' ? '1.5' : '2';
+              rect = s('rect', { width: NW, height: NH, rx: 10, ry: 10,
+                fill: '#1a2332', stroke, 'stroke-width': sw, class: 'node-rect' });
+              g.appendChild(rect);
+              if (n.kind !== 'state') {
+                const bc = n.kind === 'init' ? '#60a5fa' : '#34d399';
+                g.appendChild(txt(n.kind.toUpperCase(), NW / 2, 11, 'node-badge', { fill: bc }));
+                g.appendChild(txt(n.label, NW / 2, NH / 2 + 7, 'node-text', { 'font-size': '12' }));
+              } else {
+                g.appendChild(txt(n.label, NW / 2, NH / 2 + 1, 'node-text'));
+              }
             }
             nodesG.appendChild(g);
             nodeEls[n.id] = { group: g, rect };
           });
 
+          const totalInner =
+            (GRAPH.regions || []).reduce((s, r) => s + r.nodes.length, 0) +
+            (GRAPH.compounds || []).reduce((s, c) => s + c.childNodes.length, 0);
+          const totalNodes = GRAPH.nodes.length + totalInner;
           document.getElementById('nodeCount').textContent =
-            GRAPH.nodes.length + ' states · ' + GRAPH.edges.length + ' transitions';
+            totalNodes + ' states · ' + GRAPH.edges.length + ' transitions';
           fitView(layout);
         }
 
@@ -471,6 +697,14 @@ private func buildHTML(graphJSON: String, machineName: String) -> String {
             const el = nodeEls[n.id];
             if (el) el.rect.classList.remove('active-state');
           });
+          (GRAPH.regions || []).forEach(r => r.nodes.forEach(n => {
+            const el = nodeEls[n.id];
+            if (el) el.rect.classList.remove('active-state');
+          }));
+          (GRAPH.compounds || []).forEach(c => c.childNodes.forEach(n => {
+            const el = nodeEls[n.id];
+            if (el) el.rect.classList.remove('active-state');
+          }));
           GRAPH.edges.forEach(e => {
             const eg = edgeEls[e.id];
             if (!eg) return;

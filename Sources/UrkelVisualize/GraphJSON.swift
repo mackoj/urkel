@@ -29,17 +29,75 @@ public struct GraphEdge: Sendable, Codable {
     }
 }
 
+/// One swimlane region inside a `@parallel` block.
+public struct RegionGraph: Sendable, Codable {
+    /// The outer state name that owns this parallel block (e.g. `"Processing"`).
+    public let parallelState: String
+    public let regionName: String
+    public let nodes: [GraphNode]
+    public let edges: [GraphEdge]
+
+    public init(parallelState: String, regionName: String, nodes: [GraphNode], edges: [GraphEdge]) {
+        self.parallelState = parallelState
+        self.regionName = regionName
+        self.nodes = nodes
+        self.edges = edges
+    }
+}
+
+/// A compound (hierarchical) state with nested children.
+public struct CompoundGraph: Sendable, Codable {
+    /// The name of the compound state container (e.g. `"Active"`).
+    public let parentState: String
+    /// `true` when the compound state carries a `@history` modifier.
+    public let hasHistory: Bool
+    public let childNodes: [GraphNode]
+    public let innerEdges: [GraphEdge]
+
+    public init(parentState: String, hasHistory: Bool, childNodes: [GraphNode], innerEdges: [GraphEdge]) {
+        self.parentState = parentState
+        self.hasHistory = hasHistory
+        self.childNodes = childNodes
+        self.innerEdges = innerEdges
+    }
+}
+
 public struct GraphJSON: Sendable, Codable {
     public let machine: String
     public let nodes: [GraphNode]
     public let edges: [GraphEdge]
+    /// Swimlane regions from `@parallel` blocks.  Empty when none are present.
+    public let regions: [RegionGraph]
+    /// Compound (nested) state containers.  Empty when none are present.
+    public let compounds: [CompoundGraph]
+
+    public init(
+        machine: String,
+        nodes: [GraphNode],
+        edges: [GraphEdge],
+        regions: [RegionGraph] = [],
+        compounds: [CompoundGraph] = []
+    ) {
+        self.machine = machine
+        self.nodes = nodes
+        self.edges = edges
+        self.regions = regions
+        self.compounds = compounds
+    }
 
     public static func from(_ file: UrkelFile) -> GraphJSON {
-        let nodes: [GraphNode] = file.simpleStates.map { state in
-            GraphNode(id: state.name, label: state.name, kind: state.kind.rawValue)
+        // Outer nodes: top-level simple states + compound state containers.
+        // Compound children are rendered inside their container, not as top-level nodes.
+        let nodes: [GraphNode] = file.states.map { state in
+            switch state {
+            case .simple(let s):
+                return GraphNode(id: s.name, label: s.name, kind: s.kind.rawValue)
+            case .compound(let c):
+                return GraphNode(id: c.name, label: c.name, kind: "state")
+            }
         }
 
-        let allStateNames = file.simpleStates.map(\.name)
+        let allStateNames = nodes.map(\.id)
         var edges: [GraphEdge] = []
         var edgeIdx = 0
 
@@ -118,6 +176,119 @@ public struct GraphJSON: Sendable, Codable {
             edgeIdx += 1
         }
 
-        return GraphJSON(machine: file.machineName, nodes: nodes, edges: edges)
+        // Build RegionGraphs from @parallel blocks
+        var regions: [RegionGraph] = []
+        for parallel in file.parallels {
+            for region in parallel.regions {
+                let regionNodes: [GraphNode] = region.states.map { stateDecl in
+                    switch stateDecl {
+                    case .simple(let s):
+                        return GraphNode(id: s.name, label: s.name, kind: s.kind.rawValue)
+                    case .compound(let c):
+                        return GraphNode(id: c.name, label: c.name, kind: "state")
+                    }
+                }
+                let regionStateNames = regionNodes.map(\.id)
+                var regionEdges: [GraphEdge] = []
+                for t in region.transitions {
+                    let dest = t.destination?.name
+                    let sources: [String]
+                    switch t.source {
+                    case .state(let r): sources = [r.name]
+                    case .wildcard:     sources = regionStateNames
+                    }
+                    let event: String
+                    switch t.event {
+                    case .event(let e):  event = e.name
+                    case .timer(let tm): event = "after(\(Int(tm.duration.value))\(tm.duration.unit.rawValue))"
+                    case .always:        event = "always"
+                    }
+                    let guardStr: String?
+                    switch t.guard {
+                    case .named(let n):   guardStr = n
+                    case .negated(let n): guardStr = "!\(n)"
+                    case .else:           guardStr = "else"
+                    case nil:             guardStr = nil
+                    }
+                    for src in sources {
+                        regionEdges.append(GraphEdge(
+                            id: "r\(edgeIdx)",
+                            source: src,
+                            target: dest ?? src,
+                            label: event,
+                            guardLabel: guardStr
+                        ))
+                        edgeIdx += 1
+                    }
+                }
+                regions.append(RegionGraph(
+                    parallelState: parallel.name,
+                    regionName: region.name,
+                    nodes: regionNodes,
+                    edges: regionEdges
+                ))
+            }
+        }
+
+        // Build CompoundGraphs from compound states
+        var compounds: [CompoundGraph] = []
+        for state in file.states {
+            guard case .compound(let c) = state else { continue }
+            let childNodes = c.children.map { child in
+                GraphNode(id: child.name, label: child.name, kind: child.kind.rawValue)
+            }
+            let childStateNames = childNodes.map(\.id)
+            var innerEdges: [GraphEdge] = []
+            for t in c.innerTransitions {
+                let dest = t.destination?.name
+                let sources: [String]
+                switch t.source {
+                case .state(let r): sources = [r.name]
+                case .wildcard:     sources = childStateNames
+                }
+                let event: String
+                switch t.event {
+                case .event(let e):  event = e.name
+                case .timer(let tm): event = "after(\(Int(tm.duration.value))\(tm.duration.unit.rawValue))"
+                case .always:        event = "always"
+                }
+                let guardStr: String?
+                switch t.guard {
+                case .named(let n):   guardStr = n
+                case .negated(let n): guardStr = "!\(n)"
+                case .else:           guardStr = "else"
+                case nil:             guardStr = nil
+                }
+                for src in sources {
+                    innerEdges.append(GraphEdge(
+                        id: "c\(edgeIdx)",
+                        source: src,
+                        target: dest ?? src,
+                        label: event,
+                        guardLabel: guardStr
+                    ))
+                    edgeIdx += 1
+                }
+            }
+            compounds.append(CompoundGraph(
+                parentState: c.name,
+                hasHistory: c.history != nil,
+                childNodes: childNodes,
+                innerEdges: innerEdges
+            ))
+        }
+
+        // Ensure every state referenced in edges has a node (guards against parser gaps)
+        var nodeSet = Set(nodes.map(\.id))
+        var extraNodes: [GraphNode] = []
+        for edge in edges {
+            for id in [edge.source, edge.target] where !nodeSet.contains(id) && id != "*" {
+                extraNodes.append(GraphNode(id: id, label: id, kind: "state"))
+                nodeSet.insert(id)
+            }
+        }
+        let allNodes = nodes + extraNodes
+
+        return GraphJSON(machine: file.machineName, nodes: allNodes, edges: edges, regions: regions, compounds: compounds)
     }
 }

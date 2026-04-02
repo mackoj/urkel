@@ -194,6 +194,31 @@ private struct LineOrientedParser {
         var section: Section = .preamble
         var machineDocComments: [DocComment] = []
 
+        // Compound state block tracking
+        var inCompound = false
+        var currentCompoundName = ""
+        var currentCompoundHistory: HistoryModifier? = nil
+        var currentCompoundDocs: [DocComment] = []
+        var currentCompoundChildren: [SimpleStateDecl] = []
+        var currentCompoundTransitions: [TransitionStmt] = []
+
+        func finalizeCompound() {
+            guard inCompound && !currentCompoundName.isEmpty else { return }
+            states.append(.compound(CompoundStateDecl(
+                name: currentCompoundName,
+                history: currentCompoundHistory,
+                children: currentCompoundChildren,
+                innerTransitions: currentCompoundTransitions,
+                docComments: currentCompoundDocs
+            )))
+            inCompound = false
+            currentCompoundName = ""
+            currentCompoundHistory = nil
+            currentCompoundChildren = []
+            currentCompoundTransitions = []
+            currentCompoundDocs = []
+        }
+
         // Parallel tracking
         var parallels: [ParallelDecl] = []
         var inParallel = false
@@ -282,6 +307,7 @@ private struct LineOrientedParser {
                 continue
             }
             if trimmed == "@transitions" || trimmed.hasPrefix("@transitions ") {
+                if inCompound { finalizeCompound() }
                 if inParallel && indent > 0 {
                     section = .parallelTransitions
                 } else {
@@ -344,6 +370,44 @@ private struct LineOrientedParser {
             case .states:
                 let docs = pendingDocComments
                 pendingDocComments.removeAll()
+
+                // Close compound block on "}"
+                if trimmed == "}" {
+                    if inCompound { finalizeCompound() }
+                    continue
+                }
+
+                // Inside compound block: route children and inner transitions
+                if inCompound {
+                    if let childDecl = try parseStateDecl(trimmed, line: lineNum, docComments: docs),
+                       case .simple(let s) = childDecl {
+                        currentCompoundChildren.append(s)
+                    } else if let transDecl = try parseTransitionDecl(trimmed, line: lineNum, docComments: docs),
+                              case .transition(let t) = transDecl {
+                        currentCompoundTransitions.append(t)
+                    }
+                    continue
+                }
+
+                // Detect compound opener: "state Name [@history] {"
+                if (trimmed.hasPrefix("state ") || trimmed.hasPrefix("state(")) && trimmed.hasSuffix("{") {
+                    var inner = String(trimmed.dropFirst("state".count)).dropLast()
+                        .trimmingCharacters(in: .whitespaces)
+                    var hist: HistoryModifier? = nil
+                    if inner.hasSuffix("@history(deep)") {
+                        hist = .deep
+                        inner = String(inner.dropLast("@history(deep)".count)).trimmingCharacters(in: .whitespaces)
+                    } else if inner.hasSuffix("@history") {
+                        hist = .shallow
+                        inner = String(inner.dropLast("@history".count)).trimmingCharacters(in: .whitespaces)
+                    }
+                    currentCompoundName = inner
+                    currentCompoundHistory = hist
+                    currentCompoundDocs = docs
+                    inCompound = true
+                    continue
+                }
+
                 if let decl = try parseStateDecl(trimmed, line: lineNum, docComments: docs) {
                     states.append(decl)
                 }
@@ -438,7 +502,7 @@ private struct LineOrientedParser {
         if trimmed.hasPrefix("final") && (trimmed.count == 5 || !trimmed[trimmed.index(trimmed.startIndex, offsetBy: 5)].isLetter) {
             return try parseInitOrFinalState(trimmed, kind: .final, line: line, docComments: docComments)
         }
-        if trimmed.hasPrefix("state ") || trimmed == "state" {
+        if trimmed.hasPrefix("state ") || trimmed == "state" || trimmed.hasPrefix("state(") {
             return try parseRegularOrCompoundState(trimmed, line: line, docComments: docComments)
         }
         return nil
@@ -475,6 +539,17 @@ private struct LineOrientedParser {
             return .compound(CompoundStateDecl(name: name, docComments: docComments))
         }
 
+        // Support both orderings:
+        //   state(params) Name   — consistent with init/final syntax
+        //   state Name (params)  — alternative ordering
+        var params: [Parameter] = []
+        if rest.hasPrefix("(") {
+            // state(params) Name
+            let (p, after) = try parseParamList(rest, line: line)
+            params = p
+            rest = after.trimmingCharacters(in: .whitespaces)
+        }
+
         // Parse name
         let nameEnd = rest.firstIndex(where: { c in !c.isLetter && !c.isNumber && c != "_" }) ?? rest.endIndex
         let name = String(rest[..<nameEnd])
@@ -483,8 +558,8 @@ private struct LineOrientedParser {
         }
         rest = String(rest[nameEnd...]).trimmingCharacters(in: .whitespaces)
 
-        var params: [Parameter] = []
-        if rest.hasPrefix("(") {
+        // state Name (params) — trailing params (alternative syntax)
+        if params.isEmpty && rest.hasPrefix("(") {
             let (p, after) = try parseParamList(rest, line: line)
             params = p
             rest = after.trimmingCharacters(in: .whitespaces)
