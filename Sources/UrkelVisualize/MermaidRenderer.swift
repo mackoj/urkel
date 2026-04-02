@@ -29,7 +29,10 @@ public struct MermaidRenderer {
             let eventName: String
             switch t.event {
             case .event(let e): eventName = e.name
-            case .timer(let tm): eventName = "after(\(tm.duration.value)\(tm.duration.unit.rawValue))"
+            case .timer(let tm):
+                let v = tm.duration.value
+                let vStr = v.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(v)) : String(v)
+                eventName = "after(\(vStr)\(tm.duration.unit.rawValue))"
             case .always: eventName = "always"
             }
             let label = t.guard != nil ? "\(eventName) [guard]" : eventName
