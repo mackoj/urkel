@@ -22,4 +22,4 @@ output/
 **/.swiftpm/
 
 # Generated visualizer HTML
-#Examples/**/*.html
+Examples/**/*.html
