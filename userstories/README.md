@@ -2,8 +2,6 @@
 
 This directory contains the user stories for Urkel, organized by epic.
 
-Previous stories are archived under [`v1/`](v1/README.md).
-
 A complete reference of all DSL constructs mapped on trigger × scope × effect axes is in [`dsl-construct-map.md`](dsl-construct-map.md).
 
 ---
