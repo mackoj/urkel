@@ -2,7 +2,9 @@ import Foundation
 import Testing
 @testable import Urkel
 
-@Suite("US 5.1 + 5.2 - Watch + Plugin")
+// Serialized: the two plugin fixture tests each run a full `swift build` of a package depending on Urkel, and
+// running both at once on a CI runner intermittently ended the test process with no report.
+@Suite("US 5.1 + 5.2 - Watch + Plugin", .serialized)
 struct WatchAndPluginTests {
     @Test("Watch service performs initial generation")
     func watchInitialGeneration() async throws {
@@ -120,7 +122,9 @@ struct WatchAndPluginTests {
 
     @Test("Plugin fixture builds and triggers generation")
     func pluginFixtureBuilds() throws {
+        // Tests/UrkelTests/CLITests/WatchAndPluginTests.swift → Tests/Fixtures/PluginFixture
         let fixture = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures/PluginFixture")
@@ -150,7 +154,9 @@ struct WatchAndPluginTests {
     func pluginFixtureLegacyConfigKeyFailsCleanly() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        // Tests/UrkelTests/CLITests/WatchAndPluginTests.swift → the package root
         let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()

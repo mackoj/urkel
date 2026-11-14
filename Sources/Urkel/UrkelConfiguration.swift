@@ -231,7 +231,9 @@ extension UrkelConfigurationResolver {
                 }
             }
 
-            let parentURL = directoryURL.deletingLastPathComponent()
+            // Standardized, because newer Foundation answers `/..` for the parent of `/` rather than `/`, which
+            // never equals the current path and walked up forever.
+            let parentURL = directoryURL.deletingLastPathComponent().standardizedFileURL
             if parentURL.path == directoryURL.path {
                 break
             }
