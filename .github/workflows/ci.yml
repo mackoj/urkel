@@ -27,3 +27,8 @@ jobs:
         run: swift test
       - name: Architecture rules
         run: swift test --package-path Architecture
+      - name: Build benchmarks
+        # Built, not run: CI machines are too noisy to compare. See docs/performance.md.
+        env:
+          BENCHMARK_DISABLE_JEMALLOC: "true"
+        run: swift build --package-path Benchmarks
