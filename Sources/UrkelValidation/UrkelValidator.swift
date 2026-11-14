@@ -48,7 +48,8 @@ public struct UrkelValidator {
         // finalStateCheck is intentionally omitted to keep diagnostics clean
 
         // 3. Transition state reference checks
-        for t in file.transitionStmts {
+        let transitionStmts = file.transitionStmts
+        for t in transitionStmts {
             if case .state(let ref) = t.source {
                 let name = ref.components.joined(separator: ".")
                 if !stateSet.contains(name) {
@@ -84,9 +85,9 @@ public struct UrkelValidator {
         }
 
         // 5. Fork import check
-        for t in file.transitionStmts {
+        let importedNames = Set(file.imports.map(\.name))
+        for t in transitionStmts {
             if let fork = t.fork {
-                let importedNames = Set(file.imports.map(\.name))
                 if !importedNames.contains(fork.machine) {
                     diagnostics.append(Diagnostic(
                         severity: .error,
@@ -99,29 +100,29 @@ public struct UrkelValidator {
 
         // 6. Unreachable states (BFS from init)
         if let initState = file.initState, !stateNames.isEmpty {
+            // Each state's successors, so the search visits every transition once rather than once per state.
+            var successors: [String: [String]] = [:]
+            var wildcardDestinations: [String] = []
+            for t in transitionStmts {
+                guard let dest = t.destination else { continue }
+                switch t.source {
+                case .state(let ref): successors[ref.name, default: []].append(dest.name)
+                case .wildcard: wildcardDestinations.append(dest.name)
+                }
+            }
+
+            // A wildcard transition leaves every state, the initial one included, so its destination is reachable.
             var reachable: Set<String> = [initState.name]
             var queue = [initState.name]
-            let transitions = file.transitionStmts
-
-            while !queue.isEmpty {
-                let current = queue.removeFirst()
-                for t in transitions {
-                    var fromCurrent = false
-                    switch t.source {
-                    case .state(let r) where r.components.joined(separator: ".") == current:
-                        fromCurrent = true
-                    case .wildcard:
-                        fromCurrent = true
-                    default:
-                        break
-                    }
-                    if fromCurrent, let dest = t.destination {
-                        let destName = dest.components.joined(separator: ".")
-                        if !reachable.contains(destName) {
-                            reachable.insert(destName)
-                            queue.append(destName)
-                        }
-                    }
+            for destName in wildcardDestinations where reachable.insert(destName).inserted {
+                queue.append(destName)
+            }
+            var next = 0
+            while next < queue.count {
+                let current = queue[next]
+                next += 1
+                for destName in successors[current, default: []] where reachable.insert(destName).inserted {
+                    queue.append(destName)
                 }
             }
 

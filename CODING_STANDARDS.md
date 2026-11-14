@@ -41,3 +41,11 @@ Read during review. The mechanical rules are enforced by `swift test --package-p
 - **No silenced tests.** No `.disabled`; a known issue says what it is and where it is tracked.
 - **Emitter changes are visible.** Generated Swift is covered by inline snapshots; an intended change to the output
   updates the snapshot in the same change.
+
+## Performance
+
+- **Hot paths are measured.** Parsing, validation and emission have benchmarks in `Benchmarks/`, including a
+  200-state machine. A change made for speed states its before and after p50 (see
+  [`docs/performance.md`](docs/performance.md)); a change to a hot path checks that it did not regress.
+- **No per-element rescans.** Facts about the whole file (closure properties, hooks, outgoing transitions) are derived
+  once, as in `SwiftSyntaxEmitter.EmitPlan`, not recomputed inside a loop over states or transitions.

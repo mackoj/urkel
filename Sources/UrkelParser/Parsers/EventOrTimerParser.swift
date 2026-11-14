@@ -88,7 +88,7 @@ struct EventOrTimerParser: Parser {
     }
 
     private func parseEvent(_ input: inout Substring) throws -> EventOrTimer {
-        let nameEnd = input.firstIndex(where: { !$0.isLetter && !$0.isNumber && $0 != "_" }) ?? input.endIndex
+        let nameEnd = input.identifierEnd()
         let name = String(input[..<nameEnd])
         guard !name.isEmpty else {
             throw UrkelParseError(message: "Expected event name", line: lineNum)

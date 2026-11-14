@@ -1,13 +1,31 @@
 import Foundation
 
+/// What separates the words of a DSL identifier: anything but a letter or digit.
+private let identifierSeparators = CharacterSet.alphanumerics.inverted
+
+/// Where a parameter's type expression stops being its base type name: `Result<A, B>` → `Result`.
+private let typeExprSeparators = CharacterSet(charactersIn: ":<>[]?,")
+
+private func isASCIIAlphanumeric(_ byte: UInt8) -> Bool {
+    (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(byte) || (UInt8(ascii: "A")...UInt8(ascii: "Z")).contains(byte)
+        || (UInt8(ascii: "a")...UInt8(ascii: "z")).contains(byte)
+}
+
 /// Converts a raw DSL identifier to PascalCase.
 ///
 ///     "folderWatch"  → "FolderWatch"
 ///     "BLE"          → "BLE"
 ///     "my-machine"   → "MyMachine"
 public func typeName(from raw: String) -> String {
-    let separators = CharacterSet.alphanumerics.inverted
-    let parts = raw.components(separatedBy: separators).filter { !$0.isEmpty }
+    // Fast path: an ASCII identifier has no separators, so it is one part whose first letter is uppercased. The
+    // emitter names every type and property through here, so the general path below dominated emission.
+    if let first = raw.utf8.first, raw.utf8.allSatisfy(isASCIIAlphanumeric) {
+        guard first >= UInt8(ascii: "a"), first <= UInt8(ascii: "z") else { return raw }
+        var bytes = Array(raw.utf8)
+        bytes[0] = first - UInt8(ascii: "a") + UInt8(ascii: "A")
+        return String(decoding: bytes, as: UTF8.self)
+    }
+    let parts = raw.components(separatedBy: identifierSeparators).filter { !$0.isEmpty }
     guard !parts.isEmpty else { return raw }
     return parts.map { part in
         let head = part.prefix(1).uppercased()
@@ -21,6 +39,13 @@ public func typeName(from raw: String) -> String {
 ///     "FolderWatch"  → "folderWatch"
 ///     "BLE"          → "bLE"
 public func variableName(from pascal: String) -> String {
+    // Fast path for ASCII, as in `typeName(from:)`.
+    if let first = pascal.utf8.first, pascal.utf8.allSatisfy({ $0 < 0x80 }) {
+        guard first >= UInt8(ascii: "A"), first <= UInt8(ascii: "Z") else { return pascal }
+        var bytes = Array(pascal.utf8)
+        bytes[0] = first - UInt8(ascii: "A") + UInt8(ascii: "a")
+        return String(decoding: bytes, as: UTF8.self)
+    }
     guard let first = pascal.first else { return pascal }
     return String(first).lowercased() + pascal.dropFirst()
 }
@@ -33,7 +58,7 @@ public func variableName(from pascal: String) -> String {
 ///     event: "connect", params: []         → "_connect"
 ///     event: "connect", params: [Error]    → "_connectError"
 public func closurePropertyName(for event: String, params: [Parameter]) -> String {
-    let suffix = params.map { typeName(from: $0.typeExpr.components(separatedBy: .init(charactersIn: ":<>[]?,")).first ?? $0.typeExpr) }.joined()
+    let suffix = params.map { typeName(from: $0.typeExpr.components(separatedBy: typeExprSeparators).first ?? $0.typeExpr) }.joined()
     return "_\(variableName(from: typeName(from: event)))\(suffix)"
 }
 
