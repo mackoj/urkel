@@ -186,6 +186,8 @@ public struct UrkelParser {
 private struct FileParser: Parser {
     let machineNameFallback: String?
 
+    private static let carriageReturn = CharacterSet(charactersIn: "\r")
+
     private enum Section {
         case preamble, states, transitions, invariants
         case parallelStates, parallelTransitions
@@ -270,7 +272,7 @@ private struct FileParser: Parser {
             let rawLine = consumeLine(&input)
             let indent = rawLine.prefix(while: { $0 == " " }).count
             let trimmed = String(rawLine.drop(while: { $0 == " " || $0 == "\t" }))
-                .trimmingCharacters(in: CharacterSet(charactersIn: "\r"))
+                .trimmingCharacters(in: Self.carriageReturn)
 
             if trimmed.isEmpty { continue }
 
@@ -510,7 +512,8 @@ private struct FileParser: Parser {
     // MARK: - Helpers
 
     private func consumeLine(_ input: inout Substring) -> Substring {
-        if let nlIdx = input.firstIndex(of: "\n") {
+        // A byte search: after `\r\n` is normalised, a line feed is always a `Character` of its own.
+        if let nlIdx = input.utf8.firstIndex(of: UInt8(ascii: "\n")) {
             let line = input[..<nlIdx]
             input = input[input.index(after: nlIdx)...]
             return line
