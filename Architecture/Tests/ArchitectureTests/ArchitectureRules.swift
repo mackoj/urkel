@@ -39,15 +39,15 @@ struct ArchitectureRules {
     @Test func testsUseSwiftTesting() throws {
         let tests = try Self.tests()
         #expect(tests.containing("import Testing").relativePaths.count > 10)
-        expectNone(Detect.xcTestImports(in: tests), rule: .testsUseSwiftTesting)
+        expectNone(tests.xcTestImports, rule: .testsUseSwiftTesting)
     }
 
     @Test func knownIssuesExplainThemselves() throws {
-        expectNone(Detect.unexplainedKnownIssues(in: try Self.tests()), rule: .knownIssuesExplainThemselves)
+        expectNone(try Self.tests().unexplainedKnownIssues, rule: .knownIssuesExplainThemselves)
     }
 
     @Test func testsAreNotDisabled() throws {
-        expectNone(Detect.disabledTests(in: try Self.tests()), rule: .testsAreNotDisabled)
+        expectNone(try Self.tests().disabledTests, rule: .testsAreNotDisabled)
     }
 }
 

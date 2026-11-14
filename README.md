@@ -1,88 +1,108 @@
 # 🤓 Urkel
 **"Did I do that?" — Never ask that about your state transitions again.**
 
-Urkel is a lightweight Domain-Specific Language (DSL) and compiler for generating mathematically sound, **compile-time safe** Finite State Machines (FSMs) in Swift. State Machines are defined in a human-readable text format.
+[![CI](https://github.com/mackoj/urkel/actions/workflows/ci.yml/badge.svg)](https://github.com/mackoj/urkel/actions/workflows/ci.yml)
 
-By utilizing the **Typestate Design Pattern** and Swift's modern `~Copyable` (noncopyable) and `~Escapable`(nonescapable) types, Urkel ensures that invalid state transitions are entirely unrepresentable in your code. If an event isn't valid for the current state, your app simply will not compile. You will always be able to call the right function at the right time.
+**[Website](https://mackoj.github.io/urkel/)** ·
+**[Language grammar](userstories/grammar.ebnf)** ·
+**[Examples](Examples/Showcase)** ·
+**[Performance](docs/performance.md)** ·
+**[Architecture rules](docs/architecture-rules.md)**
+
+Urkel is a small Domain-Specific Language (DSL) and compiler for generating **compile-time safe** finite state machines in Swift. State machines are written in a human-readable `.urkel` file; an SPM build plugin turns each one into Swift.
+
+Urkel uses the **typestate pattern** and Swift's `~Copyable` (noncopyable) types: every state is a type, every transition is a `consuming` method that exists only on the states that allow it. If an event isn't valid for the current state, your code does not compile.
 
 ---
 
 ## 🛑 The Problem: Runtime State Chaos
 State management in Swift is notoriously tricky, especially when concurrency gets involved. When you use standard enums and booleans to track state, the compiler has no idea what your domain logic actually is.
 
-**The Car Problem:** If you are building a driving simulator, the compiler will happily let you call `car.accelerate()` even if the car's state is currently `EngineOff` or `StoppedAtRedLight`. 
+**The Car Problem:** If you are building a driving simulator, the compiler will happily let you call `car.accelerate()` even if the car's state is currently `EngineOff` or `StoppedAtRedLight`.
 
 To prevent this, you end up writing endless `guard` statements, throwing runtime errors, and trying to track down race conditions.
 
 ## ✅ The Solution: Typestate & Isolation
-Urkel fixes this by shifting state validation to the **compiler level**. 
-
-By encoding the state into the type signature itself, Urkel guarantees linear progression. Furthermore, by leaning heavily on `~Copyable` and strict boundaries, Urkel provides **phenomenal concurrency isolation**. Because states are explicitly consumed and passed forward, you don't have to sprinkle `@Sendable` everywhere to appease the Swift 6 strict concurrency checker.
+Urkel shifts state validation to the **compiler**. By encoding the state into the type signature itself, Urkel guarantees linear progression, and because states are consumed and passed forward, there is only ever one live value per machine.
 
 ### 1. Write your `.urkel` definition
-Urkel syntax is simple, readable, and relies on a **Bring Your Own Types (BYOT)** philosophy. Here is a real-world example of a File System Watcher:
+Urkel syntax is simple, readable, and relies on a **Bring Your Own Types (BYOT)** philosophy:
 
 ```text
-# FolderWatch.urkel
-machine FolderWatch<FolderWatchContext>
-@compose Indexer
-@factory makeObserver(directory: URL, debounceMs: Int)
+## A checkout flow.
+machine Checkout: CheckoutContext
 
 @states
-  init Idle
-  state Running
-  final Stopped
+  init  Cart
+  state Paying
+  final Receipt
 
 @transitions
-  # [Current]   -> [Trigger(Payload)]   -> [Next]
-  Idle         -> start                  -> Running => Indexer.init
-  Running      -> stop                   -> Stopped
+  # [Current] -> [Event(Payload)]  -> [Next]
+  Cart        -> pay(amount: Int)  -> Paying
+  Paying      -> succeed           -> Receipt
+  Paying      -> fail              -> Cart
 ```
 
-### 2. Urkel Generates the Typestate Interface
-When you build your project, the Urkel SPM Plugin automatically converts that text into a strictly typed, memory-safe Swift interface.
+`machine Checkout: CheckoutContext` threads a context value of your own type through every transition. The full language (guards, actions, `@entry`/`@exit` hooks, `after(30s)` timers, `always`, compound states with `@history`, `@import` sub-machines, `@on` reactions, `@parallel` regions) is specified in [`userstories/grammar.ebnf`](userstories/grammar.ebnf), described in [`Language-Spec.md`](Sources/Urkel/Urkel.docc/Language-Spec.md), and demonstrated by the 24 machines in [`Examples/Showcase`](Examples/Showcase).
+
+### 2. Urkel generates the typestate interface
+On every build, the `UrkelPlugin` build-tool plugin compiles each `.urkel` file in the target into three files: the machine, a runtime builder and a [swift-dependencies](https://github.com/pointfreeco/swift-dependencies) client. An excerpt of what it generates for `Checkout.urkel`:
 
 ```swift
-// ⚡️ GENERATED CODE (Simplified)
-public enum Idle {}
-public enum Running {}
-public enum Stopped {}
-
-extension FolderWatchObserver where State == Idle {
-    // You can ONLY call start() when the state is Idle!
-    // 'consuming' destroys the Idle state in memory. You cannot call it twice.
-    public consuming func start() async -> FolderWatchObserver<Running> { ... }
+public enum CheckoutPhase {
+    public enum Cart {}
+    public enum Paying {}
+    public enum Receipt {}
 }
 
-extension FolderWatchObserver where State == Running {
-    // start() is physically impossible to call here. 
-    public consuming func stop() async -> FolderWatchObserver<Stopped> { ... }
+public struct CheckoutMachine<Phase>: ~Copyable, Sendable { … }
+
+extension CheckoutMachine where Phase == CheckoutPhase.Cart {
+    // You can ONLY call pay(amount:) when the phase is Cart.
+    // 'consuming' ends the Cart value: you cannot call it twice.
+    public consuming func pay(amount: Int) async throws -> CheckoutMachine<CheckoutPhase.Paying>
+}
+
+extension CheckoutMachine where Phase == CheckoutPhase.Paying {
+    public consuming func succeed() async throws -> CheckoutMachine<CheckoutPhase.Receipt>
+    public consuming func fail() async throws -> CheckoutMachine<CheckoutPhase.Cart>
 }
 ```
 
-### 3. You Implement the Business Logic
-Urkel generates the *Interface* and the constraints. You provide the *Implementation*. 
-Urkel generates a factory client (perfect for Point-Free's `swift-dependencies`). You simply inject the closures that perform your side effects into your isolated context.
+Every generated file is parsed back with SwiftParser before it is written, so a syntax error in the output never reaches your build.
+
+### 3. You implement the business logic
+Urkel generates the interface and the constraints; you provide the effects as `@Sendable` closures over your context, through `CheckoutClientRuntime`:
 
 ```swift
-// YOUR CODE
-extension FolderWatchClient: DependencyKey {
-    public static var liveValue: Self {
-        Self(
-            makeObserver: { directory, debounceMs in
-                return FolderWatchObserver<Idle>(
-                    start: { context in
-                        await context.startWatching(directory)
-                        return context // Pass the isolated context to the next state
-                    },
-                    stop: { context in
-                        await context.cleanup()
-                    }
-                )
-            }
-        )
-    }
+let runtime = CheckoutClientRuntime(
+    initialContext: { CheckoutContext() },
+    payIntTransition: { context, amount in
+        var context = context
+        context.charged = amount  // call your payment service here
+        return context
+    },
+    succeedTransition: { context in context },
+    failTransition: { context in context }
+)
+```
+
+and the compiler holds the rest of your code to the machine:
+
+```swift
+func checkout(_ cart: consuming CheckoutMachine<CheckoutPhase.Cart>) async throws -> Int {
+    let paying = try await cart.pay(amount: 4_200)   // Cart → Paying
+    let receipt = try await paying.succeed()         // Paying → Receipt
+    return receipt.withContext { $0.charged }        // read without consuming
 }
+
+try await cart.succeed()
+// error: referencing instance method 'succeed()' on 'CheckoutMachine'
+//   requires the types 'CheckoutPhase.Cart' and 'CheckoutPhase.Paying' be equivalent
+
+let again = try await cart.pay(amount: 4_200)
+// error: 'cart' consumed more than once
 ```
 
 ### How It All Works Together: The Typestate Pattern
@@ -126,7 +146,7 @@ let stopped = await running.stop()
 
 ## ✨ Key Features
 
-* **Zero Invalid States:** By encoding states as generic type parameters (`Observer<State>`), illegal transitions result in Xcode build errors, not runtime crashes.
+* **Zero Invalid States:** By encoding states as generic type parameters (`CheckoutMachine<CheckoutPhase.Cart>`), illegal transitions result in Xcode build errors, not runtime crashes.
 * **Memory Safety & Linear Progression:** Leverages Swift 5.9+ `~Copyable` and `~Escapable` types. When you transition from `A` to `B`, state `A` is `consuming`. You physically cannot accidentally reuse an old state or create duplicated state branches.
 * **Painless Swift 6 Concurrency:** By enforcing strict architectural boundaries and state consumption, Urkel isolates side effects perfectly. It makes complex async workflows completely thread-safe without drowning your codebase in `@Sendable` requirements.
 * **Bring Your Own Types (BYOT):** Urkel doesn't force you into a proprietary type system. Pass your existing Swift structs, classes, or actors as transition payloads.
@@ -146,8 +166,8 @@ Not all features are equally mature. Here's what's ready to use now vs. what's c
 | **Bring Your Own Types (BYOT)** | ✅ Stable | 5.9+ | Use your own domain types; Urkel doesn't force a framework |
 | **SPM Build Tool Plugin** | ✅ Stable | 5.9+ | Generates code automatically during `swift build` |
 | **Command Plugin (checked-in gen)** | ✅ Stable | 5.9+ | Write generated files directly to repo |
-| **@compose (sub-machines)** | 🟡 Works | 5.9+ | Can reference composed machines; limited to pass-through currently |
-| **@continuation (accessors)** | 🟡 Works | 5.9+ | Read-only properties like `var events: Stream` |
+| **`@import` sub-machines + `=> Sub.init` fork** | 🟡 Works | 5.9+ | Sub-machine state is carried through; lifecycle orchestration is limited |
+| **`@on Sub::State` reactions** | 🟡 Works | 5.9+ | Emitted on the combined state enum |
 | **Mustache Templates** | 🟡 Works | — | Custom Kotlin or bring your own templates |
 | **Noncopyable (~Escapable)** | 🟡 Partial | 5.9+ | Context-threaded mode only (not default) |
 | **Fork operator & orchestration** | 📋 Planned | TBD | Epic 11; manage lifecycle of multiple sub-FSMs |
@@ -313,7 +333,7 @@ let machine = Machine<Idle>(...)
 
 ### Composition Is Currently Limited
 
-You can declare `@compose Indexer`, but you don't yet have full control over the Indexer's lifecycle from within the parent machine. The fork operator and orchestration features (Epic 11) will enable this.
+You can `@import Indexer` and fork it with `=> Indexer.init`, but you don't yet have full control over the Indexer's lifecycle from within the parent machine. The fork operator and orchestration features (Epic 11) will enable this.
 
 **Status:** This is actively being worked on. For now, use factory closures to pass pre-initialized sub-machines.
 
@@ -321,12 +341,12 @@ You can declare `@compose Indexer`, but you don't yet have full control over the
 
 Urkel supports two architectural patterns, and you must choose one per machine:
 
-- **Closure-captured** (default): Transitions are pure functions; side effects captured in closures
-- **Context-threaded**: Transitions receive and return a shared context
+- **Without a context** (`machine Toggle`): transition closures take only the event's parameters; side effects are captured in the closures
+- **With a context** (`machine Checkout: CheckoutContext`): transitions receive and return a shared context
 
 You can't easily mix them in one machine.
 
-**Workaround:** Use the mode that fits your architecture. See "Understanding Generation Modes" in the documentation.
+**Workaround:** Use the mode that fits your architecture. See "With or Without a Context" above.
 
 ---
 
@@ -371,154 +391,12 @@ You can't easily mix them in one machine.
 
 ---
 
-## 📖 Enhanced Example: What Happens When You Make a Mistake
+## 🧩 With or Without a Context
 
-The power of Urkel comes from what happens when you write code incorrectly.
+- **`machine Checkout: CheckoutContext`**: every transition closure receives the context and returns the next one (`@Sendable (CheckoutContext, Int) async throws -> CheckoutContext`). Read it at any time with `withContext { … }` without consuming the machine. Start here when transitions share state.
+- **`machine Toggle`** (no context): transition closures take only the event's parameters and capture whatever they need.
 
-### ✅ Correct Usage
-
-```swift
-// Create an observer in the Idle state
-var observer = FolderWatchObserver<Idle>(
-    directory: URL(...),
-    debounceMs: 500,
-    startTransition: { /* ... */ }
-)
-
-// Call start() — it exists on Idle, so the code compiles
-let running = await observer.start()
-
-// start() consumed the Idle observer, so you can't use it anymore
-// observer is no longer accessible here
-
-// Now running is in the Running state
-// Call stop() — it exists on Running
-let stopped = await running.stop()
-
-// running is consumed; you now have stopped
-```
-
-### ❌ Wrong: Calling the Wrong Transition
-
-```swift
-var observer = FolderWatchObserver<Idle>(/* ... */)
-await observer.stop()  // ❌ COMPILE ERROR
-// error: value of type 'FolderWatchObserver<Idle>' has no member 'stop'
-```
-
-This error happens **at compile time**, not at 3 AM in production. The type system physically prevents the error from existing.
-
-### ❌ Wrong: Reusing a Consumed State
-
-```swift
-var observer = FolderWatchObserver<Idle>(/* ... */)
-let running = await observer.start()
-
-// ❌ Try to reuse the old Idle observer
-await observer.stop()
-// error: use of consumed value 'observer'
-```
-
-The `consuming` keyword means the old state is destroyed. You cannot accidentally reuse it.
-
-### ❌ Wrong: Forgetting a Transition
-
-```swift
-var observer = FolderWatchObserver<Idle>(/* ... */)
-let running = await observer.start()
-
-// ❌ Never call stop() — the compiler warns:
-// warning: variable 'running' was never used
-```
-
-Because states are noncopyable, the compiler tracks their lifetime. If you create a state and never transition out of it, you get a warning. This helps catch bugs where you forgot to clean up.
-
-### Why This Matters
-
-Every mistake above is **impossible** in traditional enum-based FSMs without runtime checks. Urkel catches them at compile time, when they're free to fix.
-
----
-
-## 🧩 Understanding Generation Modes
-
-Urkel generates code differently depending on your `.urkel` file. Here's how to know which mode you're in:
-
-### Closure-Captured Mode (Default)
-
-**Use this if you don't have** `@context` **or** `@compose` **in your machine:**
-
-```text
-machine FolderWatch
-@factory makeObserver(directory: URL, debounceMs: Int)
-
-@states
-  init Idle
-  state Running
-  final Stopped
-
-@transitions
-  Idle -> start -> Running
-  Running -> stop -> Stopped
-```
-
-**In this mode:**
-- Transitions are pure functions with no explicit context
-- Side effects are captured in the closures you provide
-- Simpler to use for straightforward FSMs
-- Default mode
-
-**Example usage:**
-```swift
-let observer = FolderWatchObserver<Idle>(
-    directory: url,
-    debounceMs: 500,
-    startTransition: {
-        // Your logic here; captured by closure
-        return FolderWatchObserver<Running>(/* ... */)
-    }
-)
-```
-
-### Context-Threaded Mode
-
-**Use this if you have** `machine Name<ContextType>` **or** `@compose` **declarations:**
-
-```text
-machine FolderWatch<FolderWatchContext>
-@compose Indexer
-@factory makeObserver(directory: URL, debounceMs: Int)
-
-@states
-  init Idle
-  state Running
-  final Stopped
-
-@transitions
-  Idle -> start -> Running => Indexer.init
-  Running -> stop -> Stopped
-```
-
-**In this mode:**
-- Transitions receive the context and return an updated context
-- The context flows through the machine
-- You can manage shared state across transitions
-- Machines support `~Escapable` (nonescapable)
-
-**Example usage:**
-```swift
-let observer = FolderWatchObserver<Idle>(
-    directory: url,
-    debounceMs: 500,
-    context: FolderWatchContext(...),
-    startTransition: { context in
-        // Receive context, do work, return updated context
-        return context
-    }
-)
-```
-
-**Which should I use?**
-Start with **closure-captured** (the default). Only switch to **context-threaded** if you find yourself needing shared state across multiple transitions.
+States can also carry data of their own (`state(userId: String) Authenticated`, `final(reason: String) Locked`), exposed as `borrowing` properties in that phase only.
 
 ---
 
@@ -534,21 +412,22 @@ The architectural concepts powering Urkel stand on the shoulders of giants in th
 ## 🚀 Getting Started
 
 ### 1. Installation (Swift Package Manager)
-Add Urkel to your `Package.swift` dependencies:
+Add Urkel to your `Package.swift` dependencies, and the build tool plugin to the target that holds your `.urkel` files. The generated client imports `Dependencies`, so the target depends on swift-dependencies too:
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mackoj/urkel.git", from: "1.0.0")
+    .package(url: "https://github.com/mackoj/urkel.git", from: "0.3.0"),
+    .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0"),
+],
+targets: [
+    .target(
+        name: "MyApp",
+        dependencies: [.product(name: "Dependencies", package: "swift-dependencies")],
+        plugins: [.plugin(name: "UrkelPlugin", package: "urkel")]
+    ),
 ]
 ```
-If you want generated files to appear in DerivedData during a normal build, add the build tool plugin to your target:
-```swift
-.target(
-    name: "MyApp",
-    plugins: [
-        .plugin(name: "UrkelPlugin", package: "urkel")
-    ]
-)
-```
+Requirements: Swift 6.1 tools (Xcode 16.3 or later), macOS 13 or later.
+
 The plugin runs automatically when Xcode or SwiftPM builds the target, so there is no separate “run plugin” button. It resolves the `UrkelCLI` executable tool under the hood and writes generated files into the plugin work directory.
 
 If you want the generated file checked into your package and committed to source control, run the command plugin instead:
@@ -557,9 +436,21 @@ If you want the generated file checked into your package and committed to source
 swift package plugin --allow-writing-to-package-directory urkel-generate
 ```
 
-That command writes directly into the package directory, so it can update a file like `Sources/FolderWatch/FolderWatchClient+Generated.swift`.
+That command writes directly into the package directory, so it can update a file like `Sources/Checkout/CheckoutMachine.swift`.
 
 Both plugins read the same package-local `urkel-config.json` style files. The only difference is where the generated output lands: the build tool plugin uses DerivedData, while the command plugin can write back into the repository.
+
+To use the compiler as a library (for an editor or a tool), depend on `UrkelParser`, `UrkelValidation` or `UrkelEmitterSwift` alone:
+
+```swift
+import UrkelParser
+import UrkelValidation
+import UrkelEmitterSwift
+
+let file = try UrkelParser.parse(source)              // throws UrkelParseError
+let diagnostics = UrkelValidator.validate(file)       // [Diagnostic]
+let swift = try SwiftSyntaxEmitter().emit(file: file) // stateMachine, client, dependency
+```
 
 ### 2. Create your first Machine
 Add a file named `Machine.urkel` anywhere in your target's source folder. The plugin will automatically detect it, compile it, and make the Typestate boilerplate available to your Swift code immediately.
@@ -601,6 +492,11 @@ swift run UrkelCLI generate ./Sources --output ./Generated
 
 # Watch a directory and regenerate live on file save
 swift run UrkelCLI watch ./Sources --output ./Generated
+
+# Report diagnostics, list init→final paths, or render an HTML visualiser
+swift run UrkelCLI validate Sources/Checkout/Checkout.urkel
+swift run UrkelCLI paths Sources/Checkout/Checkout.urkel
+swift run UrkelCLI visualize Sources/Checkout/Checkout.urkel
 ```
 
 ### 4. Package Architecture (for contributors)
@@ -618,16 +514,21 @@ For the full module dependency graph, pipeline diagram, and developer entry-poin
 
 Urkel implementation decisions and roadmap are tracked as user stories in:
 
-* `User Stories/README.md`
+* [`userstories/README.md`](userstories/README.md)
 
 Stories are grouped by epic and include objective, acceptance criteria, implementation notes, and test strategy.
 
 ### 6. Grammar Reference
 
-The formal language grammar is versioned at repository root:
+The formal language grammar is versioned with the user stories:
 
-* `grammar.ebnf`
+* [`userstories/grammar.ebnf`](userstories/grammar.ebnf)
 
 For narrative documentation of the same grammar and language rules, see:
 
 * `Sources/Urkel/Urkel.docc/Language-Spec.md`
+
+### 7. Contributing
+
+* [`CODING_STANDARDS.md`](CODING_STANDARDS.md): the conventions; the mechanical ones are enforced by `swift test --package-path Architecture` and listed in [`docs/architecture-rules.md`](docs/architecture-rules.md).
+* [`docs/performance.md`](docs/performance.md): the benchmarks (`swift package --package-path Benchmarks benchmark`), how to profile, and what has paid off.

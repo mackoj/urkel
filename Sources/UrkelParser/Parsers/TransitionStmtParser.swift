@@ -23,16 +23,14 @@ struct TransitionStmtParser: Parser {
             source = .wildcard
         } else {
             // Try to parse state ref
-            let end = input.firstIndex(where: { c in
-                !c.isLetter && !c.isNumber && c != "_" && c != "."
-            }) ?? input.endIndex
+            let end = input.identifierEnd(allowing: ".")
             let name = String(input[..<end])
             guard !name.isEmpty, name.first!.isLetter || name.first! == "_" else {
                 input = original
                 return nil
             }
             input = input[end...]
-            source = .state(StateRef(name.components(separatedBy: ".")))
+            source = .state(StateRef(name.dottedComponents))
         }
 
         try? OptionalWS().parse(&input)
@@ -71,12 +69,10 @@ struct TransitionStmtParser: Parser {
         if input.hasPrefix("->") {
             input.removeFirst(2)
             try? OptionalWS().parse(&input)
-            let destEnd = input.firstIndex(where: { c in
-                !c.isLetter && !c.isNumber && c != "_" && c != "."
-            }) ?? input.endIndex
+            let destEnd = input.identifierEnd(allowing: ".")
             let destName = String(input[..<destEnd])
             if !destName.isEmpty {
-                destination = StateRef(destName.components(separatedBy: "."))
+                destination = StateRef(destName.dottedComponents)
                 input = input[destEnd...]
             }
             try? OptionalWS().parse(&input)

@@ -13,18 +13,11 @@ enum Detect {
         "UrkelVisualize": ["Foundation", "UrkelAST"],
     ]
 
-    /// The module a file belongs to: the folder under `Sources/`.
-    static func module(of file: SourceFile) -> String? {
-        let components = file.pathComponents
-        guard let index = components.firstIndex(of: "Sources"), index + 1 < components.count else { return nil }
-        return components[index + 1]
-    }
-
     /// Imports in a budgeted module that its budget does not list. Modules without a budget (the umbrella, the
     /// CLI, the LSP server) are not checked.
     static func importsOverBudget(in scope: Scope) -> [Match<ImportDeclSyntax>] {
         scope.imports.filter { match in
-            guard let module = module(of: match.file), let allowed = importBudget[module] else { return false }
+            guard let module = match.file.module, let allowed = importBudget[module] else { return false }
             return !allowed.contains(match.node.moduleName)
         }
     }
@@ -55,14 +48,7 @@ enum Detect {
     /// not code and passes.
     static func traps(in scope: Scope) -> [Match<Syntax>] {
         let calls = scope.calls(named: traps).filter { $0.node.receiver == nil }
-        let forcedTries = scope.containing("try!").nodes(of: TryExprSyntax.self) {
-            $0.node.questionOrExclamationMark?.tokenKind == .exclamationMark
-        }
-        // The parser leaves `x as! T` inside an expression sequence unfolded, as `UnresolvedAsExprSyntax`.
-        let forcedCasts = scope.containing("as!").nodes(of: UnresolvedAsExprSyntax.self) {
-            $0.node.questionOrExclamationMark?.tokenKind == .exclamationMark
-        }
-        return calls.map(\.erased) + forcedTries.map(\.erased) + forcedCasts.map(\.erased)
+        return calls.map(\.erased) + scope.forcedTries.map(\.erased) + scope.forcedCasts
     }
 
     /// The conformances every public AST type declares.
@@ -74,25 +60,5 @@ enum Detect {
             !astConformances.allSatisfy { type.inherits(from: $0) }
         }
         return publicValues + scope.classes + scope.actors
-    }
-
-    /// `import XCTest`.
-    static func xcTestImports(in scope: Scope) -> [Match<ImportDeclSyntax>] {
-        scope.imports(of: "XCTest")
-    }
-
-    /// `withKnownIssue { … }` whose first argument is not a string literal: the reason.
-    static func unexplainedKnownIssues(in scope: Scope) -> [Match<FunctionCallExprSyntax>] {
-        scope.calls(named: "withKnownIssue").filter { call in
-            guard let first = call.node.arguments.first, first.label == nil else { return true }
-            return !first.expression.is(StringLiteralExprSyntax.self)
-        }
-    }
-
-    /// The `.disabled(…)` trait, wherever a test or suite takes it.
-    static func disabledTests(in scope: Scope) -> [Match<FunctionCallExprSyntax>] {
-        scope.calls(named: "disabled").filter { call in
-            call.node.receiver == nil && call.node.calledExpression.is(MemberAccessExprSyntax.self)
-        }
     }
 }
