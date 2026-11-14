@@ -23,3 +23,8 @@ output/
 
 # Generated visualizer HTML
 Examples/**/*.html
+
+# Architecture/ and Benchmarks/ are separate packages; only the library pins its dependencies.
+/Architecture/Package.resolved
+/Benchmarks/Package.resolved
+/Benchmarks/.benchmarkBaselines
