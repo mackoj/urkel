@@ -71,7 +71,7 @@ for frames in reader.samples where !frames.isEmpty {
     guard !frames.contains(where: { $0.contains(measuring) }) else { continue }
     total += 1
     selfSamples[short(frames[0]), default: 0] += 1
-    for name in Set(frames.map(short)) where name.contains(/Urkel|Parsing|SwiftParser|SwiftSyntax/) {
+    for name in Set(frames.map(short)) where name.contains(/Urkel|Parser|Parsing|Syntax|Emitter|Validator/) {
         inclusiveSamples[name, default: 0] += 1
     }
 }
@@ -83,4 +83,4 @@ func report(_ title: String, _ counts: [String: Int], of total: Int) {
 }
 print("\(total) samples")
 report("Self", selfSamples, of: total)
-report("Inclusive (Urkel, swift-parsing, swift-syntax)", inclusiveSamples, of: total)
+report("Inclusive (Urkel and its parsers, swift-parsing, swift-syntax)", inclusiveSamples, of: total)

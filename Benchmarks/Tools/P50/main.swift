@@ -12,8 +12,9 @@ struct Medians {
 func medians(inFile path: String) throws -> [(name: String, medians: Medians)] {
     let text = try String(contentsOfFile: path, encoding: .utf8)
     // A row: | Time (wall clock) (μs) * | p0 | p25 | p50 | …  The unit is absent for plain counts.
+    // A value too wide for its column is printed in scientific notation: `2.60e+08`.
     let row =
-        /^\|\s*(Malloc \(total\)|Time \(wall clock\))\s*(?:\(([^)]*)\))?\s*\*?\s*\|\s*[\d,]+\s*\|\s*[\d,]+\s*\|\s*([\d,]+)/
+        /^\|\s*(Malloc \(total\)|Time \(wall clock\))\s*(?:\(([^)]*)\))?\s*\*?\s*\|\s*[\d,.e+]+\s*\|\s*[\d,.e+]+\s*\|\s*([\d,.e+]+)/
     let scale: [String: Double] = ["ns": 1e-3, "μs": 1, "us": 1, "ms": 1e3, "s": 1e6, "K": 1e3, "M": 1e6]
     var result: [(name: String, medians: Medians)] = []
     for line in text.split(separator: "\n") {
@@ -43,7 +44,7 @@ let before = Dictionary(
 func cell(_ old: Double?, _ new: Double?, _ format: String) -> String {
     guard let new else { return "" }
     guard let old else { return String(format: format, new) }
-    return String(format: "\(format) → \(format) (%.2fx)", old, new, new / old)
+    return String(format: "\(format) → \(format) (%.3gx)", old, new, new / old)
 }
 print("| Benchmark | Wall clock p50 (µs) | Mallocs p50 |")
 print("|---|---|---|")
