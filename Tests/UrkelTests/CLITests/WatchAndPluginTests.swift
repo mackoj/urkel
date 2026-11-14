@@ -2,7 +2,9 @@ import Foundation
 import Testing
 @testable import Urkel
 
-@Suite("US 5.1 + 5.2 - Watch + Plugin")
+// Serialized: the two plugin fixture tests each run a full `swift build` of a package depending on Urkel, and
+// running both at once on a CI runner intermittently ended the test process with no report.
+@Suite("US 5.1 + 5.2 - Watch + Plugin", .serialized)
 struct WatchAndPluginTests {
     @Test("Watch service performs initial generation")
     func watchInitialGeneration() async throws {
