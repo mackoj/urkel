@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urkel · State machines the Swift compiler enforces</title>
+<meta name="description" content="Urkel is a small DSL and compiler that turns .urkel state machine descriptions into typestate Swift: move-only machines whose transitions exist only in the states that allow them. Generated at build time by an SPM plugin.">
+<meta property="og:title" content="Urkel · State machines the Swift compiler enforces">
+<meta property="og:description" content="Describe a state machine in a few lines of .urkel. Get typestate Swift where an invalid transition is a compile error, not a runtime guard.">
+<meta property="og:type" content="website">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f46e5'/%3E%3Ccircle cx='9' cy='16' r='3.2' fill='%23fff'/%3E%3Ccircle cx='23' cy='9' r='3.2' fill='%23fff'/%3E%3Ccircle cx='23' cy='23' r='3.2' fill='%23facc15'/%3E%3Cpath d='M12 14.5l8-4M12 17.5l8 4' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f8f8fb;
+  --surface: #ffffff;
+  --surface-2: #eff0f6;
+  --text: #17172b;
+  --muted: #57586e;
+  --line: #e1e2ec;
+  --accent: #4f46e5;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e5fc;
+  --spark: #ca8a04;
+  --code-bg: #15152a;
+  --code-text: #e8e8f4;
+  --code-muted: #8c8cab;
+  --tok-key: #c4b5fd;
+  --tok-str: #a7f3d0;
+  --tok-type: #93c5fd;
+  --tok-num: #fcd34d;
+  --tok-err: #fca5a5;
+  --shadow: 0 1px 2px rgb(23 23 43 / 6%), 0 8px 24px rgb(23 23 43 / 7%);
+  --radius: 14px;
+  --max: 1140px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101020;
+    --surface: #17172b;
+    --surface-2: #1f1f36;
+    --text: #f0f0fa;
+    --muted: #a3a4bd;
+    --line: #2e2e48;
+    --accent: #8b85ff;
+    --accent-ink: #0d0c24;
+    --accent-soft: #29275a;
+    --spark: #facc15;
+    --code-bg: #0b0b18;
+    --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px rgb(0 0 0 / 30%);
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  overflow-x: clip;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+code, pre { font: 14px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+/* Grid children may shrink below their content, so code scrolls inside its box instead of widening the page. */
+.pair > *, .install > *, .features > *, .steps > *, .compare > *, .stats > * { min-width: 0; }
+:not(pre) > code { overflow-wrap: anywhere; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: .05em .35em; font-size: .88em; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+section { padding: 88px 0; }
+section + section { border-top: 1px solid var(--line); }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; margin: 0; }
+h2 { font-size: clamp(28px, 4vw, 40px); }
+h3 { font-size: 19px; letter-spacing: -.01em; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+.lead { color: var(--muted); font-size: 19px; max-width: 700px; margin: 16px 0 0; }
+
+/* Navigation */
+nav { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; gap: 24px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+nav .links { display: flex; gap: 22px; margin-left: auto; font-size: 15px; }
+nav .links a { color: var(--muted); text-decoration: none; }
+nav .links a:hover { color: var(--text); }
+@media (max-width: 720px) { nav .links a:not(.gh) { display: none; } }
+
+/* Hero */
+.hero { position: relative; overflow: hidden; padding: 84px 0 88px; }
+.hero::before {
+  /* A faint state graph behind the title: nodes on a grid. */
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: .55;
+  background-image: radial-gradient(circle, var(--line) 2px, transparent 2.5px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 20%, #000 10%, transparent 75%);
+}
+.hero h1 { font-size: clamp(40px, 6vw, 64px); max-width: 900px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; padding: 0; list-style: none; }
+.pills li { font-size: 13px; font-weight: 600; padding: 4px 11px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--muted); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.button { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; font-weight: 600; font-size: 16px; text-decoration: none; border: 1px solid var(--line); color: var(--text); background: var(--surface); }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.button:hover { filter: brightness(1.05); }
+.button svg { width: 18px; height: 18px; }
+
+/* The .urkel file next to the Swift it gives you */
+.pair { display: grid; grid-template-columns: .85fr 1.15fr; gap: 20px; margin-top: 48px; align-items: stretch; }
+@media (max-width: 960px) { .pair { grid-template-columns: 1fr; } }
+.pair-note { color: var(--muted); font-size: 15px; margin-top: 14px; }
+
+/* Code */
+.code { background: var(--code-bg); color: var(--code-text); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
+.code .bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid rgb(255 255 255 / 7%); color: var(--code-muted); font-size: 13px; }
+.code .bar i { width: 11px; height: 11px; border-radius: 50%; background: #34345a; display: inline-block; }
+.code .bar span { margin-left: 8px; }
+.code .bar b { margin-left: auto; font-weight: 600; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--tok-num); }
+.code pre { margin: 0; padding: 20px; overflow-x: auto; flex: 1; }
+.tok-k { color: var(--tok-key); }
+.tok-s { color: var(--tok-str); }
+.tok-t { color: var(--tok-type); }
+.tok-n { color: var(--tok-num); }
+.tok-c { color: var(--code-muted); font-style: italic; }
+.tok-e { color: var(--tok-err); font-style: normal; }
+
+/* Problem */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 44px; }
+@media (max-width: 860px) { .compare { grid-template-columns: 1fr; } }
+.compare h3 { margin-bottom: 10px; }
+.compare p { color: var(--muted); font-size: 15.5px; margin: 0 0 14px; }
+
+/* How it works */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 44px; counter-reset: step; }
+@media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); }
+.step::before { counter-increment: step; content: "Step " counter(step); display: block; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+.step p { color: var(--muted); font-size: 15px; margin: 8px 0 0; }
+
+/* Features */
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 44px; }
+@media (max-width: 960px) { .features { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .features { grid-template-columns: 1fr; } }
+.feature { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+.feature .icon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 14px; }
+.feature .icon svg { width: 22px; height: 22px; }
+.feature p { color: var(--muted); font-size: 15.5px; margin: 8px 0 0; }
+
+/* Tabs */
+.tabs { margin-top: 40px; }
+.tablist { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.tablist button { font: inherit; font-size: 15px; font-weight: 600; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.tablist button[aria-selected="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.panel p { color: var(--muted); margin: 0 0 14px; max-width: 780px; }
+.js .panel[hidden] { display: none; }
+.panel + .panel { margin-top: 28px; }
+.js .panel + .panel { margin-top: 0; }
+
+/* Numbers */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 44px; }
+@media (max-width: 860px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 460px) { .stats { grid-template-columns: 1fr; } }
+.stat { padding: 22px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--line); }
+.stat b { display: block; font-size: 32px; letter-spacing: -.02em; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 14.5px; }
+.small { color: var(--muted); font-size: 14px; margin-top: 16px; }
+
+/* Install */
+.install { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; margin-top: 40px; }
+@media (max-width: 900px) { .install { grid-template-columns: 1fr; } }
+.install ul { padding-left: 20px; color: var(--muted); }
+.install li { margin: 6px 0; }
+.install .code + .code { margin-top: 16px; }
+.copy { margin-left: auto; font: inherit; font-size: 12.5px; color: var(--code-muted); background: transparent; border: 1px solid rgb(255 255 255 / 12%); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.copy:hover { color: var(--code-text); }
+footer { padding: 40px 0 56px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14.5px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<nav aria-label="Main">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#4f46e5"/><circle cx="9" cy="16" r="3.2" fill="#fff"/><circle cx="23" cy="9" r="3.2" fill="#fff"/><circle cx="23" cy="23" r="3.2" fill="#facc15"/><path d="M12 14.5l8-4M12 17.5l8 4" stroke="#fff" stroke-width="2"/></svg>
+      Urkel
+    </a>
+    <div class="links">
+      <a href="#why">Why</a>
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#tour">Code tour</a>
+      <a href="#install">Install</a>
+      <a class="gh" href="https://github.com/mackoj/urkel">GitHub</a>
+    </div>
+  </div>
+</nav>
+<main id="top">
+<section class="hero">
+  <div class="wrap">
+    <ul class="pills" aria-label="At a glance">
+      <li>Swift 6</li>
+      <li>macOS 13+</li>
+      <li>SwiftPM build plugin</li>
+      <li>Typestate · <code>~Copyable</code></li>
+    </ul>
+    <h1>State machines<br><em>the compiler enforces.</em></h1>
+    <p class="lead">Describe a state machine in a few lines of <code>.urkel</code>. Urkel generates typestate Swift where every state is a type, every transition <code>consuming</code>, and calling one from the wrong state is a build error, not a runtime <code>guard</code>.</p>
+    <div class="cta">
+      <a class="button primary" href="#install">Get started</a>
+      <a class="button" href="https://github.com/mackoj/urkel">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        View on GitHub
+      </a>
+      <a class="button" href="https://github.com/mackoj/urkel/blob/main/userstories/grammar.ebnf">Language grammar</a>
+    </div>
+    <div class="pair">
+      <div class="code" aria-label="A machine in .urkel">
+        <div class="bar"><i></i><i></i><i></i><span>Checkout.urkel</span><b>You write</b></div>
+<pre><code class="urkel">## A checkout flow.
+machine Checkout: CheckoutContext
+
+@states
+  init  Cart
+  state Paying
+  final Receipt
+
+@transitions
+  Cart   -> pay(amount: Int) -> Paying
+  Paying -> succeed          -> Receipt
+  Paying -> fail             -> Cart</code></pre>
+      </div>
+      <div class="code" aria-label="Swift that uses the generated machine">
+        <div class="bar"><i></i><i></i><i></i><span>Checkout.swift</span><b>You get</b></div>
+<pre><code class="swift">// The phase is part of the type, so each step only offers its own transitions.
+func checkout(_ cart: consuming CheckoutMachine&lt;CheckoutPhase.Cart&gt;) async throws -> Int {
+    let paying = try await cart.pay(amount: 4_200)   // Cart → Paying
+    let receipt = try await paying.succeed()         // Paying → Receipt
+    return receipt.withContext { $0.charged }        // read without consuming
+}
+
+try await cart.succeed()
+// error: referencing instance method 'succeed()' on 'CheckoutMachine'
+//   requires the types 'CheckoutPhase.Cart' and 'CheckoutPhase.Paying' be equivalent
+
+let again = try await cart.pay(amount: 4_200)
+// error: 'cart' consumed more than once</code></pre>
+      </div>
+    </div>
+    <p class="pair-note">The errors are the Swift compiler's own, on the code Urkel generated for <code>Checkout.urkel</code>.</p>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <p class="eyebrow">Why</p>
+    <h2>An enum knows the state.<br>Only a type can forbid the transition.</h2>
+    <p class="lead">With an enum and a few booleans, the compiler has no idea which calls are legal now. Every method guards at run time, and a forgotten guard is a bug you find in production. Urkel moves that check into the type system, inspired by Alex Ozun's <a href="https://swiftology.io/articles/typestate/">typestate in Swift</a>.</p>
+    <div class="compare">
+      <div>
+        <h3>Runtime guards</h3>
+        <p>Legal or not, every call compiles. The state can change between the check and the work.</p>
+        <div class="code"><pre><code class="swift">var state: State = .cart
+func succeed() async throws {
+    guard state == .paying else { throw CheckoutError.invalidState }
+    state = .receipt
+}</code></pre></div>
+      </div>
+      <div>
+        <h3>Typestate with Urkel</h3>
+        <p><code>succeed()</code> exists only on <code>CheckoutMachine&lt;CheckoutPhase.Paying&gt;</code>, and <code>consuming</code> means the old state is gone once you leave it.</p>
+        <div class="code"><pre><code class="swift">// Generated for Checkout.urkel (bodies omitted)
+extension CheckoutMachine where Phase == CheckoutPhase.Paying {
+    public consuming func succeed() async throws
+        -> CheckoutMachine&lt;CheckoutPhase.Receipt&gt;
+    public consuming func fail() async throws
+        -> CheckoutMachine&lt;CheckoutPhase.Cart&gt;
+}</code></pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>Write the machine. Build. Implement the effects.</h2>
+    <p class="lead">Urkel generates the interface and the rules; you keep the behaviour in plain closures over your own types.</p>
+    <div class="steps">
+      <div class="step">
+        <h3>Describe it in <code>.urkel</code></h3>
+        <p>States, typed events, guards, actions, timers and sub-machines, in a format that reads like the diagram on the whiteboard. Bring your own types: <code>pay(amount: Int)</code>, <code>state(userId: String) Authenticated</code>.</p>
+      </div>
+      <div class="step">
+        <h3>Build</h3>
+        <p>The <code>UrkelPlugin</code> build-tool plugin compiles every <code>.urkel</code> file in the target on each build. The generated Swift is parsed back with SwiftParser before it is written, so syntax errors never reach your build.</p>
+      </div>
+      <div class="step">
+        <h3>Inject the side effects</h3>
+        <p>Each transition is a <code>@Sendable</code> closure on a generated runtime, wrapped in a <a href="https://github.com/pointfreeco/swift-dependencies">swift-dependencies</a> client with <code>testValue</code> and <code>previewValue</code> ready for tests and previews.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <p class="eyebrow">Features</p>
+    <h2>A small language for real machines.</h2>
+    <p class="lead">The 24 machines in <a href="https://github.com/mackoj/urkel/tree/main/Examples/Showcase">Examples/Showcase</a> cover every construct: Bluetooth peripherals, media players, game AI, checkouts and login flows.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="7" height="6" rx="1.5"/><rect x="14" y="13" width="7" height="6" rx="1.5"/><path d="M10 8h4a2 2 0 012 2v3"/></svg></div>
+        <h3>Typestate, move-only</h3>
+        <p>Machines are generic over a phantom <code>Phase</code>, <code>~Copyable</code> and <code>Sendable</code>. Transitions are <code>consuming</code>, so a state can be neither duplicated nor reused.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v12M18 9v12M6 15a6 6 0 006 6h6M18 9a6 6 0 00-6-6H6"/></svg></div>
+        <h3>Guards, actions, hooks</h3>
+        <p><code>[isValid]</code> / <code>[else]</code> branches return a combined state enum to match on; <code>/ track</code> actions and <code>@entry</code> / <code>@exit</code> hooks run around each transition.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg></div>
+        <h3>Timers and eventless moves</h3>
+        <p><code>after(30s)</code> becomes a cancellable <code>startTimer(onFire:)</code>; <code>always</code> becomes an <code>autoTransition()</code>. Internal <code>-*&gt;</code> handlers run in place without leaving the state.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><rect x="7" y="7" width="10" height="10" rx="2"/></svg></div>
+        <h3>Hierarchy and composition</h3>
+        <p>Compound states with <code>@history</code>, state-carried data, <code>@import</code> sub-machines forked with <code>=&gt; Sub.init</code>, and <code>@on Sub::State</code> reactions to them.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"/></svg></div>
+        <h3>Plugins and a CLI</h3>
+        <p>A build-tool plugin, an <code>urkel-generate</code> command plugin for checked-in output, and <code>urkel generate | watch | validate | paths | test-stubs | visualize</code>.</p>
+      </div>
+      <div class="feature">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></div>
+        <h3>Diagnostics, diagrams, templates</h3>
+        <p>Validation reports unknown states, duplicate or missing initial states and unreachable states. Export Mermaid or an interactive HTML visualiser, or emit Kotlin and anything else through Mustache templates.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tour">
+  <div class="wrap">
+    <p class="eyebrow">Code tour</p>
+    <h2>From text to types.</h2>
+    <p class="lead">What the compiler generates for <code>Checkout.urkel</code>, and the same pipeline as a library.</p>
+    <div class="tabs">
+      <div class="tablist" role="tablist" aria-label="Examples">
+        <button role="tab" id="tab-phases" aria-controls="panel-phases" aria-selected="true">Generated phases</button>
+        <button role="tab" id="tab-transitions" aria-controls="panel-transitions" aria-selected="false">Generated transitions</button>
+        <button role="tab" id="tab-language" aria-controls="panel-language" aria-selected="false">More of the language</button>
+        <button role="tab" id="tab-library" aria-controls="panel-library" aria-selected="false">Embed the compiler</button>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-phases" aria-labelledby="tab-phases">
+        <p>Every state becomes an empty enum: a phantom type with no runtime cost. The machine is generic over it, move-only, and carries your context.</p>
+        <div class="code"><pre><code class="swift">// Generated for Checkout.urkel (initializer and method bodies omitted)
+public enum CheckoutPhase {
+    /// The initial phase.
+    public enum Cart {}
+    public enum Paying {}
+    /// A terminal phase — no further transitions.
+    public enum Receipt {}
+}
+
+public struct CheckoutMachine&lt;Phase&gt;: ~Copyable, Sendable {
+    fileprivate let _context: CheckoutContext
+    fileprivate let _payInt: @Sendable (CheckoutContext, Int) async throws -> CheckoutContext
+    fileprivate let _succeed: @Sendable (CheckoutContext) async throws -> CheckoutContext
+    fileprivate let _fail: @Sendable (CheckoutContext) async throws -> CheckoutContext
+
+    /// Read-only access to the context without consuming the machine.
+    public borrowing func withContext&lt;R&gt;(_ body: (borrowing CheckoutContext) throws -> R) rethrows -> R
+}</code></pre></div>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-transitions" aria-labelledby="tab-transitions" hidden>
+        <p>Transitions live in constrained extensions, one per source state. Each consumes the machine, runs your closure on the context, and returns the machine in its next phase.</p>
+        <div class="code"><pre><code class="swift">extension CheckoutMachine where Phase == CheckoutPhase.Cart {
+    /// Transitions from `Cart` to `Paying`.
+    public consuming func pay(amount: Int) async throws -> CheckoutMachine&lt;CheckoutPhase.Paying&gt; {
+        let next = try await _payInt(_context, amount)
+        return CheckoutMachine&lt;CheckoutPhase.Paying&gt;(
+            _context: next,
+            _payInt: _payInt,
+            _succeed: _succeed,
+            _fail: _fail
+        )
+    }
+}
+
+extension CheckoutMachine where Phase == CheckoutPhase.Paying {
+    public consuming func succeed() async throws -> CheckoutMachine&lt;CheckoutPhase.Receipt&gt; { … }
+    public consuming func fail() async throws -> CheckoutMachine&lt;CheckoutPhase.Cart&gt; { … }
+}</code></pre></div>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-language" aria-labelledby="tab-language" hidden>
+        <p>A keypad door lock from the showcase: guards with an <code>[else]</code> branch, entry and exit hooks, auto-lock timers, an in-place output event and a wildcard source.</p>
+        <div class="code"><pre><code class="urkel">machine DoorLock
+
+@states
+  init  Locked
+  state Unlocked
+  state Alarmed
+  final Disabled
+
+@entry Unlocked / disengageBolt
+@exit  Unlocked / engageBolt
+@entry Alarmed  / soundAlarm
+
+@transitions
+  Locked -> enterPin(pin: String) [pinCorrect] -> Unlocked
+  Locked -> enterPin(pin: String) [else]       -> Alarmed
+  Unlocked -> lock                             -> Locked
+  Unlocked -> after(30s)                       -> Locked   # auto-lock
+  Unlocked -*> lockState(isOpen: Bool)                     # output event
+  Alarmed  -> reset(adminCode: String)         -> Locked
+  *        -> disable                          -> Disabled</code></pre></div>
+      </div>
+      <div class="panel" role="tabpanel" id="panel-library" aria-labelledby="tab-library" hidden>
+        <p>The parser, validator and emitters are separate products, for tools and editors that want the pipeline without the plugin. Each takes text or values and returns values: no file system, no global state.</p>
+        <div class="code"><pre><code class="swift">import UrkelParser
+import UrkelValidation
+import UrkelEmitterSwift
+
+let file = try UrkelParser.parse(source)              // String → UrkelFile (throws UrkelParseError)
+for diagnostic in UrkelValidator.validate(file) {     // [Diagnostic]
+    print(diagnostic.severity, diagnostic.message)    // warning Unreachable state: Refunded
+}
+let swift = try SwiftSyntaxEmitter().emit(file: file) // checked with SwiftParser
+print(swift.stateMachine, swift.client, swift.dependency)</code></pre></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="numbers">
+  <div class="wrap">
+    <p class="eyebrow">Fast enough to forget</p>
+    <h2>Compiling a machine costs about a millisecond.</h2>
+    <p class="lead">The build plugin runs on every build, so the compiler is benchmarked with <a href="https://github.com/ordo-one/package-benchmark">package-benchmark</a> on the showcase machines and on a synthetic 200-state machine.</p>
+    <div class="stats">
+      <div class="stat"><b>1.2 ms</b><span>per showcase machine: parse, validate and emit (28 ms for all 24)</span></div>
+      <div class="stat"><b>0.76 s</b><span>to emit a 200-state, 1,000-transition machine, down from 260 s</span></div>
+      <div class="stat"><b>3.5×</b><span>faster end to end on the showcase than 0.2.0</span></div>
+      <div class="stat"><b>70%</b><span>of emission is SwiftParser proving the output is valid Swift</span></div>
+    </div>
+    <p class="small">p50 wall clock, release build, Apple silicon. Method and full table: <a href="https://github.com/mackoj/urkel/blob/main/docs/performance.md">docs/performance.md</a>.</p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <p class="eyebrow">Install</p>
+    <h2>Add the package, attach the plugin.</h2>
+    <div class="install">
+      <div>
+        <div class="code">
+          <div class="bar"><i></i><i></i><i></i><span>Package.swift</span><button class="copy" data-copy="install-package">Copy</button></div>
+<pre id="install-package"><code class="swift">dependencies: [
+    .package(url: "https://github.com/mackoj/urkel.git", from: "0.2.0"),
+],
+targets: [
+    .target(
+        name: "Checkout",
+        dependencies: [.product(name: "Dependencies", package: "swift-dependencies")],
+        plugins: [.plugin(name: "UrkelPlugin", package: "urkel")]
+    ),
+]</code></pre>
+        </div>
+        <div class="code">
+          <div class="bar"><i></i><i></i><i></i><span>Terminal</span><button class="copy" data-copy="install-cli">Copy</button></div>
+<pre id="install-cli"><code class="shell">swift package plugin --allow-writing-to-package-directory urkel-generate
+swift run UrkelCLI validate Sources/Checkout/Checkout.urkel</code></pre>
+        </div>
+      </div>
+      <div>
+        <ul>
+          <li>Swift 6.1 tools (Xcode 16.3 or later), macOS 13 or later.</li>
+          <li>Drop <code>.urkel</code> files into the target; the build plugin generates the machine, a runtime builder and a swift-dependencies client next to your code. The generated files import <code>Dependencies</code>, so the target depends on <a href="https://github.com/pointfreeco/swift-dependencies">swift-dependencies</a>.</li>
+          <li>Prefer checked-in output? Run the <code>urkel-generate</code> command plugin instead of the build plugin.</li>
+          <li>Configure output paths, imports or a Mustache template per directory with <code>urkel-config.json</code>.</li>
+          <li>Only need the compiler? Depend on <code>UrkelParser</code>, <code>UrkelValidation</code> or <code>UrkelEmitterSwift</code> alone.</li>
+        </ul>
+        <div class="cta">
+          <a class="button primary" href="https://github.com/mackoj/urkel#readme">Read the README</a>
+          <a class="button" href="https://github.com/mackoj/urkel/tree/main/Examples/Showcase">Browse the examples</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <div class="wrap">
+    <span>Urkel, by <a href="https://github.com/mackoj">mackoj</a></span>
+    <a href="https://github.com/mackoj/urkel">GitHub</a>
+    <a href="https://github.com/mackoj/urkel/releases">Releases</a>
+    <a href="https://github.com/mackoj/urkel/blob/main/userstories/grammar.ebnf">Grammar</a>
+    <a href="https://github.com/mackoj/urkel/blob/main/docs/performance.md">Performance</a>
+    <a href="https://github.com/mackoj/urkel/blob/main/docs/architecture-rules.md">Architecture rules</a>
+  </div>
+</footer>
+<script>
+document.documentElement.classList.add("js");
+// Tabs.
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+function select(tab, focus) {
+  for (const t of tabs) {
+    const on = t === tab;
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+    document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+  }
+  if (focus) tab.focus();
+}
+tabs.forEach((tab, i) => {
+  tab.addEventListener("click", () => select(tab));
+  tab.addEventListener("keydown", (e) => {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (step) select(tabs[(i + step + tabs.length) % tabs.length], true);
+  });
+});
+select(tabs[0]);
+// Small highlighters for Swift and .urkel: comments, strings, keywords, types, numbers and compiler errors.
+const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const languages = {
+  swift: {
+    keywords: new Set("let var func for in where if else guard case switch default try await async throws rethrows return import struct enum extension init self public fileprivate consuming borrowing throw".split(" ")),
+    token: /(\/\/ error:[^\n]*(?:\n\/\/   [^\n]*)*)|(\/\/[^\n]*)|("(?:[^"\\\n]|\\.)*")|\b([A-Z][A-Za-z0-9]*)\b|\b([a-z]+)\b|\b(\d[\d_]*(?:\.\d+)?)\b/g,
+  },
+  urkel: {
+    keywords: new Set("machine init state final always after".split(" ")),
+    token: /()(#[^\n]*)|()(@[a-z]+)|\b([a-z]+)\b|\b(\d+(?:ms|s|min)?)\b/g,
+  },
+};
+for (const [name, language] of Object.entries(languages)) {
+  for (const code of document.querySelectorAll(`code.${name}`)) {
+    const text = code.textContent;
+    let html = "", last = 0;
+    for (const m of text.matchAll(language.token)) {
+      html += escape(text.slice(last, m.index));
+      const [all, error, comment, string, type, word, number] = m;
+      if (error) html += `<span class="tok-e">${escape(all)}</span>`;
+      else if (comment) html += `<span class="tok-c">${escape(all)}</span>`;
+      else if (string) html += `<span class="tok-s">${escape(all)}</span>`;
+      else if (type) html += `<span class="${name === "urkel" ? "tok-k" : "tok-t"}">${escape(all)}</span>`;
+      else if (word && language.keywords.has(word)) html += `<span class="tok-k">${escape(all)}</span>`;
+      else if (number) html += `<span class="tok-n">${escape(all)}</span>`;
+      else html += escape(all);
+      last = m.index + all.length;
+    }
+    code.innerHTML = html + escape(text.slice(last));
+  }
+}
+// Copy buttons.
+for (const button of document.querySelectorAll("[data-copy]")) {
+  button.addEventListener("click", async () => {
+    const text = document.getElementById(button.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(text); button.textContent = "Copied"; }
+    catch { button.textContent = "Select and copy"; }
+    setTimeout(() => (button.textContent = "Copy"), 1600);
+  });
+}
+</script>
+</body>
+</html>
