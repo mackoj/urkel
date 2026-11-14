@@ -120,7 +120,9 @@ struct WatchAndPluginTests {
 
     @Test("Plugin fixture builds and triggers generation")
     func pluginFixtureBuilds() throws {
+        // Tests/UrkelTests/CLITests/WatchAndPluginTests.swift → Tests/Fixtures/PluginFixture
         let fixture = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("Fixtures/PluginFixture")
@@ -150,7 +152,9 @@ struct WatchAndPluginTests {
     func pluginFixtureLegacyConfigKeyFailsCleanly() throws {
         let fm = FileManager.default
         let root = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        // Tests/UrkelTests/CLITests/WatchAndPluginTests.swift → the package root
         let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
