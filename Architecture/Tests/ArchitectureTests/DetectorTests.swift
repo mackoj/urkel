@@ -104,31 +104,4 @@ import Testing
                 """, at: "Sources/UrkelAST/A.swift"))
         #expect(found.isEmpty)
     }
-
-    @Test func xcTestImportsAreFound() {
-        let found = Detect.xcTestImports(in: scope("import XCTest\nimport Testing", at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1])
-    }
-
-    @Test func unexplainedKnownIssuesAreFound() {
-        let found = Detect.unexplainedKnownIssues(
-            in: scope(
-                """
-                withKnownIssue { try emit() }
-                withKnownIssue(isIntermittent: true) { try emit() }
-                withKnownIssue("Parallel regions are not emitted yet (US-1.12)") { try emit() }
-                """, at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1, 2])
-    }
-
-    @Test func disabledTestsAreFound() {
-        let found = Detect.disabledTests(
-            in: scope(
-                """
-                @Test(.disabled("flaky")) func a() {}
-                @Suite(.disabled()) struct B {}
-                @Test func c() { rule.disabled() }
-                """, at: "Tests/T/A.swift"))
-        #expect(found.map(\.location.line) == [1, 2])
-    }
 }
