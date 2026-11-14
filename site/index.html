@@ -442,7 +442,7 @@ print(swift.stateMachine, swift.client, swift.dependency)</code></pre></div>
     <div class="stats">
       <div class="stat"><b>1.2 ms</b><span>per showcase machine: parse, validate and emit (28 ms for all 24)</span></div>
       <div class="stat"><b>0.76 s</b><span>to emit a 200-state, 1,000-transition machine, down from 260 s</span></div>
-      <div class="stat"><b>3.5×</b><span>faster end to end on the showcase than 0.2.0</span></div>
+      <div class="stat"><b>3.5×</b><span>faster end to end on the showcase than 0.3.0</span></div>
       <div class="stat"><b>70%</b><span>of emission is SwiftParser proving the output is valid Swift</span></div>
     </div>
     <p class="small">p50 wall clock, release build, Apple silicon. Method and full table: <a href="https://github.com/mackoj/urkel/blob/main/docs/performance.md">docs/performance.md</a>.</p>
@@ -458,7 +458,7 @@ print(swift.stateMachine, swift.client, swift.dependency)</code></pre></div>
         <div class="code">
           <div class="bar"><i></i><i></i><i></i><span>Package.swift</span><button class="copy" data-copy="install-package">Copy</button></div>
 <pre id="install-package"><code class="swift">dependencies: [
-    .package(url: "https://github.com/mackoj/urkel.git", from: "0.2.0"),
+    .package(url: "https://github.com/mackoj/urkel.git", from: "0.3.0"),
 ],
 targets: [
     .target(

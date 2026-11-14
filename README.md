@@ -415,7 +415,7 @@ The architectural concepts powering Urkel stand on the shoulders of giants in th
 Add Urkel to your `Package.swift` dependencies, and the build tool plugin to the target that holds your `.urkel` files. The generated client imports `Dependencies`, so the target depends on swift-dependencies too:
 ```swift
 dependencies: [
-    .package(url: "https://github.com/mackoj/urkel.git", from: "0.2.0"),
+    .package(url: "https://github.com/mackoj/urkel.git", from: "0.3.0"),
     .package(url: "https://github.com/pointfreeco/swift-dependencies", from: "1.9.0"),
 ],
 targets: [
