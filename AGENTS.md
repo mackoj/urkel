@@ -23,3 +23,6 @@ Read `CODING_STANDARDS.md` before writing code.
 ## Docs travel with code
 
 - `README.md` is the user documentation; DocC lives in `Sources/Urkel/Urkel.docc`.
+- `site/index.html` is the landing page (GitHub Pages, `.github/workflows/pages.yml`). Its `.urkel` sample, generated
+  Swift excerpts, install snippet, feature claims and benchmark numbers repeat the README, the emitter's output and
+  `docs/performance.md`: update them in the same change.
